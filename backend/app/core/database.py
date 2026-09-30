@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS contents (
   FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
   UNIQUE(kind, remote_id)
 );
+CREATE TABLE IF NOT EXISTS deleted_contents (
+  content_id TEXT PRIMARY KEY,
+  deleted_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   parent_id INTEGER REFERENCES categories(id) ON DELETE RESTRICT,

@@ -246,3 +246,58 @@
   .reader-toolbar{gap:8px;margin-bottom:14px}
   .reader-info-toggle{font-size:12px;padding:0 9px;gap:5px}
 }
+
+
+/* Use a consistent sans-serif typeface throughout the article library. */
+.library-page{--library-font:'DM Sans','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;font-family:var(--library-font)}
+.library-page .library-intro h1,.library-page .section-heading h2,.library-page .article-card h3{font-family:var(--library-font);font-weight:600}
+
+
+/* Match category management typography to the article library. */
+.categories-page{--category-font:'DM Sans','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif;font-family:var(--category-font)}
+.categories-page .page-title-row h1,.categories-page .manage-category-heading h3,.categories-page .panel-title h2{font-family:var(--category-font);font-weight:600}
+
+
+.article-card-container{position:relative;min-width:0}
+.article-card-container>.article-card{display:block;height:100%}
+.article-card-container .date-label{padding-right:28px}
+.article-delete-button{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#8d998f;cursor:pointer}
+.article-delete-button:hover{background:#fbede9;color:#ad5946}
+.article-delete-button:focus-visible{outline:2px solid #ad5946;outline-offset:2px}
+.article-delete-button:disabled{cursor:wait}
+.article-card-container .as-list .article-card-body{padding-right:48px}
+
+
+.reader-toolbar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.reader-delete-button{background:#fff9f6;color:#a36554;border-color:#ecdcd5;font-weight:500}
+.reader-delete-button:hover{background:#fbede9;color:#954a36;border-color:#ddbaad}
+@media(max-width:560px){
+  .reader-toolbar-actions{width:100%;justify-content:flex-end}
+  .reader-delete-button{font-size:12px;padding:0 9px;gap:5px}
+}
+
+
+/* Shared article deletion confirmation. Native dialog keeps focus within the modal. */
+.delete-article-dialog{position:fixed;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;padding:32px;border:1px solid #e8e9e2;border-radius:20px;background:#fffefa;color:#39453d;box-shadow:0 24px 80px #182c2633;font-family:'DM Sans','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif}
+.delete-article-dialog::backdrop{background:#1b2d2652;backdrop-filter:blur(4px)}
+.delete-dialog-close{position:absolute;top:14px;right:14px;display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#8a938a}
+.delete-dialog-close:hover{background:#f1f2ec;color:#526252}
+.delete-dialog-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:#faede6;color:#b2674b;margin-bottom:20px}
+.delete-article-dialog h2{font-size:22px;font-weight:600;line-height:1.4;letter-spacing:.2px;margin:0 0 8px}
+.delete-article-dialog>p{font-size:13px;line-height:1.8;color:#849084;margin:0}
+.delete-dialog-article{display:flex;align-items:flex-start;gap:12px;background:#f3f5ee;border:1px solid #e6eadf;border-radius:10px;padding:15px;margin:22px 0 18px}
+.delete-dialog-article svg{flex:none;color:#84957e;margin-top:2px}
+.delete-dialog-article strong{font-size:14px;font-weight:500;line-height:1.7;overflow-wrap:anywhere}
+.delete-dialog-details{font-size:13px;line-height:1.8;color:#68776a}
+.delete-dialog-details p{margin:0 0 7px;padding-left:14px;position:relative}
+.delete-dialog-details p:before{content:'';position:absolute;left:0;top:9px;width:4px;height:4px;background:#a5b39f;border-radius:50%}
+.delete-dialog-details span{display:block;font-size:12px;color:#95a08f;padding-left:14px;margin-top:8px}
+.delete-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;padding-top:20px;border-top:1px solid #e8ebe2}
+.delete-dialog-actions .button{height:40px;border-radius:8px;padding:0 18px;font-size:13px;font-weight:500}
+.delete-dialog-cancel{background:#fffefa;border-color:#dfe5d9;color:#62735e}
+.delete-dialog-cancel:hover{background:#f3f5ee}
+.delete-dialog-confirm{background:#ad6650;color:white;border-color:#ad6650}
+.delete-dialog-confirm:hover{background:#94513c;border-color:#94513c}
+.delete-article-dialog button:focus-visible{outline:2px solid #78916e;outline-offset:3px}
+.delete-article-dialog>.delete-dialog-error{margin-top:16px;padding:10px 12px;border-radius:8px;background:#fbede7;color:#a05a43;overflow-wrap:anywhere}
+@media(max-width:560px){.delete-article-dialog{padding:26px 22px;border-radius:16px}.delete-dialog-actions .button{flex:1;padding:0 10px}}

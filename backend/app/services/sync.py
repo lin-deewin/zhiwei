@@ -8,7 +8,7 @@ import uuid
 import httpx
 
 from app.core.database import session
-from app.services.library import now
+from app.services.library import is_content_deleted, now
 from app.services.zhihu_account import active_account
 from app.services.zhihu_browser import ZhihuAuthError, ZhihuBrowser, ZhihuFetchError
 from app.services.zhihu_content import UnsupportedContent, save_favorite
@@ -165,6 +165,7 @@ class SyncManager:
         failed = 0
         unsupported = 0
         total = 0
+        deleted = 0
         sync_started = (_job(job_id) or {}).get("created_at") or now()
         try:
             _update_job(job_id, status="running", phase="folders", message="正在读取收藏夹")
@@ -205,12 +206,20 @@ class SyncManager:
                                     break
                                 scanned += 1
                                 try:
+                                    raw = item.get("content") if isinstance(item, dict) else None
+                                    if isinstance(raw, dict) and is_content_deleted(
+                                        f"zhihu_{raw.get('type')}_{raw.get('id')}"
+                                    ):
+                                        deleted += 1
+                                        continue
                                     result = await save_favorite(
                                         await self._complete_item(item, source), folder_id,
                                         sync_started, image_client
                                     )
                                     if result in {"new", "updated", "partial"}:
                                         downloaded += 1
+                                    elif result == "deleted":
+                                        deleted += 1
                                     elif result == "conflict":
                                         failed += 1
                                 except UnsupportedContent:
@@ -221,7 +230,7 @@ class SyncManager:
                                     _update_job(
                                         job_id, scanned=scanned, downloaded=downloaded,
                                         failed=failed,
-                                        message=f"已扫描 {scanned} 条，保存 {downloaded} 条，跳过 {unsupported} 条",
+                                        message=f"已扫描 {scanned} 条，保存 {downloaded} 条，跳过 {unsupported} 条，已删除 {deleted} 条",
                                     )
                             if self._cancel_requested or paging.get("is_end"):
                                 break
@@ -249,7 +258,7 @@ class SyncManager:
             status = "cancelled" if self._cancel_requested else ("partial" if failed else "completed")
             _update_job(job_id, status=status, phase=status, total=total, scanned=scanned,
                         downloaded=downloaded, failed=failed,
-                        message=f"扫描 {scanned} 条，保存 {downloaded} 条，跳过 {unsupported} 条，失败 {failed} 条")
+                        message=f"扫描 {scanned} 条，保存 {downloaded} 条，跳过 {unsupported} 条，已删除 {deleted} 条，失败 {failed} 条")
         except ZhihuAuthError as error:
             _update_job(job_id, status="auth_required", phase="stopped", scanned=scanned,
                         downloaded=downloaded, failed=failed, message=str(error))

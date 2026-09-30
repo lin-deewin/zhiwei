@@ -16,6 +16,7 @@ from app.core.database import session
 from app.services.ai import AIRequestError, chat_completion
 from app.services.classification import classification_manager, suggest_category_with_model
 from app.services.library import (
+    delete_content,
     get_content,
     import_markdown,
     list_contents,
@@ -310,6 +311,17 @@ def content(content_id: str) -> dict:
     if not result:
         raise HTTPException(404, "文章不存在")
     return result
+
+
+@router.delete("/contents/{content_id}", status_code=204)
+def remove_content(content_id: str) -> None:
+    try:
+        if not delete_content(content_id):
+            raise HTTPException(404, "文章不存在")
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+    except OSError as error:
+        raise HTTPException(500, "无法删除本地文章文件，请检查资料目录权限后重试") from error
 
 
 @router.post("/ask")

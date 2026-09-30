@@ -63,6 +63,7 @@ export const api = {
     return request<PageResult>(`/contents?${params}`)
   },
   content: (id: string) => request<Content>(`/contents/${encodeURIComponent(id)}`),
+  deleteContent: (id: string) => request<void>(`/contents/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   categories: () => request<Category[]>('/categories'),
   createCategory: (name: string, parentId?: number) => request<Category>('/categories', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

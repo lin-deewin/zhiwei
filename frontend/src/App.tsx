@@ -7,13 +7,14 @@ import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, Bookmark, Bot, Check, ChevronDown,
   ChevronRight, CircleHelp, Clock3, FileText, FolderOpen, Hash,
   LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Sparkles, Tags,
-  Upload, X,
+  Trash2, Upload, X,
 } from 'lucide-react'
 import { api } from './api'
 import type { AccountStatus } from './api'
 import type { Category, ClassificationJob, Content, LibrarySettings, SyncJob, ZhihuFolder, Question, QuestionJob } from './types'
 import { ZhihuLoginDialog } from './components/ZhihuLoginDialog'
 import { Pagination } from './components/Pagination'
+import { DeleteArticleDialog } from './components/DeleteArticleDialog'
 
 type Notice = { message: string; error?: boolean } | null
 
@@ -120,7 +121,7 @@ function App() {
       </header>
       <div className="page-content">
         <Routes>
-          <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} />} />
+          <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} onLibraryChanged={reload} />} />
           <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
           <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
@@ -128,7 +129,7 @@ function App() {
           <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
           <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(s) => { setSettings(s); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={connectZhihu} />} />
           <Route path="/ask" element={<AskPage categories={categories} />} />
-          <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} />} />
+          <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} onLibraryChanged={reload} />} />
         </Routes>
       </div>
     </main>
@@ -141,9 +142,9 @@ function shortenPath(path: string) {
   return home.length > 28 ? `…${home.slice(-26)}` : home
 }
 
-function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onConnect }: {
+function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onConnect, onLibraryChanged }: {
   search: string; categories: Category[]; refresh: number; onSearchChange: (search: string) => void; onImport: (file?: File) => void;
-  onNotice: (notice: Notice) => void; onConnect: () => Promise<void>
+  onNotice: (notice: Notice) => void; onConnect: () => Promise<void>; onLibraryChanged: () => void
 }) {
   const [items, setItems] = useState<Content[]>([])
   const [total, setTotal] = useState(0)
@@ -154,6 +155,9 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [sort, setSort] = useState('synced')
   const [pageSize, setPageSize] = useState(24)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Content | null>(null)
+  const [deleteError, setDeleteError] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
   const params = new URLSearchParams(location.search)
@@ -176,9 +180,27 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
 
   const currentCategory = categories.find((item) => item.id === category)
   const title = search ? '搜索结果' : pendingOnly ? '待整理' : currentCategory?.name || '全部文章'
+  const removeArticle = async (item: Content) => {
+    if (deletingId) return
+    setDeleteError('')
+    setDeletingId(item.id)
+    try {
+      await api.deleteContent(item.id)
+      setItems((current) => current.filter((content) => content.id !== item.id))
+      setTotal((current) => Math.max(0, current - 1))
+      setDeleteTarget(null)
+      onLibraryChanged()
+      onNotice({ message: '文章已从本地删除，以后同步将跳过这篇文章。' })
+    } catch (error) {
+      setDeleteError((error as Error).message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
   const visibleItems = items
 
   return <div className="library-page">
+    {deleteTarget && <DeleteArticleDialog title={deleteTarget.title} busy={deletingId !== null} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => { void removeArticle(deleteTarget) }} />}
     <section className="library-intro">
       <div><h1>收藏好文章，慢慢读。</h1><p>你的本地阅读收藏</p></div>
       <div className="library-intro-actions"><button className="button button-primary" onClick={() => document.getElementById('md-upload')?.click()}><Plus size={17} /> 导入 Markdown</button><button className="button button-soft" onClick={onConnect}><ArrowDownToLine size={16} /> 连接知乎</button><input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} /></div>
@@ -188,7 +210,7 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
       <div className="toolbar-controls"><label className="select-wrap"><span>排序</span><select value={sort} onChange={(e) => setSort(e.target.value)}><option value="synced">最后同步时间</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label><span className="control-divider" /><div className="view-toggle"><button aria-label="卡片视图" className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label="列表视图" className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button></div></div>
     </div>
     {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search)} onImport={() => document.getElementById('md-upload')?.click()} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
-      {visibleItems.map((item, index) => <ArticleCard key={item.id} item={item} index={index} view={view} />)}
+      {visibleItems.map((item, index) => <ArticleCard key={item.id} item={item} index={index} view={view} onDelete={(content) => { setDeleteError(''); setDeleteTarget(content) }} deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
     </div>}
     <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
     {(categoryFromUrl || pendingOnly) && <button className="filter-reset" onClick={() => navigate('/')}>清除主题筛选</button>}
@@ -197,10 +219,10 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
 
 const cardTones = ['tone-apricot', 'tone-sage', 'tone-lilac', 'tone-blue']
 
-function ArticleCard({ item, index, view }: { item: Content; index: number; view: 'grid' | 'list' }) {
-  return <Link to={`/read/${encodeURIComponent(item.id)}`} className={`article-card ${cardTones[index % cardTones.length]} ${view === 'list' ? 'as-list' : ''}`}>
+function ArticleCard({ item, index, view, onDelete, deleting, deleteDisabled }: { item: Content; index: number; view: 'grid' | 'list'; onDelete: (item: Content) => void; deleting: boolean; deleteDisabled: boolean }) {
+  return <div className="article-card-container"><Link to={`/read/${encodeURIComponent(item.id)}`} className={`article-card ${cardTones[index % cardTones.length]} ${view === 'list' ? 'as-list' : ''}`}>
     <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><h3>{item.title}</h3><p>{item.excerpt || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
-  </Link>
+  </Link><button className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} title="删除本地文章" disabled={deleteDisabled} onClick={() => onDelete(item)}>{deleting ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}</button></div>
 }
 
 function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {
@@ -213,6 +235,9 @@ function ReaderPage({ categories, onNotice, reload }: { categories: Category[]; 
   const [item, setItem] = useState<Content | null>(null)
   const [loading, setLoading] = useState(true)
   const [infoVisible, setInfoVisible] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -232,12 +257,32 @@ function ReaderPage({ categories, onNotice, reload }: { categories: Category[]; 
     const resolved = localName ? `/api/v1/contents/${encodeURIComponent(item.id)}/assets/${encodeURIComponent(localName)}` : src
     return <img src={resolved} alt={alt} loading="lazy" />
   }
+  const removeArticle = async () => {
+    if (deleting) return
+    setDeleteError('')
+    setDeleting(true)
+    try {
+      await api.deleteContent(item.id)
+      reload()
+      navigate('/', { replace: true })
+      onNotice({ message: '文章已从本地删除，以后同步将跳过这篇文章。' })
+    } catch (error) {
+      setDeleteError((error as Error).message)
+      setDeleting(false)
+    }
+  }
   return <article className="reader-page">
+    {deleteDialogOpen && <DeleteArticleDialog title={item.title} busy={deleting} error={deleteError} onCancel={() => setDeleteDialogOpen(false)} onConfirm={() => { void removeArticle() }} />}
     <div className="reader-toolbar">
       <button className="back-link" onClick={() => navigate(-1)}><ArrowLeft size={15} /> 返回文章库</button>
+      <div className="reader-toolbar-actions">
       <button className="button button-soft reader-info-toggle" aria-expanded={infoVisible} aria-controls="reader-article-info" onClick={() => setInfoVisible((visible) => !visible)}>
         <Bookmark size={14} />{infoVisible ? '收起文章信息' : '展开文章信息'}<ChevronDown size={14} className={infoVisible ? 'is-expanded' : ''} />
       </button>
+      <button className="button reader-delete-button" type="button" disabled={deleting} onClick={() => { setDeleteError(''); setDeleteDialogOpen(true) }}>
+        {deleting ? <LoaderCircle size={14} className="spin" /> : <Trash2 size={14} />}{deleting ? '删除中…' : '删除文章'}
+      </button>
+      </div>
     </div>
     <div className={`reader-layout${infoVisible ? '' : ' reader-info-collapsed'}`}><div className="reader-main"><div className="reader-kicker"><span className="reader-kicker-dot" /> {item.kind === 'answer' ? '知乎回答' : '收藏文章'} <span className="reader-kicker-sep">·</span> {formatDate(item.updated_at)}</div><h1>{item.title}</h1><div className="reader-byline"><span className="reader-author-avatar" aria-hidden="true">{(item.author || '佚').slice(0, 1)}</span><span className="reader-author">{item.author || '作者信息未知'}</span><span className="reader-byline-dot" /><span>离线阅读</span>{item.markdown && <span className="reader-duration"><Clock3 size={13} />约 {Math.max(1, Math.ceil(item.markdown.replace(/\s/g, '').length / 400))} 分钟</span>}</div>
       <div className="reader-rule" />{item.file_missing ? <div className="inline-warning">正文文件暂时不可用，请检查本地资料目录。</div> : <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={{ img: imageRenderer }}>{item.markdown || ''}</ReactMarkdown></div>}
@@ -354,7 +399,7 @@ function CategoriesPage({ categories, refresh, onNotice, onCategoryOpen }: { cat
     try { await api.deleteCategory(category.id); refresh(); onNotice({ message: '分类已删除' }) }
     catch (e) { onNotice({ message: (e as Error).message, error: true }) }
   }
-  return <div className="subpage"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> ORGANIZE YOUR LIBRARY</div><h1>主题分类</h1><p>首次整理已有文章，之后只处理新增文章。</p></div><div className="page-title-actions"><button className="button button-primary" onClick={classify} disabled={classificationRunning}><Tags size={16} /> {classificationRunning ? '整理中…' : '整理新增文章'}</button>{latestClassification && ['queued', 'running'].includes(latestClassification.status) && <button className="button button-soft" onClick={() => api.cancelClassification(latestClassification.id).catch((e) => onNotice({ message: e.message, error: true }))}>取消</button>}<button className="button button-soft" onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={16} /> 新建分类</button></div></div>
+  return <div className="subpage categories-page"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> ORGANIZE YOUR LIBRARY</div><h1>主题分类</h1><p>首次整理已有文章，之后只处理新增文章。</p></div><div className="page-title-actions"><button className="button button-primary" onClick={classify} disabled={classificationRunning}><Tags size={16} /> {classificationRunning ? '整理中…' : '整理新增文章'}</button>{latestClassification && ['queued', 'running'].includes(latestClassification.status) && <button className="button button-soft" onClick={() => api.cancelClassification(latestClassification.id).catch((e) => onNotice({ message: e.message, error: true }))}>取消</button>}<button className="button button-soft" onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={16} /> 新建分类</button></div></div>
     {adding && <div className="panel add-category-panel"><div className="panel-title"><h2>创建分类</h2><button className="icon-button" onClick={() => setAdding(false)}><X size={16} /></button></div><div className="form-row"><label>分类名称<input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="例如：人工智能" maxLength={80} /></label><label>上级分类<select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}><option value="">作为一级分类</option>{parents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button button-primary" onClick={add}>保存</button></div></div>}
     <div className="category-summary"><div className="summary-icon"><Tags size={19} /></div><div><strong>{parents.length} 个一级主题</strong><span>{categories.length} 个分类 · 可创建两级主题</span></div><div className="summary-side">分类由你掌握 <span>✳</span></div></div>
     <div className="category-manage-list">{parents.map((parent, index) => { const children = categories.filter((item) => item.parent_id === parent.id); return <div className="category-manage-card" key={parent.id}><div className={`manage-category-icon hue-${index % 5}`}><Hash size={18} /></div><div className="manage-category-main"><div className="manage-category-heading"><h3><Link to={`/?category=${parent.id}`} onClick={onCategoryOpen} title={`查看${parent.name}的全部文章`}>{parent.name}</Link></h3><Link className="category-count-link" to={`/?category=${parent.id}`} onClick={onCategoryOpen}>{parent.article_count} 篇</Link></div><div className="subcategory-row">{children.map((child) => <span className="subcategory-chip" key={child.id}><Link to={`/?category=${child.id}`} onClick={onCategoryOpen} title={`查看${child.name}的文章`}>{child.name}<small>{child.article_count}</small></Link><button aria-label={`删除${child.name}`} onClick={() => remove(child)}><X size={12} /></button></span>)}<button className="add-subcategory" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子分类</button></div></div><button className="icon-button manage-delete" aria-label={`删除${parent.name}`} onClick={() => remove(parent)}><MoreHorizontal size={18} /></button></div> })}</div>
@@ -433,7 +478,7 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
   const [category, setCategory] = useState<number | undefined>()
   const [pending, setPending] = useState(false)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(24)
   const [refresh, setRefresh] = useState(0)
   const [job, setJob] = useState<QuestionJob | null>(null)
   useEffect(() => {

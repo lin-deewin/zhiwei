@@ -14,7 +14,7 @@ from markdownify import markdownify
 
 from app.core.config import get_library_dir
 from app.core.database import article_dir, session
-from app.services.library import clean_title, excerpt, now
+from app.services.library import CONTENT_WRITE_LOCK, clean_title, excerpt, is_content_deleted, now
 
 IMAGE_TYPES = {
     "image/jpeg": ("jpg", lambda data: data.startswith(b"\xff\xd8\xff")),
@@ -79,6 +79,11 @@ def _normalise(item: dict) -> dict:
 
 
 def _existing_state(content: dict) -> str:
+    with CONTENT_WRITE_LOCK:
+        return _existing_state_unlocked(content)
+
+
+def _existing_state_unlocked(content: dict) -> str:
     path = article_dir(content["id"]) / "article.md"
     with session() as db:
         row = db.execute("SELECT title, author, content_hash FROM contents WHERE id=?",
@@ -185,7 +190,9 @@ def _atomic_bytes(path: Path, data: bytes) -> None:
 
 
 def _record_membership(content_id: str, folder_id: str, seen_at: str) -> list[str]:
-    with session() as db:
+    with CONTENT_WRITE_LOCK, session() as db:
+        if db.execute("SELECT 1 FROM deleted_contents WHERE content_id=?", (content_id,)).fetchone():
+            return []
         db.execute(
             """INSERT INTO folder_contents(folder_id,content_id,first_seen_at,last_seen_at)
                VALUES (?,?,?,?) ON CONFLICT(folder_id,content_id) DO UPDATE SET
@@ -200,6 +207,12 @@ def _record_membership(content_id: str, folder_id: str, seen_at: str) -> list[st
 
 
 def _update_metadata_folders(content_id: str, folder_ids: list[str]) -> None:
+    with CONTENT_WRITE_LOCK:
+        if not is_content_deleted(content_id):
+            _update_metadata_folders_unlocked(content_id, folder_ids)
+
+
+def _update_metadata_folders_unlocked(content_id: str, folder_ids: list[str]) -> None:
     path = article_dir(content_id) / "metadata.json"
     try:
         metadata = json.loads(path.read_text(encoding="utf-8"))
@@ -211,6 +224,14 @@ def _update_metadata_folders(content_id: str, folder_ids: list[str]) -> None:
 
 def _persist(content: dict, markdown: str, assets: dict[str, bytes], folder_id: str,
              seen_at: str, asset_failures: int, state: str) -> str:
+    with CONTENT_WRITE_LOCK:
+        if is_content_deleted(content["id"]):
+            return "deleted"
+        return _persist_unlocked(content, markdown, assets, folder_id, seen_at, asset_failures, state)
+
+
+def _persist_unlocked(content: dict, markdown: str, assets: dict[str, bytes], folder_id: str,
+                      seen_at: str, asset_failures: int, state: str) -> str:
     root = get_library_dir().resolve()
     directory = article_dir(content["id"]).resolve()
     if not directory.is_relative_to(root):
@@ -287,6 +308,9 @@ def _persist(content: dict, markdown: str, assets: dict[str, bytes], folder_id: 
 
 async def save_favorite(item: dict, folder_id: str, seen_at: str,
                         client: httpx.AsyncClient) -> str:
+    raw = item.get("content")
+    if isinstance(raw, dict) and is_content_deleted(f"zhihu_{raw.get('type')}_{raw.get('id')}"):
+        return "deleted"
     content = _normalise(item)
     try:
         collected_at = datetime.fromisoformat(content["collected_at"]).astimezone(UTC).isoformat()

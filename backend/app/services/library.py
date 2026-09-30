@@ -3,13 +3,53 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import RLock
 from urllib.parse import urlparse
 
 from app.core.config import get_library_dir
 from app.core.database import session
+
+CONTENT_WRITE_LOCK = RLock()
+
+
+def is_content_deleted(content_id: str) -> bool:
+    with session() as db:
+        return db.execute(
+            "SELECT 1 FROM deleted_contents WHERE content_id=?", (content_id,)
+        ).fetchone() is not None
+
+
+def delete_content(content_id: str) -> bool:
+    """Remove the owned article directory and retain a sync exclusion record."""
+    with CONTENT_WRITE_LOCK, session() as db:
+        row = db.execute("SELECT markdown_path FROM contents WHERE id=?", (content_id,)).fetchone()
+        if not row:
+            return db.execute(
+                "SELECT 1 FROM deleted_contents WHERE content_id=?", (content_id,)
+            ).fetchone() is not None
+        if not re.fullmatch(r"(?:local_[a-f0-9]{32}|zhihu_(?:article|answer)_\d{1,30})", content_id):
+            raise ValueError("文章标识无效，无法安全删除")
+        root = get_library_dir().resolve()
+        directory = root / "articles" / content_id
+        expected = directory / "article.md"
+        if (Path(row["markdown_path"]) != Path("articles") / content_id / "article.md"
+                or directory.resolve() != directory or expected.is_symlink()
+                or not directory.resolve().is_relative_to(root)
+                or not expected.resolve().is_relative_to(directory.resolve())):
+            raise ValueError("文章路径不安全，无法删除")
+        db.execute(
+            "INSERT OR IGNORE INTO deleted_contents(content_id,deleted_at) VALUES (?,?)",
+            (content_id, now()),
+        )
+        if directory.exists():
+            shutil.rmtree(directory)
+        db.execute("DELETE FROM content_search WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM contents WHERE id=?", (content_id,))
+    return True
 
 
 def now() -> str:

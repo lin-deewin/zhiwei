@@ -16,8 +16,8 @@ export function Pagination({ page, total, pageSize, onPageChange, onPageSizeChan
   }
   return <nav className="list-pagination" aria-label="列表分页">
     <span className="pagination-total">共 {total} 条</span>
-    <label>每页<select aria-label="每页条数" value={pageSize} onChange={(event) => { onPageSizeChange(Number(event.target.value)); onPageChange(1) }}>{[20, 24, 48, 100].map((size) => <option key={size} value={size}>{size} 条</option>)}</select></label>
-    <label>页数<select aria-label="选择页码" value={current} onChange={(event) => onPageChange(Number(event.target.value))}>{Array.from({ length: pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1} / {pageCount}</option>)}</select></label>
+    <label>每页条数<select aria-label="每页条数" value={pageSize} onChange={(event) => { onPageSizeChange(Number(event.target.value)); onPageChange(1) }}>{[12, 24, 48, 100].map((size) => <option key={size} value={size}>{size} 条</option>)}</select></label>
+    <span className="pagination-position">第 {current} / {pageCount} 页</span>
     <button disabled={current <= 1} onClick={() => onPageChange(current - 1)}>上一页</button>
     {start > 1 && <><button onClick={() => onPageChange(1)}>1</button>{start > 2 && <span>…</span>}</>}
     {pages.map((number) => <button key={number} className={number === current ? 'selected' : ''} aria-current={number === current ? 'page' : undefined} onClick={() => onPageChange(number)}>{number}</button>)}
