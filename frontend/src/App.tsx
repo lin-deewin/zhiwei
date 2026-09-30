@@ -1,0 +1,482 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
+import {
+  ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, Bookmark, Bot, Check, ChevronDown,
+  ChevronRight, CircleHelp, Clock3, FileText, FolderOpen, Hash,
+  LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Sparkles, Tags,
+  Upload, X,
+} from 'lucide-react'
+import { api } from './api'
+import type { AccountStatus } from './api'
+import type { Category, ClassificationJob, Content, LibrarySettings, SyncJob, ZhihuFolder, Question, QuestionJob } from './types'
+import { ZhihuLoginDialog } from './components/ZhihuLoginDialog'
+import { Pagination } from './components/Pagination'
+
+type Notice = { message: string; error?: boolean } | null
+
+function App() {
+  const [notice, setNotice] = useState<Notice>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [settings, setSettings] = useState<LibrarySettings | null>(null)
+  const [search, setSearch] = useState('')
+  const [refresh, setRefresh] = useState(0)
+  const navigate = useNavigate()
+
+  const reload = () => setRefresh((value) => value + 1)
+  useEffect(() => {
+    api.categories().then(setCategories).catch((e) => setNotice({ message: e.message, error: true }))
+    api.settings().then(setSettings).catch(() => undefined)
+  }, [refresh])
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(null), 4200)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
+  const importFile = async (file?: File) => {
+    if (!file) return
+    try {
+      const item = await api.importMarkdown(file)
+      setNotice({ message: `已导入「${item.title}」` })
+      reload()
+      navigate(`/read/${encodeURIComponent(item.id)}`)
+    } catch (e) {
+      setNotice({ message: (e as Error).message, error: true })
+    }
+  }
+
+  const sync = async (mode: 'full' | 'incremental', folderIds: string[]) => {
+    try {
+      await api.startSync(mode, folderIds)
+      setNotice({ message: '同步任务已启动，进度会在同步中心更新。' })
+    } catch (e) {
+      setNotice({ message: (e as Error).message, error: true })
+    }
+  }
+
+  const connectZhihu = async () => {
+    navigate('/sync')
+  }
+
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <Link to="/" className="brand">
+        <span className="brand-mark"><Bookmark size={19} fill="currentColor" /></span>
+        <span><strong>知微</strong><small>个人知识库</small></span>
+      </Link>
+      <div className="side-caption">工作区</div>
+      <nav className="primary-nav">
+        <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <LayoutGrid size={17} /> <span>文章库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
+        </NavLink>
+        <NavLink to="/questions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <CircleHelp size={17} /><span>话题汇总</span>
+        </NavLink>
+        <NavLink to="/sync" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <ArrowDownToLine size={17} /><span>同步中心</span>
+        </NavLink>
+        <NavLink to="/categories" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <Tags size={17} /><span>主题分类</span>
+        </NavLink>
+        <NavLink to="/ask" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <Sparkles size={17} /><span>知识问答</span><span className="soon-dot" />
+        </NavLink>
+      </nav>
+      <div className="side-caption side-caption-row"><span>我的主题</span><button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button></div>
+      <nav className="category-nav">
+        <button className="category-link" onClick={() => navigate('/?pending=1')}>
+          <span className="category-dot" style={{ background: '#a98e79' }} />
+          <span>待整理</span>
+        </button>
+        {categories.filter((item) => !item.parent_id).slice(0, 7).map((item, index) => {
+          const colors = ['#db8f62', '#6d9e8b', '#8c82bc', '#c39b4e', '#6484aa', '#bd7181', '#728c62']
+          return <button key={item.id} className="category-link" onClick={() => navigate(`/?category=${item.id}`)}>
+            <span className="category-dot" style={{ background: colors[index % colors.length] }} />
+            <span>{item.name}</span><small>{item.article_count}</small>
+          </button>
+        })}
+        {categories.length === 0 && <button className="category-empty" onClick={() => navigate('/categories')}>创建你的第一个主题</button>}
+      </nav>
+      <div className="sidebar-bottom">
+        <div className="storage-card">
+          <div className="storage-icon"><FolderOpen size={17} /></div>
+          <div className="storage-info"><strong>本地资料库</strong><span>{settings?.library_dir ? shortenPath(settings.library_dir) : '正在读取目录…'}</span></div>
+          <button className="icon-button tiny" aria-label="设置资料目录" onClick={() => navigate('/settings')}><Settings2 size={15} /></button>
+        </div>
+        <div className="profile-row"><div className="avatar">知</div><div className="profile-copy"><strong>本地空间</strong><span>离线优先 · 私人使用</span></div><MoreHorizontal size={18} className="muted-icon" /></div>
+      </div>
+    </aside>
+    <main className="main-area">
+      <header className="topbar">
+        <div className="breadcrumb"><span>知微</span><ChevronRight size={14} /><Routes><Route path="/" element={<strong>文章库</strong>} /><Route path="/read/:id" element={<strong>文章阅读</strong>} /><Route path="/sync" element={<strong>同步中心</strong>} /><Route path="/questions" element={<strong>话题汇总</strong>} /><Route path="/questions/:id" element={<strong>话题详情</strong>} /><Route path="/categories" element={<strong>主题分类</strong>} /><Route path="/settings" element={<strong>设置</strong>} /><Route path="/ask" element={<strong>知识问答</strong>} /><Route path="*" element={<strong>文章库</strong>} /></Routes></div>
+        <div className="topbar-actions">
+          <label className="global-search"><Search size={16} /><input aria-label="搜索文章" placeholder="搜索文章…" value={search} onChange={(event) => { setSearch(event.target.value); navigate('/') }} /><kbd>⌘ K</kbd></label>
+          <span className="connection-pill"><i /> 离线资料库</span>
+          <button className="icon-button top-settings" aria-label="设置" onClick={() => navigate('/settings')}><Settings2 size={17} /></button>
+        </div>
+      </header>
+      <div className="page-content">
+        <Routes>
+          <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} />} />
+          <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
+          <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
+          <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
+          <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
+          <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
+          <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(s) => { setSettings(s); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={connectZhihu} />} />
+          <Route path="/ask" element={<AskPage categories={categories} />} />
+          <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} />} />
+        </Routes>
+      </div>
+    </main>
+    {notice && <div className={notice.error ? 'toast toast-error' : 'toast'}><span>{notice.error ? <CircleHelp size={17} /> : <Check size={17} />}</span>{notice.message}<button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div>}
+  </div>
+}
+
+function shortenPath(path: string) {
+  const home = path.replace(/^\/home\/[^/]+/, '~')
+  return home.length > 28 ? `…${home.slice(-26)}` : home
+}
+
+function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onConnect }: {
+  search: string; categories: Category[]; refresh: number; onSearchChange: (search: string) => void; onImport: (file?: File) => void;
+  onNotice: (notice: Notice) => void; onConnect: () => Promise<void>
+}) {
+  const [items, setItems] = useState<Content[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [category, setCategory] = useState<number | undefined>()
+  const [categoryFromUrl, setCategoryFromUrl] = useState(false)
+  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [sort, setSort] = useState('synced')
+  const [pageSize, setPageSize] = useState(24)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  const pendingOnly = params.get('pending') === '1'
+
+  useEffect(() => {
+    const next = Number(new URLSearchParams(location.search).get('category'))
+    setCategory(next || undefined)
+    setCategoryFromUrl(Boolean(next))
+  }, [location.search])
+  useEffect(() => {
+    setLoading(true)
+    let active = true
+    api.contents(search, pendingOnly ? undefined : category, page, pendingOnly, pageSize, sort).then((data) => {
+      if (active) { setItems(data.items); setTotal(data.total) }
+    }).catch((e) => { if (active) onNotice({ message: e.message, error: true }) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [search, category, pendingOnly, page, pageSize, sort, refresh])
+  useEffect(() => { setPage(1) }, [search, category, pendingOnly, sort, pageSize])
+
+  const currentCategory = categories.find((item) => item.id === category)
+  const title = search ? '搜索结果' : pendingOnly ? '待整理' : currentCategory?.name || '全部文章'
+  const visibleItems = items
+
+  return <div className="library-page">
+    <section className="library-intro">
+      <div><h1>收藏好文章，慢慢读。</h1><p>你的本地阅读收藏</p></div>
+      <div className="library-intro-actions"><button className="button button-primary" onClick={() => document.getElementById('md-upload')?.click()}><Plus size={17} /> 导入 Markdown</button><button className="button button-soft" onClick={onConnect}><ArrowDownToLine size={16} /> 连接知乎</button><input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} /></div>
+    </section>
+    <label className="library-search"><Search size={18} /><input aria-label="搜索文章库" placeholder="搜索文章标题或正文…" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} />{search && <button aria-label="清空文章搜索" onClick={() => onSearchChange('')}><X size={16} /></button>}</label>
+    <div className="library-toolbar"><div className="section-heading"><div><h2>{title}</h2><p>{search ? `包含「${search}」的文章` : '你的私人阅读收藏'}</p></div><span className="article-total"><strong>{total}</strong> 篇</span></div>
+      <div className="toolbar-controls"><label className="select-wrap"><span>排序</span><select value={sort} onChange={(e) => setSort(e.target.value)}><option value="synced">最后同步时间</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label><span className="control-divider" /><div className="view-toggle"><button aria-label="卡片视图" className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label="列表视图" className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button></div></div>
+    </div>
+    {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search)} onImport={() => document.getElementById('md-upload')?.click()} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
+      {visibleItems.map((item, index) => <ArticleCard key={item.id} item={item} index={index} view={view} />)}
+    </div>}
+    <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+    {(categoryFromUrl || pendingOnly) && <button className="filter-reset" onClick={() => navigate('/')}>清除主题筛选</button>}
+  </div>
+}
+
+const cardTones = ['tone-apricot', 'tone-sage', 'tone-lilac', 'tone-blue']
+
+function ArticleCard({ item, index, view }: { item: Content; index: number; view: 'grid' | 'list' }) {
+  return <Link to={`/read/${encodeURIComponent(item.id)}`} className={`article-card ${cardTones[index % cardTones.length]} ${view === 'list' ? 'as-list' : ''}`}>
+    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><h3>{item.title}</h3><p>{item.excerpt || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
+  </Link>
+}
+
+function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {
+  return <div className="empty-state"><div className="empty-illustration"><div className="empty-sun" /><div className="empty-page"><span /><span /><span /></div><div className="empty-spark">✦</div></div><h3>{searched ? '没有找到相关文章' : '这里还空着，导入第一篇文章吧'}</h3><p>{searched ? '试试其他关键词，或清除筛选条件。' : '支持 Markdown 文件。导入后可以在这里阅读和整理。'}</p>{!searched && <button className="button button-primary" onClick={onImport}><Upload size={16} /> 选择 Markdown 文件</button>}</div>
+}
+
+function ReaderPage({ categories, onNotice, reload }: { categories: Category[]; onNotice: (notice: Notice) => void; reload: () => void }) {
+  const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const [item, setItem] = useState<Content | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [infoVisible, setInfoVisible] = useState(true)
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    api.content(id).then((content) => {
+      if (!active) return
+      setItem(content)
+      setLoading(false)
+    }).catch((error) => {
+      if (active) onNotice({ message: (error as Error).message, error: true })
+    }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [id])
+  if (loading) return <div className="loading-state"><LoaderCircle className="spin" /> 正在打开文章…</div>
+  if (!item) return <EmptyLibrary searched onImport={() => navigate('/')} />
+  const imageRenderer = ({ src = '', alt = '' }: { src?: string; alt?: string }) => {
+    const localName = src.startsWith('assets/') ? src.split('/').pop() : ''
+    const resolved = localName ? `/api/v1/contents/${encodeURIComponent(item.id)}/assets/${encodeURIComponent(localName)}` : src
+    return <img src={resolved} alt={alt} loading="lazy" />
+  }
+  return <article className="reader-page">
+    <div className="reader-toolbar">
+      <button className="back-link" onClick={() => navigate(-1)}><ArrowLeft size={15} /> 返回文章库</button>
+      <button className="button button-soft reader-info-toggle" aria-expanded={infoVisible} aria-controls="reader-article-info" onClick={() => setInfoVisible((visible) => !visible)}>
+        <Bookmark size={14} />{infoVisible ? '收起文章信息' : '展开文章信息'}<ChevronDown size={14} className={infoVisible ? 'is-expanded' : ''} />
+      </button>
+    </div>
+    <div className={`reader-layout${infoVisible ? '' : ' reader-info-collapsed'}`}><div className="reader-main"><div className="reader-kicker"><span className="reader-kicker-dot" /> {item.kind === 'answer' ? '知乎回答' : '收藏文章'} <span className="reader-kicker-sep">·</span> {formatDate(item.updated_at)}</div><h1>{item.title}</h1><div className="reader-byline"><span className="reader-author-avatar" aria-hidden="true">{(item.author || '佚').slice(0, 1)}</span><span className="reader-author">{item.author || '作者信息未知'}</span><span className="reader-byline-dot" /><span>离线阅读</span>{item.markdown && <span className="reader-duration"><Clock3 size={13} />约 {Math.max(1, Math.ceil(item.markdown.replace(/\s/g, '').length / 400))} 分钟</span>}</div>
+      <div className="reader-rule" />{item.file_missing ? <div className="inline-warning">正文文件暂时不可用，请检查本地资料目录。</div> : <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]} components={{ img: imageRenderer }}>{item.markdown || ''}</ReactMarkdown></div>}
+      {item.url && <a className="original-link" href={item.url} target="_blank" rel="noreferrer">在知乎打开原文 <ArrowRight size={14} /></a>}
+    </div><aside id="reader-article-info" className="reader-aside" hidden={!infoVisible}><div className="aside-card"><div className="aside-card-heading"><Bookmark size={15} /><span>文章信息</span></div><div className="aside-field"><small>本地分类</small><div><select className="reader-category-select" value={item.category_id ?? ''} onChange={async (e) => { try { const updated = await api.classify(item.id, e.target.value ? Number(e.target.value) : null); setItem(updated); reload() } catch (err) { onNotice({ message: (err as Error).message, error: true }) } }}><option value="">待整理</option>{categories.filter((category) => category.parent_id || !categories.some((child) => child.parent_id === category.id)).map((category) => <option key={category.id} value={category.id}>{category.parent_id ? `${categories.find((parent) => parent.id === category.parent_id)?.name || ''} / ` : ''}{category.name}</option>)}</select>{item.category_id && <Link className="category-view-link" to={`/?category=${item.category_id}`}>查看该主题文章 <ArrowRight size={12} /></Link>}<button className="classify-ai" disabled={Boolean(item.classification_locked)} onClick={async () => { try { const result = await api.autoClassify(item.id); setItem(result.content); onNotice({ message: `分类建议：${result.reason}` }); reload() } catch (error) { onNotice({ message: (error as Error).message, error: true }) } }}>{item.classification_locked ? '已手动确认' : '✦ 智能分类'}</button>{item.classification_reason && <small className="classification-reason">{item.classification_reason}</small>}</div></div><div className="aside-field"><small>收藏夹来源</small>{item.folders?.length ? item.folders.map((folder) => /^https:\/\/www\.zhihu\.com\/collection\/\d+$/.test(folder.url || '') ? <a className="source-chip source-link" key={folder.id} href={folder.url!} target="_blank" rel="noopener noreferrer" title="在知乎打开收藏夹"><FolderOpen size={13} />{folder.name}<ArrowRight size={12} /></a> : <span className="source-chip" key={folder.id}><FolderOpen size={13} />{folder.name}</span>) : <span className="muted-text">本地导入 / 暂无记录</span>}</div><div className="aside-field"><small>本地文章 ID</small><code>{item.id}</code></div><div className="aside-field"><small>关联问题</small>{item.question && /^https:\/\/www\.zhihu\.com\/question\/\d+$/.test(item.question.url) ? <a className="source-chip source-link" href={item.question.url} target="_blank" rel="noopener noreferrer" title="在知乎打开问题"><CircleHelp size={13} />{item.question.title}<ArrowRight size={12} /></a> : <span className="muted-text">暂无问题信息</span>}</div></div><div className="offline-note"><span><Check size={15} /></span><div><strong>保存在你的设备</strong><p>正文文件位于本地资料目录，可离线阅读。</p></div></div></aside></div>
+  </article>
+}
+
+function SyncPage({ onSync, onImport, onNotice, onLibraryChanged }: { onSync: (mode: 'full' | 'incremental', folderIds: string[]) => Promise<void>; onImport: (file?: File) => void; onNotice: (notice: Notice) => void; onLibraryChanged: () => void }) {
+  const [mode, setMode] = useState<'incremental' | 'full'>('incremental')
+  const [jobs, setJobs] = useState<SyncJob[]>([])
+  const [classificationJobs, setClassificationJobs] = useState<ClassificationJob[]>([])
+  const [folders, setFolders] = useState<ZhihuFolder[]>([])
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[] | null>(null)
+  const completedJobRef = useRef('')
+  const completedClassificationRef = useRef('')
+  const [account, setAccount] = useState<AccountStatus>({ status: 'not_connected', message: '' })
+  const [loginOpen, setLoginOpen] = useState(false)
+  const refreshAccount = () => api.account().then(setAccount).catch(() => undefined)
+  useEffect(() => {
+    api.account().then(setAccount).catch(() => undefined)
+    const timer = window.setInterval(() => api.account().then(setAccount).catch(() => undefined), 5000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const onLoginConnected = useCallback(() => {
+    setLoginOpen(false)
+    api.account().then(setAccount).catch(() => undefined)
+  }, [])
+  useEffect(() => {
+    if (account.status === 'connected') {
+      api.refreshFolders().then(setFolders).catch((error) => onNotice({ message: error.message, error: true }))
+    }
+  }, [account.status])
+  useEffect(() => {
+    let active = true
+    const refresh = () => {
+      api.syncJobs().then((items) => {
+        if (!active) return
+        setJobs(items)
+        const latest = items[0]
+        if (latest && ['completed', 'partial'].includes(latest.status) && completedJobRef.current !== latest.id) {
+          completedJobRef.current = latest.id
+          onLibraryChanged()
+        }
+      }).catch(() => undefined)
+      api.folders().then((items) => { if (active) setFolders(items) }).catch(() => undefined)
+      api.classificationJobs().then((items) => {
+        if (!active) return
+        setClassificationJobs(items)
+        const latest = items[0]
+        if (latest && ['completed', 'cancelled', 'failed'].includes(latest.status) && completedClassificationRef.current !== `${latest.id}:${latest.updated_at}`) {
+          completedClassificationRef.current = `${latest.id}:${latest.updated_at}`
+          onLibraryChanged()
+        }
+      }).catch(() => undefined)
+    }
+    refresh()
+    const timer = window.setInterval(refresh, 3000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [onLibraryChanged])
+  const refreshFolders = async () => {
+    try { setFolders(await api.refreshFolders()); setSelectedFolderIds(null) }
+    catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+  }
+  const toggleFolder = (id: string) => setSelectedFolderIds((current) => {
+    const selected = current ?? folders.map((folder) => folder.id)
+    return selected.includes(id) ? selected.filter((value) => value !== id) : [...selected, id]
+  })
+  const running = jobs.some((job) => ['queued', 'running'].includes(job.status))
+  const classify = async () => { try { await api.startClassification(); onNotice({ message: '主题整理已启动；规则无法确定时会自动调用已配置的大模型。' }) } catch (e) { onNotice({ message: (e as Error).message, error: true }) } }
+  const classificationRunning = classificationJobs.some((job) => ['queued', 'running'].includes(job.status))
+  const latestClassification = classificationJobs[0]
+  return <div className="subpage"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> SYNC CENTER</div><h1>同步中心</h1><p>把知乎收藏安全地保存到你的本地资料库。</p></div><button className="button button-soft" onClick={() => document.getElementById('sync-import')?.click()}><Upload size={16} /> 导入 Markdown</button><input id="sync-import" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} /></div>
+    <div className="sync-account-card"><div className="sync-account-icon"><Bookmark size={21} /></div><div className="sync-account-copy"><strong>{account.profile?.name || (account.status === 'connected' ? '知乎账号已验证' : '知乎账号连接')}</strong><span>{account.message || '用知乎 App 扫码登录。'}</span></div>{account.status === 'connected' ? <><span className="status-badge status-connected"><i /> 已验证</span><button className="button button-soft" onClick={async () => { try { const result = await api.disconnectAccount(); setAccount(result); setFolders([]); setSelectedFolderIds(null); onNotice({ message: result.message }) } catch (e) { onNotice({ message: (e as Error).message, error: true }) } }}>退出</button></> : <button className="button button-primary" onClick={() => setLoginOpen(true)}>登录知乎</button>}</div>
+    {loginOpen && <ZhihuLoginDialog onClose={() => { setLoginOpen(false); refreshAccount() }} onConnected={onLoginConnected} />}
+    <div className="sync-setup-grid"><div className="panel sync-mode-panel"><div className="panel-title"><h2>同步方式</h2><span>选择同步范围</span></div><button onClick={() => setMode('incremental')} className={`sync-mode-option ${mode === 'incremental' ? 'chosen' : ''}`}><span className="radio-dot" /><span><strong>增量同步</strong><small>检查新收藏和可识别的内容变化</small></span><ArrowDownToLine size={17} /></button><button onClick={() => setMode('full')} className={`sync-mode-option ${mode === 'full' ? 'chosen' : ''}`}><span className="radio-dot" /><span><strong>全量同步</strong><small>重新核对已选收藏夹中的全部内容</small></span><Clock3 size={17} /></button><div className="sync-mode-foot"><CircleHelp size={14} />现有文章的远端编辑建议通过全量同步核对。</div><button className="button button-primary sync-start" disabled={account.status !== 'connected' || running || folders.length === 0 || (selectedFolderIds !== null && selectedFolderIds.length === 0)} onClick={() => onSync(mode, selectedFolderIds ?? [])}>开始{mode === 'full' ? '全量' : '增量'}同步 <ArrowRight size={15} /></button></div><div className="panel folder-panel"><div className="panel-title"><h2>同步目标</h2><button className="button button-soft" onClick={refreshFolders} disabled={account.status !== 'connected'}>刷新收藏夹</button></div><div className="folder-placeholder"><div className="folder-placeholder-icon"><FolderOpen size={20} /></div><div><strong>资料保存目录</strong><p>可以在「设置」中输入运行后端的机器上的路径</p></div></div>{folders.length ? <div className="folder-options"><label className="folder-option"><input type="checkbox" checked={selectedFolderIds === null || selectedFolderIds.length === folders.length} onChange={() => setSelectedFolderIds(null)} /><span>全部收藏夹</span></label>{folders.map((folder) => <label className="folder-option" key={folder.id}><input type="checkbox" checked={selectedFolderIds === null || selectedFolderIds.includes(folder.id)} onChange={() => toggleFolder(folder.id)} /><span>{folder.name}</span><small>{folder.article_count} 篇已保存</small></label>)}</div> : <div className="folder-empty"><div className="folder-empty-art"><FolderOpen size={29} /></div><strong>暂无收藏夹</strong><span>连接知乎账号后点击“刷新收藏夹”。</span></div>}</div></div>
+    <div className="panel jobs-panel"><div className="panel-title"><h2>最近任务</h2><span>{jobs.length} 条记录</span></div>{jobs.length ? <div className="job-list">{jobs.map((job) => <div className="job-row" key={String(job.id)}><span className="job-icon"><ArrowDownToLine size={16} /></span><div><strong>{job.mode === 'full' ? '全量同步' : '增量同步'}</strong><small>{String(job.status)} · {String(job.updated_at)}</small></div><span>{String(job.message || '')}</span>{['completed', 'partial'].includes(job.status) && <button className="button button-soft" onClick={classify} disabled={classificationRunning}>自动整理主题</button>}</div>)}</div> : <div className="jobs-empty"><Clock3 size={17} /><span>还没有同步记录</span></div>}</div>
+    <div className="panel jobs-panel classification-panel"><div className="panel-title"><h2>主题整理</h2><div className="panel-title-actions"><button className="button button-primary" onClick={classify} disabled={classificationRunning}> {classificationRunning ? '整理中…' : '整理新增文章'} </button>{latestClassification && ['queued', 'running'].includes(latestClassification.status) && <button className="button button-soft" onClick={async () => { try { await api.cancelClassification(latestClassification.id) } catch (e) { onNotice({ message: (e as Error).message, error: true }) } }}>取消</button>}</div></div>{latestClassification ? <div className="classification-progress"><strong>{latestClassification.status === 'completed' ? '整理完成' : latestClassification.status === 'cancelled' ? '已取消' : latestClassification.status === 'interrupted' ? '等待重试' : '规则与大模型整理主题'}</strong><span>{latestClassification.processed}/{latestClassification.total} 篇 · 已归类 {latestClassification.classified} · 待整理 {latestClassification.pending} · 跳过 {latestClassification.skipped} · 失败 {latestClassification.failed}</span>{latestClassification.error_summary && <small>{latestClassification.error_summary}</small>}{['failed', 'interrupted', 'cancelled'].includes(latestClassification.status) && <button className="button button-soft" onClick={async () => { try { await api.retryClassification(latestClassification.id) } catch (e) { onNotice({ message: (e as Error).message, error: true }) } }}>重试</button>}</div> : <div className="jobs-empty"><Tags size={17} /><span>首次整理已有文章，之后只处理新增文章；规则无法确定时会自动调用已配置的大模型。</span></div>}</div>
+  </div>
+}
+
+function CategoriesPage({ categories, refresh, onNotice, onCategoryOpen }: { categories: Category[]; refresh: () => void; onNotice: (notice: Notice) => void; onCategoryOpen: () => void }) {
+  const [adding, setAdding] = useState(false)
+  const [parentId, setParentId] = useState<number | undefined>()
+  const [name, setName] = useState('')
+  const [classificationJobs, setClassificationJobs] = useState<ClassificationJob[]>([])
+  const completedClassificationRef = useRef('')
+  useEffect(() => {
+    let active = true
+    const load = () => api.classificationJobs().then((items) => {
+      if (!active) return
+      setClassificationJobs(items)
+      const latest = items[0]
+      if (latest && ['completed', 'cancelled', 'failed'].includes(latest.status) && completedClassificationRef.current !== `${latest.id}:${latest.updated_at}`) {
+        completedClassificationRef.current = `${latest.id}:${latest.updated_at}`
+        refresh()
+      }
+    }).catch(() => undefined)
+    load()
+    const timer = window.setInterval(load, 3000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [])
+  const classify = async () => { try { await api.startClassification(); onNotice({ message: '主题整理已启动；规则无法确定时会自动调用已配置的大模型。' }); setClassificationJobs(await api.classificationJobs()) } catch (e) { onNotice({ message: (e as Error).message, error: true }) } }
+  const latestClassification = classificationJobs[0]
+  const classificationRunning = classificationJobs.some((job) => ['queued', 'running'].includes(job.status))
+  const parents = categories.filter((item) => !item.parent_id)
+  const add = async () => {
+    if (!name.trim()) return
+    try { await api.createCategory(name.trim(), parentId); setName(''); setAdding(false); setParentId(undefined); refresh(); onNotice({ message: '分类已创建' }) }
+    catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+  }
+  const remove = async (category: Category) => {
+    if (!window.confirm(`删除「${category.name}」？文章将移入待整理。`)) return
+    try { await api.deleteCategory(category.id); refresh(); onNotice({ message: '分类已删除' }) }
+    catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+  }
+  return <div className="subpage"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> ORGANIZE YOUR LIBRARY</div><h1>主题分类</h1><p>首次整理已有文章，之后只处理新增文章。</p></div><div className="page-title-actions"><button className="button button-primary" onClick={classify} disabled={classificationRunning}><Tags size={16} /> {classificationRunning ? '整理中…' : '整理新增文章'}</button>{latestClassification && ['queued', 'running'].includes(latestClassification.status) && <button className="button button-soft" onClick={() => api.cancelClassification(latestClassification.id).catch((e) => onNotice({ message: e.message, error: true }))}>取消</button>}<button className="button button-soft" onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={16} /> 新建分类</button></div></div>
+    {adding && <div className="panel add-category-panel"><div className="panel-title"><h2>创建分类</h2><button className="icon-button" onClick={() => setAdding(false)}><X size={16} /></button></div><div className="form-row"><label>分类名称<input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="例如：人工智能" maxLength={80} /></label><label>上级分类<select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}><option value="">作为一级分类</option>{parents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button button-primary" onClick={add}>保存</button></div></div>}
+    <div className="category-summary"><div className="summary-icon"><Tags size={19} /></div><div><strong>{parents.length} 个一级主题</strong><span>{categories.length} 个分类 · 可创建两级主题</span></div><div className="summary-side">分类由你掌握 <span>✳</span></div></div>
+    <div className="category-manage-list">{parents.map((parent, index) => { const children = categories.filter((item) => item.parent_id === parent.id); return <div className="category-manage-card" key={parent.id}><div className={`manage-category-icon hue-${index % 5}`}><Hash size={18} /></div><div className="manage-category-main"><div className="manage-category-heading"><h3><Link to={`/?category=${parent.id}`} onClick={onCategoryOpen} title={`查看${parent.name}的全部文章`}>{parent.name}</Link></h3><Link className="category-count-link" to={`/?category=${parent.id}`} onClick={onCategoryOpen}>{parent.article_count} 篇</Link></div><div className="subcategory-row">{children.map((child) => <span className="subcategory-chip" key={child.id}><Link to={`/?category=${child.id}`} onClick={onCategoryOpen} title={`查看${child.name}的文章`}>{child.name}<small>{child.article_count}</small></Link><button aria-label={`删除${child.name}`} onClick={() => remove(child)}><X size={12} /></button></span>)}<button className="add-subcategory" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子分类</button></div></div><button className="icon-button manage-delete" aria-label={`删除${parent.name}`} onClick={() => remove(parent)}><MoreHorizontal size={18} /></button></div> })}</div>
+    {parents.length === 0 && <div className="empty-state compact"><div className="empty-illustration"><Tags size={31} /></div><h3>还没有主题分类</h3><p>创建大类和小类，开始整理你的文章。</p><button className="button button-primary" onClick={() => setAdding(true)}><Plus size={16} /> 创建第一个分类</button></div>}
+  </div>
+}
+
+function SettingsPage({ settings, onSaved, onNotice, onConnect }: { settings: LibrarySettings | null; onSaved: (settings: LibrarySettings) => void; onNotice: (notice: Notice) => void; onConnect: () => Promise<void> }) {
+  const [path, setPath] = useState(settings?.library_dir || '')
+  const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null)
+  const [baseUrl, setBaseUrl] = useState(settings?.ai_base_url || '')
+  const [chatModel, setChatModel] = useState(settings?.ai_chat_model || '')
+  const [embeddingModel, setEmbeddingModel] = useState(settings?.ai_embedding_model || '')
+  const [apiKey, setApiKey] = useState('')
+  const [clearApiKey, setClearApiKey] = useState(false)
+  useEffect(() => { if (settings?.library_dir) setPath(settings.library_dir) }, [settings?.library_dir])
+  useEffect(() => { setBaseUrl(settings?.ai_base_url || ''); setChatModel(settings?.ai_chat_model || ''); setEmbeddingModel(settings?.ai_embedding_model || '') }, [settings?.ai_base_url, settings?.ai_chat_model, settings?.ai_embedding_model])
+  useEffect(() => {
+    let active = true
+    const refreshAccount = () => api.account().then((status) => { if (active) setAccountStatus(status) }).catch((error) => {
+      if (active) onNotice({ message: (error as Error).message, error: true })
+    })
+    refreshAccount()
+    const timer = window.setInterval(refreshAccount, 5000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [onNotice])
+  const accountConnected = accountStatus?.status === 'connected'
+  const accountLabel = accountConnected ? '已连接' : !accountStatus ? '检查中' : accountStatus.status === 'restoring' ? '校验中' : accountStatus.status === 'network_error' ? '暂无法校验' : ['awaiting_login', 'challenge_required'].includes(accountStatus.status) ? '待验证' : accountStatus.status === 'expired' ? '会话失效' : '未连接'
+  const save = async () => {
+    try { const result = await api.updateSettings(path); const latest = await api.settings(); onSaved({ ...latest, library_dir: result.library_dir }) }
+    catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+  }
+  const saveAI = async () => {
+    try {
+      await api.updateAISettings({ base_url: baseUrl, chat_model: chatModel, embedding_model: embeddingModel, api_key: apiKey || undefined, clear_api_key: clearApiKey })
+      setApiKey('')
+      setClearApiKey(false)
+      onSaved(await api.settings())
+      onNotice({ message: '模型配置已保存。' })
+    } catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+  }
+  return <div className="subpage"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> PREFERENCES</div><h1>设置</h1><p>管理你的资料存储和连接状态。</p></div></div><div className="settings-stack"><div className="panel settings-panel"><div className="panel-title"><div><h2>本地资料目录</h2><span>文章与数据库保存在本机，不会自动上传</span></div><div className="settings-section-icon"><FolderOpen size={18} /></div></div><label className="setting-label">目录路径<input value={path} onChange={(e) => setPath(e.target.value)} placeholder="例如 /home/you/Documents/ZhihuLibrary" /></label><p className="setting-help">路径由本地服务所在的电脑访问。修改目录后会切换到该目录中的资料库，不会自动搬移旧文章。</p><button className="button button-primary" onClick={save}>保存目录</button></div><div className="panel settings-panel"><div className="panel-title"><div><h2>知乎账号</h2><span>在知微页面扫码并完成必要的知乎验证</span></div><div className="settings-section-icon warm"><Bookmark size={18} /></div></div><div className="setting-status-row"><span className={`status-badge ${accountConnected ? 'status-connected' : 'status-muted'}`}><i /> {accountLabel}</span><button className="button button-soft" onClick={onConnect}>{accountConnected ? '查看连接' : '连接知乎'}</button></div>{accountStatus?.message && <p className="setting-help">{accountStatus.message}</p>}</div><div className="panel settings-panel"><div className="panel-title"><div><h2>AI 与知识问答</h2><span>可连接 OpenAI 兼容服务，或使用本机 OpenCode 免费模型</span></div><div className="settings-section-icon lilac"><Bot size={18} /></div></div><div className="ai-settings-grid"><label className="setting-label">API 地址<input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="opencode://local 或 https://api.example.com/v1" /></label><label className="setting-label">聊天模型<input value={chatModel} onChange={(e) => setChatModel(e.target.value)} placeholder={baseUrl === 'opencode://local' ? 'opencode/space-bunny-free' : '模型名称'} /></label><label className="setting-label">Embedding 模型（预留）<input value={embeddingModel} onChange={(e) => setEmbeddingModel(e.target.value)} placeholder="可暂不填写" /></label>{baseUrl !== 'opencode://local' && <label className="setting-label">API Key<input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={settings?.ai_api_key_set ? '已保存；留空表示不更改' : '由本地后端保存'} autoComplete="new-password" /></label>}</div>{settings?.ai_api_key_set && <label className="clear-key-option"><input type="checkbox" checked={clearApiKey} onChange={(e) => setClearApiKey(e.target.checked)} /> 清除本机已保存的 API Key</label>}<p className="setting-help">提交知识库问题时会发送检索片段；你点击智能分类时会发送当前文章内容片段。{baseUrl === 'opencode://local' ? '通过本机 OpenCode CLI 调用所选模型；文章片段会发送给模型服务商。' : '密钥保存在本机权限受限的配置文件中。'} 语义向量索引尚未启用。</p><button className="button button-primary" onClick={saveAI}>保存模型配置</button></div></div></div>
+}
+
+function AskPage({ categories }: { categories: Category[] }) {
+  const [question, setQuestion] = useState('')
+  const [categoryId, setCategoryId] = useState<number | undefined>()
+  const [result, setResult] = useState<import('./types').AskResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const ask = async () => {
+    if (!question.trim() || loading) return
+    setLoading(true); setError(''); setResult(null)
+    try { setResult(await api.ask(question.trim(), categoryId)) }
+    catch (e) { setError((e as Error).message) }
+    finally { setLoading(false) }
+  }
+  return <div className="ask-page"><div className="ask-orb"><Sparkles size={22} /></div><div className="eyebrow"><span className="eyebrow-line" /> ASK YOUR LIBRARY</div><h1>让收藏，<em>开始回答。</em></h1><p>根据本地文章中的相关片段回答，并列出可回看的来源。</p><div className="ask-filters"><label>检索范围<select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : undefined)}><option value="">全部文章</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.parent_id ? '　↳ ' : ''}{category.name}</option>)}</select></label><span>当前使用关键词片段检索</span></div><div className="ask-input"><input value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ask()} placeholder="例如：我收藏过哪些关于专注力的方法？" /><button onClick={ask} disabled={loading || question.trim().length < 2} aria-label="发送问题">{loading ? <LoaderCircle className="spin" size={17} /> : <ArrowRight size={17} />}</button></div>{error && <div className="ask-error">{error}</div>}{result && <div className="answer-panel"><div className="answer-title"><Sparkles size={15} /> 知识库回答</div><div className="answer-text">{result.answer}</div>{result.sources.length > 0 && <div className="answer-sources"><strong>参考文章</strong>{result.sources.map((source) => <Link key={source.citation_id} to={`/read/${encodeURIComponent(source.content_id)}`} className="answer-source"><span>{source.citation_id}</span><div><b>{source.title}</b><small>{source.text}</small></div><ArrowRight size={14} /></Link>)}</div>}</div>}{!result && !error && <div className="ask-note"><span><Bot size={15} /></span>文章片段只会在你提交问题后发送到已配置的聊天模型。</div>}</div>
+}
+
+function formatDate(value: string) {
+  if (!value) return '刚刚'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '刚刚'
+  return new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(date)
+}
+
+export default App
+
+function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNotice: (notice: Notice) => void }) {
+  const [items, setItems] = useState<Question[]>([])
+  const [total, setTotal] = useState(0)
+  const [search, setSearch] = useState('')
+  const [manualUrl, setManualUrl] = useState('')
+  const [manualArticle, setManualArticle] = useState('')
+  const [category, setCategory] = useState<number | undefined>()
+  const [pending, setPending] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [refresh, setRefresh] = useState(0)
+  const [job, setJob] = useState<QuestionJob | null>(null)
+  useEffect(() => {
+    api.questions(search, category, pending, page, pageSize).then((data) => { setItems(data.items); setTotal(data.total) })
+      .catch((error) => onNotice({ message: error.message, error: true }))
+  }, [search, category, pending, page, pageSize, refresh])
+  useEffect(() => {
+    api.questionJobs().then((jobs) => { if (jobs[0]) api.questionJob(jobs[0].id).then(setJob).catch(() => setJob(jobs[0])); else setJob(null) }).catch(() => undefined)
+  }, [refresh])
+  useEffect(() => {
+    if (!job || job.status !== 'running') return
+    const timer = window.setInterval(() => api.questionJob(job.id).then((updated) => {
+      setJob(updated)
+      if (updated.status !== 'running') setRefresh((value) => value + 1)
+    }).catch(() => undefined), 2000)
+    return () => window.clearInterval(timer)
+  }, [job?.id, job?.status])
+  const action = async (run: () => Promise<unknown>, message: string) => {
+    try { await run(); onNotice({ message }); setRefresh((value) => value + 1) }
+    catch (error) { onNotice({ message: (error as Error).message, error: true }) }
+  }
+  return <div className="subpage questions-page">
+    <div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> QUESTION COLLECTION</div><h1>话题汇总</h1><p>按知乎问题归集已收藏回答，分类独立于文章分类。</p></div><span className="article-total"><strong>{total}</strong> 个问题</span></div>
+    <div className="question-actions"><button className="button button-soft" onClick={() => action(() => api.backfillQuestions(), '已检查并修复话题关联')}>回填已有回答</button><button className="button button-primary" disabled={job?.status === 'running'} onClick={() => action(async () => setJob(await api.startQuestionJob()), '话题整理已启动')}>✦ 整理话题</button></div>
+    {job && <div className="panel question-job"><strong>整理任务：{job.status}</strong><span>{job.processed} / {job.total} · 已归类 {job.classified} · 待整理 {job.pending} · 失败 {job.failed}</span>{job.error_summary && <small>最近失败：{job.error_summary}</small>}{job.items && job.items.length > 0 && <details className="question-failures"><summary>查看失败话题（{job.items.length}）</summary><ul>{job.items.slice(0, 30).map((failed) => <li key={failed.question_id}><Link to={`/questions/${failed.question_id}`}>问题 {failed.question_id}</Link>：{failed.reason}</li>)}</ul>{job.items.length > 30 && <small>仅展示前 30 条</small>}</details>}{job.status === 'running' && <button className="button button-soft" onClick={() => action(() => api.cancelQuestionJob(job.id), '已请求取消')}>取消</button>}{job.status !== 'running' && job.failed > 0 && <button className="button button-soft" onClick={() => action(async () => setJob(await api.retryQuestionJob(job.id)), '失败项已重试')}>重试失败项</button>}</div>}
+    <div className="question-attach"><input placeholder="知乎问题链接" value={manualUrl} onChange={(event) => setManualUrl(event.target.value)} /><input placeholder="本地专栏文章 ID" value={manualArticle} onChange={(event) => setManualArticle(event.target.value)} /><button className="button button-soft" disabled={!manualUrl.trim() || !manualArticle.trim()} onClick={() => action(async () => { await api.manualQuestionLink(manualUrl.trim(), manualArticle.trim()); setManualUrl(''); setManualArticle('') }, '已手动关联专栏文章')}>关联文章到话题</button></div>
+    <div className="question-filters"><input placeholder="搜索问题标题或 ID" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} /><select value={category ?? ''} onChange={(event) => { setCategory(event.target.value ? Number(event.target.value) : undefined); setPage(1) }}><option value="">全部分类</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.parent_id ? '　↳ ' : ''}{item.name}</option>)}</select><label><input type="checkbox" checked={pending} onChange={(event) => { setPending(event.target.checked); setPage(1) }} /> 只看待整理</label></div>
+    <div className="question-grid">{items.map((item) => <Link className="panel question-card" to={`/questions/${item.id}`} key={item.id}><small>{item.category_id ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</small><h2>{item.title}</h2><p>{item.answer_count} 篇已收藏回答 · {item.article_count} 篇关联专栏</p><span>查看话题 <ArrowRight size={14} /></span></Link>)}</div>
+    {items.length === 0 && <div className="panel question-empty">暂无符合条件的话题。可点击“回填已有回答”检查本地资料。</div>}
+    <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+  </div>
+}
+
+function QuestionDetail({ categories, onNotice }: { categories: Category[]; onNotice: (notice: Notice) => void }) {
+  const { id = '' } = useParams()
+  const [item, setItem] = useState<Question | null>(null)
+  const [articleId, setArticleId] = useState('')
+  const refresh = () => api.question(id).then(setItem).catch((error) => onNotice({ message: error.message, error: true }))
+  useEffect(() => { refresh() }, [id])
+  if (!item) return <div className="subpage">正在读取话题…</div>
+  const mutate = async (run: () => Promise<unknown>) => { try { await run(); await refresh() } catch (error) { onNotice({ message: (error as Error).message, error: true }) } }
+  return <div className="subpage question-detail"><Link to="/questions" className="button button-soft"><ArrowLeft size={15} /> 返回话题</Link><div className="panel question-header"><small>知乎问题 · {item.id}</small><h1>{item.title}</h1><a href={item.url} target="_blank" rel="noopener noreferrer">打开知乎原问题 <ArrowRight size={14} /></a><label>本地话题分类<select value={item.category_id ?? ''} onChange={(event) => mutate(() => api.classifyQuestion(id, event.target.value ? Number(event.target.value) : null))}><option value="">待整理</option>{categories.filter((category) => category.parent_id || !categories.some((child) => child.parent_id === category.id)).map((category) => <option key={category.id} value={category.id}>{category.parent_id ? `${categories.find((parent) => parent.id === category.parent_id)?.name || ''} / ` : ''}{category.name}</option>)}</select></label>{item.classification_reason && <p>{item.classification_reason}</p>}{Boolean(item.classification_locked) && <button className="button button-soft" onClick={() => mutate(() => api.resuggestQuestion(id))}>重新建议分类</button>}</div>
+    <h2>已收藏回答</h2><div className="question-contents">{item.contents?.filter((content) => content.kind === 'answer').map((content) => <Link className="panel question-content" to={`/read/${encodeURIComponent(content.id)}`} key={content.id}><strong>{content.title}</strong><small>{content.author || '作者未知'} · {content.link_source === 'answer_url' ? '回答链接验证' : '已保存问题信息'}</small><p>{content.excerpt}</p></Link>)}</div>
+    <h2>关联专栏文章</h2><div className="question-contents">{item.contents?.filter((content) => content.kind === 'article').map((content) => <div className="panel question-content" key={content.id}><Link to={`/read/${encodeURIComponent(content.id)}`}><strong>{content.title}</strong></Link><small>手动关联</small><button className="button button-soft" onClick={() => mutate(() => api.detachQuestionArticle(id, content.id))}>解除关联</button></div>)}</div><div className="question-attach"><input placeholder="输入已有专栏文章 ID" value={articleId} onChange={(event) => setArticleId(event.target.value)} /><button className="button button-soft" disabled={!articleId.trim()} onClick={() => mutate(async () => { await api.attachQuestionArticle(id, articleId.trim()); setArticleId('') })}>关联专栏文章</button></div>
+  </div>
+}
