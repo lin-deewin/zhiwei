@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import json
+from threading import Lock
 from datetime import datetime, UTC
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -11,6 +12,64 @@ from app.core.config import get_library_dir
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS semantic_vectors (
+ model TEXT NOT NULL, chunk_id TEXT NOT NULL, source_id TEXT NOT NULL,
+ vector_json TEXT NOT NULL, PRIMARY KEY(model,chunk_id)
+);
+CREATE TABLE IF NOT EXISTS semantic_jobs (
+ id TEXT PRIMARY KEY, model TEXT NOT NULL, status TEXT NOT NULL,
+ processed INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL DEFAULT 0,
+ error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS retrieval_cases (
+ id TEXT PRIMARY KEY, question TEXT NOT NULL, expected_sources_json TEXT NOT NULL,
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS knowledge_topics (
+ id TEXT PRIMARY KEY, title TEXT NOT NULL, body_md TEXT NOT NULL DEFAULT '',
+ revision INTEGER NOT NULL DEFAULT 1, sources_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS topic_drafts (
+ id TEXT PRIMARY KEY, topic_id TEXT NOT NULL REFERENCES knowledge_topics(id) ON DELETE CASCADE,
+ body_md TEXT NOT NULL, sources_json TEXT NOT NULL, base_revision INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS knowledge_links (
+ from_id TEXT NOT NULL, to_id TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',
+ created_at TEXT NOT NULL, PRIMARY KEY(from_id,to_id)
+);
+CREATE TABLE IF NOT EXISTS research_versions (
+ id TEXT PRIMARY KEY, note_id TEXT NOT NULL REFERENCES research_notes(id) ON DELETE CASCADE,
+ title TEXT NOT NULL, body_md TEXT NOT NULL, sources_json TEXT NOT NULL,
+ reason TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS research_projects (
+ id TEXT PRIMARY KEY, title TEXT NOT NULL, question TEXT NOT NULL, evidence_json TEXT NOT NULL DEFAULT '[]',
+ revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS research_turns (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+ question TEXT NOT NULL, answer TEXT NOT NULL, sources_json TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS project_notes (
+ project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+ note_id TEXT NOT NULL REFERENCES research_notes(id) ON DELETE CASCADE,
+ PRIMARY KEY(project_id,note_id)
+);
+CREATE TABLE IF NOT EXISTS markdown_sync_files (
+ relative_path TEXT PRIMARY KEY, source_id TEXT NOT NULL UNIQUE,
+ file_hash TEXT NOT NULL, record_hash TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS research_notes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  question TEXT NOT NULL,
+  body_md TEXT NOT NULL,
+  sources_json TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('draft','saved')),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_research_notes_status ON research_notes(status,updated_at DESC);
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
 INSERT INTO schema_version(version) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM schema_version);
 CREATE TABLE IF NOT EXISTS contents (
@@ -143,18 +202,169 @@ CREATE TABLE IF NOT EXISTS question_classification_job_items (
   status TEXT NOT NULL DEFAULT 'pending', reason TEXT NOT NULL DEFAULT '',
   PRIMARY KEY(job_id, question_id)
 );
+CREATE TABLE IF NOT EXISTS reading_library_meta (
+  singleton INTEGER PRIMARY KEY CHECK(singleton=1), library_id TEXT NOT NULL UNIQUE
+);
+INSERT OR IGNORE INTO reading_library_meta(singleton,library_id)
+  VALUES (1, lower(hex(randomblob(16))));
+CREATE TABLE IF NOT EXISTS content_revisions (
+  id TEXT PRIMARY KEY,
+  content_id TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  body_hash TEXT NOT NULL,
+  normalization_version INTEGER NOT NULL,
+  markdown_snapshot TEXT NOT NULL,
+  blocks_json TEXT NOT NULL,
+  normalized_text TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(content_id,body_hash,normalization_version),
+  UNIQUE(content_id,id)
+);
+CREATE TABLE IF NOT EXISTS reading_content_state (
+  content_id TEXT PRIMARY KEY REFERENCES contents(id) ON DELETE CASCADE,
+  current_revision_id TEXT,
+  generation INTEGER NOT NULL DEFAULT 1,
+  observed_at TEXT NOT NULL,
+  FOREIGN KEY(content_id,current_revision_id) REFERENCES content_revisions(content_id,id)
+);
+CREATE TABLE IF NOT EXISTS annotations (
+  id TEXT PRIMARY KEY,
+  content_id TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  original_revision_id TEXT NOT NULL,
+  original_anchor_json TEXT NOT NULL,
+  current_revision_id TEXT,
+  current_anchor_json TEXT,
+  anchor_status TEXT NOT NULL DEFAULT 'resolved' CHECK(anchor_status IN ('resolved','ambiguous','orphaned','pending')),
+  color TEXT NOT NULL DEFAULT 'yellow' CHECK(color IN ('yellow','green','blue')),
+  comment_md TEXT NOT NULL DEFAULT '',
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision>0),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(content_id,original_revision_id) REFERENCES content_revisions(content_id,id),
+  FOREIGN KEY(content_id,current_revision_id) REFERENCES content_revisions(content_id,id)
+);
+CREATE INDEX IF NOT EXISTS idx_annotations_content ON annotations(content_id,updated_at DESC);
+CREATE TABLE IF NOT EXISTS notes (
+  id TEXT PRIMARY KEY,
+  content_id TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  title TEXT NOT NULL DEFAULT '', body_md TEXT NOT NULL DEFAULT '',
+  origin_ai_result_id TEXT REFERENCES reading_ai_results(id) ON DELETE SET NULL,
+  origin_metadata_json TEXT,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notes_content ON notes(content_id,updated_at DESC);
+CREATE TABLE IF NOT EXISTS reading_ai_jobs (
+  id TEXT PRIMARY KEY,
+  content_id TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  revision_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK(action IN ('summary','explain','key_points')),
+  selection_anchor_json TEXT,
+  input_manifest_json TEXT NOT NULL,
+  config_json TEXT NOT NULL,
+  config_fingerprint TEXT NOT NULL,
+  prompt_version TEXT NOT NULL,
+  reuse_key TEXT NOT NULL,
+  request_key TEXT NOT NULL UNIQUE,
+  request_hash TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('queued','running','completed','failed','cancelled','interrupted')),
+  stage TEXT NOT NULL DEFAULT 'prepare',
+  completed_steps INTEGER NOT NULL DEFAULT 0,
+  total_steps INTEGER NOT NULL DEFAULT 0,
+  cancel_requested INTEGER NOT NULL DEFAULT 0,
+  error_code TEXT,
+  error_message TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  FOREIGN KEY(content_id,revision_id) REFERENCES content_revisions(content_id,id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_active_reuse ON reading_ai_jobs(reuse_key)
+  WHERE status IN ('queued','running');
+CREATE TABLE IF NOT EXISTS reading_ai_job_steps (
+  id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES reading_ai_jobs(id) ON DELETE CASCADE,
+  step_no INTEGER NOT NULL, input_hash TEXT NOT NULL, status TEXT NOT NULL,
+  output_text TEXT, updated_at TEXT NOT NULL, UNIQUE(job_id,step_no)
+);
+CREATE TABLE IF NOT EXISTS reading_ai_results (
+  id TEXT PRIMARY KEY, job_id TEXT NOT NULL UNIQUE REFERENCES reading_ai_jobs(id),
+  content_id TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  revision_id TEXT NOT NULL, action TEXT NOT NULL, reuse_key TEXT NOT NULL,
+  result_json TEXT NOT NULL, rendered_md TEXT NOT NULL, citations_json TEXT NOT NULL,
+  generation_meta_json TEXT NOT NULL, created_at TEXT NOT NULL,
+  FOREIGN KEY(content_id,revision_id) REFERENCES content_revisions(content_id,id)
+);
+CREATE INDEX IF NOT EXISTS idx_reading_results_content ON reading_ai_results(content_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS reading_requests (
+  request_key TEXT PRIMARY KEY, request_hash TEXT NOT NULL,
+  target_id TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reading_import_items (
+  export_id TEXT NOT NULL, record_type TEXT NOT NULL, source_id TEXT NOT NULL, target_id TEXT NOT NULL,
+  PRIMARY KEY(export_id,record_type,source_id)
+);
+CREATE VIRTUAL TABLE IF NOT EXISTS note_search USING fts5(
+  record_id UNINDEXED, record_type UNINDEXED, content_id UNINDEXED,
+  user_title, user_body, quote_text, article_title, tokenize='trigram'
+);
 
 """
 
 
-def connect() -> sqlite3.Connection:
-    library = get_library_dir()
-    (library / "app-data").mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(library / "app-data" / "library.sqlite", timeout=15)
+_schema_lock = Lock()
+_initialized_databases: set[tuple[Path, int, int]] = set()
+
+
+def connect(library: Path | None = None) -> sqlite3.Connection:
+    library = library or get_library_dir()
+    database_path = library / "app-data" / "library.sqlite"
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(database_path, timeout=15)
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
+    try:
+        connection.execute("PRAGMA foreign_keys = ON")
+        # Schema writes belong to initialization, not every read request. The
+        # inode also detects a database replaced at the same library path.
+        with _schema_lock:
+            stat = database_path.stat()
+            key = (database_path.resolve(), stat.st_dev, stat.st_ino)
+            if key not in _initialized_databases:
+                _initialize_schema(connection, library)
+                connection.commit()
+                _initialized_databases.add(key)
+        return connection
+    except Exception:
+        connection.close()
+        raise
+
+
+def _initialize_schema(connection: sqlite3.Connection, library: Path) -> None:
     connection.execute("PRAGMA journal_mode = WAL")
+    tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "contents" in tables and "content_revisions" not in tables:
+        backup_dir = library / "app-data" / "backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            backup_dir.chmod(0o700)
+        except OSError:
+            pass
+        backup_path = backup_dir / f"library-before-reading-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}.sqlite"
+        backup = sqlite3.connect(backup_path)
+        try:
+            connection.backup(backup)
+        finally:
+            backup.close()
+        try:
+            backup_path.chmod(0o600)
+        except OSError:
+            pass
     connection.executescript(SCHEMA)
+    research_columns = {row["name"] for row in connection.execute("PRAGMA table_info(research_notes)")}
+    if "revision" not in research_columns:
+        connection.execute("ALTER TABLE research_notes ADD COLUMN revision INTEGER NOT NULL DEFAULT 1")
+    topic_columns = {row["name"] for row in connection.execute("PRAGMA table_info(knowledge_topics)")}
+    if "sources_json" not in topic_columns:
+        connection.execute("ALTER TABLE knowledge_topics ADD COLUMN sources_json TEXT NOT NULL DEFAULT '[]'")
+    connection.execute("CREATE TABLE IF NOT EXISTS reading_migrations(version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL)")
+    connection.execute("INSERT OR IGNORE INTO reading_migrations(version,applied_at) VALUES(1,?)",
+                        (datetime.now(UTC).isoformat(),))
     columns = {row["name"] for row in connection.execute("PRAGMA table_info(contents)")}
     if "classification_source" not in columns:
         connection.execute("ALTER TABLE contents ADD COLUMN classification_source TEXT NOT NULL DEFAULT 'manual'")
@@ -184,12 +394,11 @@ def connect() -> sqlite3.Connection:
                 seen = job[0] if job else seen
             connection.execute("UPDATE contents SET last_synced_at=?,collected_at=? WHERE id=?", (seen, collected, row["id"]))
         connection.commit()
-    return connection
 
 
 @contextmanager
-def session() -> Iterator[sqlite3.Connection]:
-    connection = connect()
+def session(library: Path | None = None) -> Iterator[sqlite3.Connection]:
+    connection = connect(library)
     try:
         yield connection
         connection.commit()

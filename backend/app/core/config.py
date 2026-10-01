@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from threading import RLock
 
 APP_HOME = Path(os.environ.get("ZHILIB_HOME", Path.home() / ".local/share/zhihu-library"))
 CONFIG_FILE = APP_HOME / "config.json"
 _lock = RLock()
+_library_scope: ContextVar[Path | None] = ContextVar("library_scope", default=None)
+
+
+@contextmanager
+def library_scope(library: Path):
+    token = _library_scope.set(library.resolve())
+    try:
+        yield
+    finally:
+        _library_scope.reset(token)
 
 
 def _read_config() -> dict:
@@ -37,6 +49,9 @@ def _write_config(config: dict) -> None:
 
 
 def get_library_dir() -> Path:
+    scoped = _library_scope.get()
+    if scoped is not None:
+        return scoped
     override = os.environ.get("ZHILIB_LIBRARY_DIR")
     if override:
         return Path(override).expanduser().resolve()

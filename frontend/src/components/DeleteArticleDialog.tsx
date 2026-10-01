@@ -21,6 +21,7 @@ export function DeleteArticleDialog({ title, busy, error, onCancel, onConfirm }:
     <div className="delete-dialog-article"><FileText size={19} /><strong>{title}</strong></div>
     <div className="delete-dialog-details">
       <p>本地 Markdown、图片和元数据将永久删除。</p>
+      <p>这篇文章的高亮、批注、个人笔记和 AI 阅读结果也会一并删除。</p>
       <p>之后的增量和全量同步都会跳过这篇文章。</p>
       <span>知乎上的收藏会保留。</span>
     </div>

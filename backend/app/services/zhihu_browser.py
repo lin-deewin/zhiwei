@@ -89,7 +89,15 @@ class ZhihuBrowser:
             if self._playwright:
                 await self._playwright.stop()
                 self._playwright = None
-            return self.status()
+        # A standalone HTTP client may be rejected while the persistent Chrome
+        # profile remains valid. Recheck in the same browser used for login.
+        result = await self.connect(virtual_display=True)
+        if result["status"] != "unavailable":
+            result = await self.verify()
+            if result["status"] == "connected":
+                self._message = "知乎浏览器会话已恢复，可以读取收藏夹。"
+                return self.status()
+        return result
 
     async def _launch_chrome(self, executable: str, virtual_display: bool = False) -> str:
         if virtual_display:
@@ -195,6 +203,7 @@ class ZhihuBrowser:
                         profile_dir.chmod(0o700)
                     except OSError:
                         pass
+                    self._managed_profile = profile_dir
                     self._context = await self._playwright.chromium.launch_persistent_context(
                         user_data_dir=str(profile_dir),
                         headless=False,
@@ -347,6 +356,23 @@ class ZhihuBrowser:
 
     async def close(self) -> None:
         async with self._lock:
+            # Capture refreshed cookies before terminating Chrome. Disconnect
+            # deliberately bypasses this path and deletes the saved session.
+            if self._status == "connected" and self._profile and (self._managed_profile or (self._api_request and load_session())):
+                try:
+                    if self._context and self._page and not self._page.is_closed():
+                        state = await self._context.storage_state()
+                        user_agent = await self._page.evaluate("navigator.userAgent")
+                    elif self._api_request:
+                        state = await self._api_request.storage_state()
+                        saved = load_session()
+                        user_agent = str(saved.get("user_agent") or "") if saved else ""
+                    else:
+                        state = None
+                    if state is not None:
+                        save_session(self._profile, state, user_agent)
+                except (PlaywrightError, OSError, ValueError, TypeError):
+                    pass  # Keep the previous atomic snapshot if saving fails.
             await self._close_locked()
             if self._status != "connected":
                 self._status = "not_connected"

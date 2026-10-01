@@ -70,7 +70,8 @@ def test_expired_qr_session_requires_login(monkeypatch, tmp_path) -> None:
     assert not session_file.exists()
 
 
-def test_selected_folder_sync_uses_qr_session_and_saves_markdown(monkeypatch, tmp_path) -> None:
+@pytest.mark.parametrize("mode", ["full", "incremental"])
+def test_selected_folder_sync_uses_qr_session_and_saves_markdown(monkeypatch, tmp_path, mode) -> None:
     monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(tmp_path / "library"))
 
     class Account:
@@ -99,7 +100,7 @@ def test_selected_folder_sync_uses_qr_session_and_saves_markdown(monkeypatch, tm
 
     async def run():
         manager = sync_module.SyncManager()
-        job = await manager.start("full", ["101"])
+        job = await manager.start(mode, ["101"])
         assert manager._task is not None
         await manager._task
         return job["id"]
@@ -110,6 +111,13 @@ def test_selected_folder_sync_uses_qr_session_and_saves_markdown(monkeypatch, tm
         saved = db.execute("SELECT id FROM contents").fetchall()
         memberships = db.execute("SELECT folder_id FROM folder_contents").fetchall()
     assert job["status"] == "completed"
+    assert "新增文章和话题整理已完成" in job["message"]
+    with session() as db:
+        article_job = db.execute("SELECT * FROM classification_jobs").fetchone()
+        topic_job = db.execute("SELECT * FROM question_classification_jobs").fetchone()
+    assert article_job["status"] == "completed"
+    assert topic_job["status"] == "completed"
+    assert topic_job["created_at"] >= article_job["updated_at"]
     assert job["scanned"] == 1
     assert json.loads(job["folder_ids"]) == ["101"]
     assert [row["id"] for row in saved] == ["zhihu_article_123"]

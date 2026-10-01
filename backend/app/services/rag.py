@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 import threading
@@ -15,7 +17,7 @@ TITLE_WEIGHT = 2.5
 TITLE_MATCH_BONUS = 0.25
 EXPANSION_WEIGHT = 0.45
 MAX_PER_CONTENT = 2
-CHUNK_CHARS = 900
+CHUNK_CHARS = 450
 MIN_CHUNK_CHARS = 20
 
 LATIN = re.compile(r"[A-Za-z0-9_]{2,}")
@@ -79,110 +81,92 @@ def _query_weights(question: str) -> dict[str, float]:
     return weights
 
 
-class _Index:
-    """In-memory BM25 index over article paragraphs, built once and cached."""
-
-    __slots__ = (
-        "avg_len",
-        "avg_title_len",
-        "block_content",
-        "block_heading",
-        "block_len",
-        "block_postings",
-        "block_text",
-        "content_id",
-        "content_postings",
-        "content_title",
-        "content_title_len",
-        "signature",
-    )
-
-    def __init__(self) -> None:
-        self.signature: tuple = ()
-        self.content_id: list[str] = []
-        self.content_title: list[str] = []
-        self.content_title_len: list[int] = []
-        self.content_postings: dict[str, list[tuple[int, int]]] = {}
-        self.block_content: list[int] = []
-        self.block_heading: list[str] = []
-        self.block_text: list[str] = []
-        self.block_len: list[int] = []
-        self.block_postings: dict[str, list[tuple[int, int]]] = {}
-        self.avg_len = 1.0
-        self.avg_title_len = 1.0
-
-
-_INDEX: _Index | None = None
-_INDEX_LOCK = threading.Lock()
+def _records(category_id: int | None, folder_id: str | None,
+             kinds: list[str] | None = None, library: Path | None = None) -> list[dict]:
+    kinds = kinds if kinds is not None else ["article", "note", "annotation", "research", "topic"]
+    clauses, params = [], []
+    if category_id is not None:
+        clauses.append("c.category_id IN (SELECT id FROM categories WHERE id=? OR parent_id=?)")
+        params.extend([category_id, category_id])
+    if folder_id:
+        clauses.append("EXISTS (SELECT 1 FROM folder_contents fc WHERE fc.content_id=c.id AND fc.folder_id=? AND fc.source_status='active')")
+        params.append(folder_id)
+    where = " WHERE " + " AND ".join(clauses) if clauses else ""
+    records = []
+    with session(library) as db:
+        articles = db.execute(f"SELECT c.* FROM contents c{where} ORDER BY c.id", params).fetchall()
+        allowed = {row["id"]: row for row in articles}
+        if "article" in kinds:
+            library = (library or get_library_dir()).resolve()
+            for row in articles:
+                path = (library / row["markdown_path"]).resolve()
+                if not path.is_relative_to(library) or not path.is_file():
+                    continue
+                try:
+                    text = path.read_text(encoding="utf-8-sig")
+                except (OSError, UnicodeError):
+                    continue
+                records.append({"source_id": "article:" + row["id"], "content_id": row["id"],
+                                "title": row["title"], "source_type": "article", "text": text,
+                                "url": row["url"], "markdown_path": row["markdown_path"], "record_id": row["id"], "updated_at": row["updated_at"]})
+        for kind, table in (("note", "notes"), ("annotation", "annotations")):
+            if kind not in kinds:
+                continue
+            for row in db.execute(f"SELECT * FROM {table} ORDER BY id"):
+                article = allowed.get(row["content_id"])
+                if article is None:
+                    continue
+                if kind == "note":
+                    title, text = row["title"] or "个人笔记", row["body_md"]
+                else:
+                    # Orphaned anchors cannot be presented as current original text.
+                    quote = ""
+                    if row["anchor_status"] == "resolved":
+                        anchor = json.loads(row["current_anchor_json"] or row["original_anchor_json"])
+                        quote = str(anchor.get("exact") or "")
+                    title = "高亮批注"
+                    text = ("原文引用（批注保存时的快照）：" + quote + "\n\n" if quote else "") + "个人批注：" + row["comment_md"]
+                records.append({"source_id": kind + ":" + row["id"], "record_id": row["id"],
+                                "content_id": row["content_id"], "title": title,
+                                "article_title": article["title"], "source_type": kind,
+                                "text": text, "url": article["url"], "markdown_path": article["markdown_path"], "updated_at": row["updated_at"]})
+        if "research" in kinds and category_id is None and not folder_id:
+            for row in db.execute("SELECT * FROM research_notes WHERE status='saved' ORDER BY id"):
+                records.append({"source_id": "research:" + row["id"], "record_id": row["id"],
+                                "content_id": None, "title": row["title"], "source_type": "research",
+                                "text": row["body_md"], "url": None, "updated_at": row["updated_at"]})
+        if "topic" in kinds and category_id is None and not folder_id:
+            for row in db.execute("SELECT * FROM knowledge_topics ORDER BY id"):
+                records.append({"source_id": "topic:"+row["id"], "record_id": row["id"],
+                                "content_id": None, "title": row["title"], "source_type": "topic",
+                                "text": row["body_md"], "url": None, "updated_at": row["updated_at"]})
+    return records
 
 
 def _plain_text(block: str) -> str:
     plain = MARKDOWN_LINK.sub(r"\1", block)
-    plain = MARKDOWN_NOISE.sub(" ", plain)
-    return " ".join(plain.split())
+    return " ".join(MARKDOWN_NOISE.sub(" ", plain).split())
 
 
-def _build_index(library: Path, rows: list) -> tuple[_Index, float]:
-    index = _Index()
-    content_postings: dict[str, list[tuple[int, int]]] = {}
-    block_postings: dict[str, list[tuple[int, int]]] = {}
-    newest_mtime = 0.0
-    for row in rows:
-        path = (library / row["markdown_path"]).resolve()
-        if not path.is_relative_to(library) or not path.is_file():
+def _evidence_chunks(record: dict) -> list[dict]:
+    text = record["text"]
+    digest = hashlib.sha256(text.encode()).hexdigest()
+    chunks = []
+    # Split before ranking so matches late in a long paragraph are preserved.
+    for position, paragraph in enumerate(PARAGRAPH_SPLIT.split(text), start=1):
+        if not paragraph.strip() or re.fullmatch(r"#{1,6}\s+[^\n]+", paragraph.strip()):
             continue
-        try:
-            newest_mtime = max(newest_mtime, path.stat().st_mtime)
-            markdown = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        content_index = len(index.content_id)
-        index.content_id.append(row["id"])
-        index.content_title.append(row["title"])
-        title_counts = Counter(_term_list(row["title"]))
-        index.content_title_len.append(max(1, sum(title_counts.values())))
-        for term, count in title_counts.items():
-            content_postings.setdefault(term, []).append((content_index, count))
-        blocks = PARAGRAPH_SPLIT.split(CODE_FENCE.sub(" ", markdown))
-        for position, block in enumerate(blocks):
-            plain = _plain_text(block)
-            if len(plain) < MIN_CHUNK_CHARS:
+        for start in range(0, len(paragraph), CHUNK_CHARS):
+            fragment = paragraph[start:start + CHUNK_CHARS]
+            plain = _plain_text(fragment)
+            if not plain:
                 continue
-            block_counts = Counter(_term_list(plain))
-            block_index = len(index.block_len)
-            index.block_content.append(content_index)
-            index.block_heading.append(f"段落 {position + 1}")
-            index.block_text.append(plain)
-            index.block_len.append(max(1, sum(block_counts.values())))
-            for term, count in block_counts.items():
-                block_postings.setdefault(term, []).append((block_index, count))
-    index.content_postings = content_postings
-    index.block_postings = block_postings
-    index.avg_len = (sum(index.block_len) / len(index.block_len)) if index.block_len else 1.0
-    index.avg_title_len = (
-        sum(index.content_title_len) / len(index.content_title_len)
-        if index.content_title_len else 1.0
-    )
-    return index, newest_mtime
-
-
-def _ensure_index(library: Path, rows: list) -> _Index:
-    global _INDEX
-    signature_rows = [(row["id"], row["markdown_path"]) for row in rows]
-    with _INDEX_LOCK:
-        if _INDEX is not None and _INDEX.signature[0:2] == (str(library), signature_rows):
-            newest = 0.0
-            for _, relative in signature_rows:
-                try:
-                    newest = max(newest, (library / relative).stat().st_mtime)
-                except OSError:
-                    continue
-            if _INDEX.signature[2] == newest:
-                return _INDEX
-        index, newest_mtime = _build_index(library, rows)
-        index.signature = (str(library), signature_rows, newest_mtime)
-        _INDEX = index
-        return index
+            metadata = {key: value for key, value in record.items() if key != "text"}
+            chunks.append({**metadata, "text": fragment,
+                           "heading": f"段落 {position} · 片段 {start // CHUNK_CHARS + 1}",
+                           "chunk_id": f"{record['source_id']}:{digest[:16]}:{position}:{start}",
+                           "content_hash": digest, "search_text": plain})
+    return chunks
 
 
 def _bm25(postings: dict[str, list[tuple[int, int]]], lengths: list[int], average: float,
@@ -199,74 +183,71 @@ def _bm25(postings: dict[str, list[tuple[int, int]]], lengths: list[int], averag
     return scores
 
 
+_CORPUS_LOCK = threading.Lock()
+_CORPUS_SIGNATURE: tuple = ()
+_CORPUS: tuple = ()
+
+
+def _corpus(records: list[dict]) -> tuple:
+    global _CORPUS_SIGNATURE, _CORPUS
+    # Exact per-record fingerprints invalidate edits, deletions and library switches.
+    signature = tuple(hashlib.sha256(json.dumps(record, sort_keys=True, ensure_ascii=False).encode()).digest()
+                      for record in records)
+    with _CORPUS_LOCK:
+        if signature == _CORPUS_SIGNATURE and _CORPUS:
+            return _CORPUS
+        chunks = [chunk for record in records for chunk in _evidence_chunks(record)]
+        postings: dict[str, list[tuple[int, int]]] = {}
+        lengths = []
+        for i, chunk in enumerate(chunks):
+            counts = Counter(_term_list(chunk["search_text"]))
+            lengths.append(max(1, sum(counts.values())))
+            for term, count in counts.items():
+                postings.setdefault(term, []).append((i, count))
+        average = sum(lengths) / len(lengths) if lengths else 1.0
+        _CORPUS_SIGNATURE, _CORPUS = signature, (chunks, postings, lengths, average)
+        return _CORPUS
+
+
 def retrieve(question: str, category_id: int | None = None, folder_id: str | None = None,
-             limit: int = 6) -> list[dict]:
-    clauses: list[str] = []
-    params: list[object] = []
-    if category_id is not None:
-        clauses.append("c.category_id IN (SELECT id FROM categories WHERE id=? OR parent_id=?)")
-        params.extend([category_id, category_id])
-    if folder_id:
-        clauses.append("EXISTS (SELECT 1 FROM folder_contents fc WHERE fc.content_id=c.id AND fc.folder_id=? AND fc.source_status='active')")
-        params.append(folder_id)
-    where = " WHERE " + " AND ".join(clauses) if clauses else ""
-    with session() as db:
-        rows = db.execute(
-            f"SELECT c.id, c.title, c.markdown_path FROM contents c{where} ORDER BY c.id", params
-        ).fetchall()
-    if not rows:
-        return []
+             limit: int = 8, kinds: list[str] | None = None) -> list[dict]:
     weights = _query_weights(question)
     if not weights:
         return []
-    index = _ensure_index(get_library_dir().resolve(), rows)
-    allowed = {row["id"] for row in rows}
-    reachable = [content_id in allowed for content_id in index.content_id]
-    if not any(reachable):
+    chunks, postings, lengths, average = _corpus(_records(category_id, folder_id, kinds))
+    if not chunks:
         return []
-    block_totals: dict[int, float] = {}
-    title_totals: dict[int, float] = {}
+    totals: dict[int, float] = {}
     for term, weight in weights.items():
-        for position, value in _bm25(
-            index.block_postings, index.block_len, index.avg_len, len(index.block_len), term, weight
-        ).items():
-            if reachable[index.block_content[position]]:
-                block_totals[position] = block_totals.get(position, 0.0) + value
-        for position, value in _bm25(
-            index.content_postings, index.content_title_len, index.avg_title_len,
-            len(index.content_title_len), term, weight
-        ).items():
-            if reachable[position]:
-                title_totals[position] = title_totals.get(position, 0.0) + value
-    if not block_totals:
-        return []
-    lowered = question.lower()
-    scored: list[tuple[float, int]] = []
-    for position, body in block_totals.items():
-        content_index = index.block_content[position]
-        total = body + TITLE_WEIGHT * title_totals.get(content_index, 0.0)
-        title = index.content_title[content_index]
-        if title and title.lower() in lowered:
-            total += TITLE_MATCH_BONUS
-        scored.append((total, position))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    best = scored[0][0] or 1.0
-    chosen: list[dict] = []
-    per_content: dict[str, int] = {}
-    for total, position in scored:
-        content_index = index.block_content[position]
-        content_id = index.content_id[content_index]
-        count = per_content.get(content_id, 0)
-        if count >= MAX_PER_CONTENT:
+        for i, score in _bm25(postings, lengths, average, len(chunks), term, weight).items():
+            totals[i] = totals.get(i, 0) + score
+    literal = set(_term_list(question))
+    for i, chunk in enumerate(chunks):
+        title_terms = set(_term_list(chunk["title"]))
+        if literal & title_terms:
+            totals.setdefault(i, 0.0)
+    for i in totals:
+        terms = set(_term_list(chunks[i]["search_text"]))
+        coverage = len(literal & terms) / max(1, len(literal))
+        # Literal coverage limits broad synonym matches; title is a bounded bonus.
+        title_terms = set(_term_list(chunks[i]["title"]))
+        totals[i] *= 0.5 + coverage
+        totals[i] += 0.5 * len(literal & title_terms) / max(1, len(literal))
+    ranked = sorted(totals, key=lambda i: (-totals[i], chunks[i]["chunk_id"]))
+    chosen, deferred = [], []
+    counts: dict[str, int] = {}
+    seen_text = set()
+    for i in ranked:
+        chunk = chunks[i]
+        if chunk["search_text"] in seen_text:
             continue
-        chosen.append({
-            "content_id": content_id,
-            "title": index.content_title[content_index],
-            "heading": index.block_heading[position],
-            "text": index.block_text[position][:CHUNK_CHARS],
-            "score": round(total / best, 4),
-        })
-        per_content[content_id] = count + 1
-        if len(chosen) >= limit:
-            break
-    return chosen
+        key = chunk["source_id"]
+        if counts.get(key, 0) >= MAX_PER_CONTENT:
+            continue
+        seen_text.add(chunk["search_text"])
+        counts[key] = counts.get(key, 0) + 1
+        evidence = {key: value for key, value in chunk.items() if key != "search_text"}
+        evidence["score"] = round(totals[i], 4)
+        (chosen if counts[key] == 1 else deferred).append(evidence)
+    # Cover multiple records before taking second passages from the same record.
+    return (chosen + deferred)[:limit]

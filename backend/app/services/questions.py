@@ -79,6 +79,30 @@ def backfill() -> dict:
     return {"scanned": scanned, "linked": linked, "failed": failed, "questions": total, "relations": relations}
 
 
+def question_overview() -> dict:
+    """Count questions independently of article and answer relations."""
+    with session() as db:
+        counts = {row["category_id"]: row["total"] for row in db.execute(
+            "SELECT category_id,COUNT(*) total FROM questions GROUP BY category_id"
+        )}
+        categories = [dict(row) for row in db.execute(
+            "SELECT id,parent_id,name FROM categories ORDER BY sort_order,id"
+        )]
+        eligible_ids = _eligible_question_ids(db)
+        eligible_set = set(eligible_ids)
+        article_ids = {row["content_id"] for row in db.execute(
+            "SELECT question_id,content_id FROM question_contents"
+        ) if row["question_id"] in eligible_set}
+    for category in categories:
+        category["question_count"] = counts.get(category["id"], 0) + sum(
+            counts.get(child["id"], 0) for child in categories
+            if child["parent_id"] == category["id"]
+        )
+    return {"categories": categories, "total": sum(counts.values()),
+            "pending": counts.get(None, 0), "organize_questions": len(eligible_ids),
+            "organize_articles": len(article_ids)}
+
+
 def list_questions(q: str = "", category_id: int | None = None, pending_only: bool = False,
                    page: int = 1, page_size: int = 20) -> dict:
     clauses, params = [], []
@@ -169,6 +193,15 @@ def _input(db, question_id: str) -> tuple[str, str]:
     return summary, hashlib.sha256(summary.encode()).hexdigest()
 
 
+def _eligible_question_ids(db) -> list[str]:
+    ids = []
+    for row in db.execute("SELECT id,classified_input_hash FROM questions WHERE classification_locked=0"):
+        _, digest = _input(db, row["id"])
+        if row["classified_input_hash"] != digest:
+            ids.append(row["id"])
+    return ids
+
+
 class QuestionClassificationManager:
     def __init__(self):
         self.task: asyncio.Task | None = None
@@ -198,11 +231,7 @@ class QuestionClassificationManager:
                     raise ValueError("任务不能重试")
                 ids = [r[0] for r in db.execute("SELECT question_id FROM question_classification_job_items WHERE job_id=? AND status IN ('failed','pending')", (retry_job,))]
             else:
-                ids = []
-                for row in db.execute("SELECT id,classified_input_hash FROM questions WHERE classification_locked=0"):
-                    _, digest = _input(db, row["id"])
-                    if row["classified_input_hash"] != digest:
-                        ids.append(row["id"])
+                ids = _eligible_question_ids(db)
             db.execute("INSERT INTO question_classification_jobs(id,status,total,created_at,updated_at) VALUES (?,'running',?,?,?)",
                        (job_id, len(ids), timestamp, timestamp))
             db.executemany("INSERT INTO question_classification_job_items(job_id,question_id) VALUES (?,?)", [(job_id, item) for item in ids])

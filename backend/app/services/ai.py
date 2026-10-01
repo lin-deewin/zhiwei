@@ -40,6 +40,7 @@ async def _opencode_completion(config: dict, messages: list[dict[str, str]]) -> 
         process = await asyncio.create_subprocess_exec(
             executable,
             "run",
+            "--standalone",
             "--agent", "library-chat",
             "--model", config["chat_model"],
             "--format", "json",
@@ -50,14 +51,36 @@ async def _opencode_completion(config: dict, messages: list[dict[str, str]]) -> 
             cwd=str(Path.home()),
         )
         try:
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=120)
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=240)
         except TimeoutError:
             process.kill()
             await process.wait()
-            raise AIRequestError("OpenCode 请求超时") from None
+            raise AIRequestError("OpenCode 模型响应超过 240 秒，请减少所选片段或稍后重试") from None
+        except asyncio.CancelledError:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+            raise
     except OSError as error:
         raise AIRequestError("无法启动本机 OpenCode") from error
 
+    errors = []
+    for line in stdout.decode("utf-8", errors="replace").splitlines():
+        try:
+            event = json.loads(line)
+            if event.get("type") == "error":
+                errors.append(str(event.get("error", {}).get("message", "")).lower())
+        except (ValueError, AttributeError):
+            continue
+    if errors:
+        details = " ".join(errors)
+        if "agent not found" in details:
+            raise AIRequestError("OpenCode 未加载知识库专用配置，请检查命令版本与独立运行支持")
+        if any(term in details for term in ("429", "rate limit", "quota", "too many")):
+            raise AIRequestError("OpenCode 模型限流或额度不足，请稍后重试")
+        if any(term in details for term in ("401", "unauthorized", "authentication")):
+            raise AIRequestError("OpenCode 模型认证失败，请检查模型服务配置")
+        raise AIRequestError("OpenCode 模型调用失败，请检查模型是否可用或稍后重试")
     if process.returncode:
         raise AIRequestError(f"OpenCode 请求失败（退出码 {process.returncode}）")
     text_parts: list[str] = []
@@ -74,8 +97,9 @@ async def _opencode_completion(config: dict, messages: list[dict[str, str]]) -> 
     return answer
 
 
-async def chat_completion(messages: list[dict[str, str]], max_tokens: int = 1000) -> str:
-    config = get_ai_config()
+async def chat_completion(messages: list[dict[str, str]], max_tokens: int = 1000,
+                         config_override: dict | None = None) -> str:
+    config = config_override or get_ai_config()
     if not config["base_url"] or not config["chat_model"]:
         raise ValueError("AI_NOT_CONFIGURED")
     if config["base_url"] == "opencode://local":

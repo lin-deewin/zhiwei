@@ -115,3 +115,25 @@ def test_question_job_reports_non_json_model_reply(monkeypatch, tmp_path):
     assert result["failed"] == 1
     assert result["items"][0]["reason"] == "模型回复未包含 JSON 对象"
     assert get_question("123")["category_id"] is None
+
+
+def test_question_overview_counts_questions_and_child_categories(monkeypatch, tmp_path):
+    from app.services.questions import question_overview
+
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(tmp_path / "library"))
+    with session() as db:
+        db.executemany("INSERT INTO categories(id,parent_id,name,created_at) VALUES (?,?,?,'now')",
+                       [(1, None, "技术"), (2, 1, "编程"), (3, None, "生活")])
+        db.executemany("INSERT INTO questions(id,title,url,category_id,created_at,updated_at) VALUES (?,?,?,?,'now','now')",
+                       [("101", "父类问题", "https://www.zhihu.com/question/101", 1),
+                        ("102", "编程问题", "https://www.zhihu.com/question/102", 2),
+                        ("103", "待整理问题", "https://www.zhihu.com/question/103", None)])
+        db.execute("INSERT INTO contents(id,title,markdown_path,category_id,created_at,updated_at) VALUES ('article','文章','articles/article/article.md',3,'now','now')")
+    overview = question_overview()
+    counts = {item["id"]: item["question_count"] for item in overview["categories"]}
+    assert overview["total"] == 3
+    assert overview["pending"] == 1
+    assert counts == {1: 2, 2: 1, 3: 0}
+    assert list_questions(category_id=1)["total"] == counts[1]
+    assert list_questions(category_id=2)["total"] == counts[2]
+    assert list_questions(pending_only=True)["total"] == overview["pending"]

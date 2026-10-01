@@ -159,6 +159,49 @@ class SyncManager:
             return _job(job_id)
         return row
 
+    async def _organize(self, job_id: str) -> list[str]:
+        from app.services.classification import classification_manager
+        from app.services.questions import question_classification_manager
+
+        errors: list[str] = []
+        stages = (
+            ("整理新增文章", "classification_jobs", classification_manager.start),
+            ("整理话题", "question_classification_jobs", question_classification_manager.start),
+        )
+        for label, table, start in stages:
+            if self._cancel_requested:
+                break
+            _update_job(job_id, phase="organizing", message=f"同步已完成，正在{label}")
+            try:
+                # Wait for a manually started job, then include newly synced items.
+                while True:
+                    with session() as db:
+                        busy = db.execute(
+                            f"SELECT 1 FROM {table} WHERE status IN ('queued','running') LIMIT 1"
+                        ).fetchone()
+                    if not busy or self._cancel_requested:
+                        break
+                    await asyncio.sleep(0.5)
+                if self._cancel_requested:
+                    break
+                job = await start()
+                while True:
+                    with session() as db:
+                        row = db.execute(f"SELECT * FROM {table} WHERE id=?", (job["id"],)).fetchone()
+                    if not row:
+                        raise RuntimeError("整理任务不存在")
+                    if row["status"] not in {"queued", "running"}:
+                        if row["status"] != "completed" or row["failed"]:
+                            errors.append(f"{label}未全部完成，请查看整理任务")
+                        break
+                    # The child job keeps its own cancellation control.
+                    if self._cancel_requested:
+                        return errors
+                    await asyncio.sleep(0.5)
+            except Exception as error:
+                errors.append(f"{label}未完成：{type(error).__name__}")
+        return errors
+
     async def _run(self, job_id: str, mode: str, selected: list[str], source: Account) -> None:
         scanned = 0
         downloaded = 0
@@ -255,10 +298,15 @@ class SyncManager:
                         with session() as db:
                             db.execute("UPDATE folders SET scan_status='failed' WHERE id=?", (folder_id,))
                         raise
-            status = "cancelled" if self._cancel_requested else ("partial" if failed else "completed")
+            organization_errors = []
+            if not self._cancel_requested:
+                organization_errors = await self._organize(job_id)
+            status = "cancelled" if self._cancel_requested else ("partial" if failed or organization_errors else "completed")
             _update_job(job_id, status=status, phase=status, total=total, scanned=scanned,
                         downloaded=downloaded, failed=failed,
-                        message=f"扫描 {scanned} 条，保存 {downloaded} 条，跳过 {unsupported} 条，已删除 {deleted} 条，失败 {failed} 条")
+                        message=f"扫描 {scanned} 条，保存 {downloaded} 条，跳过 {unsupported} 条，已删除 {deleted} 条，失败 {failed} 条"
+                                + ("；" + "；".join(organization_errors) if organization_errors else
+                                   ("；新增文章和话题整理已完成" if status == "completed" else "")))
         except ZhihuAuthError as error:
             _update_job(job_id, status="auth_required", phase="stopped", scanned=scanned,
                         downloaded=downloaded, failed=failed, message=str(error))

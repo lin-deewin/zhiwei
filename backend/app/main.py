@@ -11,11 +11,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
 
+from app.api.knowledge_routes import router as knowledge_router
+from app.api.semantic_routes import router as semantic_router
+from app.api.graph_routes import router as graph_router
+from app.api.workspace_routes import router as workspace_router
+from app.api.markdown_routes import router as markdown_router
+from app.api.reading_routes import router as reading_router
 from app.api.routes import router
 from app.core.database import connect
 from app.services.classification import classification_manager
+from app.services.questions import backfill, question_classification_manager
+from app.services.reading_workspace import reading_ai_manager
 from app.services.sync import sync_manager
-from app.services.questions import question_classification_manager, backfill
+from app.services.semantic import semantic_manager
 from app.services.zhihu_browser import zhihu_browser
 from app.services.zhihu_login import zhihu_login
 from app.services.zhihu_qr import zhihu_qr
@@ -51,12 +59,34 @@ async def restore_browser_session() -> None:
 async def lifespan(_: FastAPI):
     db = connect()
     db.close()
+    semantic_manager.recover()
     sync_manager.recover_interrupted()
     classification_manager.recover_interrupted()
     question_classification_manager.recover_interrupted()
+    reading_ai_manager.recover()
     await asyncio.to_thread(backfill)
+    async def maintain_semantic():
+        from app.services.semantic import status
+        while True:
+            await asyncio.sleep(120)
+            try:
+                if status()["job"]:
+                    await semantic_manager.start()
+                from app.services import markdown_sync
+                if markdown_sync.configuration()["auto_sync"]:
+                    await asyncio.to_thread(markdown_sync.sync_safe)
+            except Exception:  # noqa: BLE001 - keep periodic maintenance alive without private logs
+                logger.warning("Knowledge maintenance failed; inspect index status and Markdown preview")
+    index_task = asyncio.create_task(maintain_semantic())
     restore_task = asyncio.create_task(restore_browser_session())
     yield
+    index_task.cancel()
+    try:
+        await index_task
+    except asyncio.CancelledError:
+        pass
+    await semantic_manager.shutdown()
+    await reading_ai_manager.shutdown()
     if not restore_task.done():
         restore_task.cancel()
         try:
@@ -76,6 +106,12 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-Zhilib-Login-Token"],
 )
 app.include_router(router)
+app.include_router(reading_router)
+app.include_router(knowledge_router)
+app.include_router(semantic_router)
+app.include_router(graph_router)
+app.include_router(markdown_router)
+app.include_router(workspace_router)
 
 
 @app.middleware("http")
@@ -95,6 +131,15 @@ async def local_request_guard(request: Request, call_next):
 
             return PlainTextResponse("Cross-origin request rejected", status_code=403)
     return await call_next(request)
+
+
+@app.api_route("/api/{path:path}", methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+               include_in_schema=False)
+def missing_api_route():
+    # Unknown API paths must never fall through to the SPA's index.html.
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=404, content={"detail": "接口不存在，请确认后端已更新并重启。"})
 
 
 frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"

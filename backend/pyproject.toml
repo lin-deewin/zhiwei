@@ -19,6 +19,8 @@ dependencies = [
   "qrcode[pil]>=7.4,<9",
   "beautifulsoup4>=4.12,<5",
   "markdownify>=0.13,<2",
+  "fastembed>=0.7,<1",
+  "numpy>=1.26,<3",
 ]
 
 [project.optional-dependencies]
@@ -33,3 +35,4 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

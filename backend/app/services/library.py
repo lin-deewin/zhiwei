@@ -48,6 +48,15 @@ def delete_content(content_id: str) -> bool:
         if directory.exists():
             shutil.rmtree(directory)
         db.execute("DELETE FROM content_search WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM note_search WHERE content_id=?", (content_id,))
+        db.execute("UPDATE reading_ai_jobs SET status='cancelled',stage='cancelled',cancel_requested=1,updated_at=? WHERE content_id=? AND status IN ('queued','running')",
+                   (now(), content_id))
+        db.execute("DELETE FROM reading_ai_results WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM reading_ai_jobs WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM annotations WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM notes WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM reading_content_state WHERE content_id=?", (content_id,))
+        db.execute("DELETE FROM content_revisions WHERE content_id=?", (content_id,))
         db.execute("DELETE FROM contents WHERE id=?", (content_id,))
     return True
 
