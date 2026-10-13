@@ -101,9 +101,14 @@ def _question_ref(content: dict, metadata: dict) -> dict[str, str] | None:
 
 def list_contents(q: str = "", category_id: int | None = None, folder_id: str | None = None,
                   page: int = 1, page_size: int = 20, pending_only: bool = False,
-                  sort: str = "synced") -> dict:
+                  sort: str = "synced", source: str = "all") -> dict:
     clauses: list[str] = []
     params: list[object] = []
+    if source == "local":
+        clauses.append("substr(c.id, 1, 6) = 'local_'")
+    elif source in {"answer", "article"}:
+        clauses.append("c.kind = ? AND substr(c.id, 1, 6) != 'local_'")
+        params.append(source)
     if q:
         if len(q) >= 3:
             escaped = q.replace('"', '""')

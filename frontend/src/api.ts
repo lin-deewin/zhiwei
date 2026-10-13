@@ -82,8 +82,8 @@ export const api = {
   disconnectAccount: () => request<AccountStatus>('/account/disconnect', { method: 'POST' }),
   startQrLogin: () => request<AccountStatus & { qr_data_url: string }>('/account/qr/start', { method: 'POST' }),
   pollQrLogin: () => request<AccountStatus>('/account/qr/poll', { method: 'POST' }),
-  contents: (q = '', categoryId?: number, page = 1, pendingOnly = false, pageSize = 24, sort = 'synced', signal?: AbortSignal) => {
-    const params = new URLSearchParams({ q, page: String(page), page_size: String(pageSize), sort })
+  contents: (q = '', categoryId?: number, page = 1, pendingOnly = false, pageSize = 24, sort = 'synced', signal?: AbortSignal, source = 'all') => {
+    const params = new URLSearchParams({ q, page: String(page), page_size: String(pageSize), sort, source })
     if (categoryId) params.set('category_id', String(categoryId))
     if (pendingOnly) params.set('pending_only', 'true')
     return request<PageResult>(`/contents?${params}`, { signal })

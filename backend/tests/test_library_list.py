@@ -40,3 +40,21 @@ def test_same_sync_orders_by_real_collection_time_not_download_sequence(monkeypa
             db.execute("INSERT INTO contents(id,title,markdown_path,created_at,updated_at,last_synced_at,collected_at) VALUES (?,?,?,?,?,'2026-09-30T05:00:00',?)",
                        (content_id, content_id, f'articles/{content_id}/article.md', created, created, collected))
     assert list_contents(page_size=1)['items'][0]['id'] == 'newest'
+
+
+def test_source_filter_combines_with_search_and_pagination(monkeypatch, tmp_path):
+    monkeypatch.setenv('ZHILIB_LIBRARY_DIR', str(tmp_path / 'library'))
+    with session() as db:
+        for cid, kind, title in [('local_one', 'article', '共同 A'),
+                                 ('local_two', 'article', '共同 B'),
+                                 ('zhihu_article_1', 'article', '共同 C'),
+                                 ('zhihu_answer_2', 'answer', '共同 D')]:
+            db.execute("INSERT INTO contents(id,kind,title,markdown_path,created_at,updated_at) VALUES (?,?,?,?,'2026-10-01','2026-10-01')",
+                       (cid, kind, title, f'articles/{cid}/article.md'))
+            db.execute('INSERT INTO content_search(content_id,title,body) VALUES (?,?,?)', (cid, title, title))
+    result = list_contents(q='共同', source='local', sort='title', page=2, page_size=1)
+    assert result['total'] == 2
+    assert [item['id'] for item in result['items']] == ['local_two']
+    assert [item['id'] for item in list_contents(source='article')['items']] == ['zhihu_article_1']
+    assert [item['id'] for item in list_contents(source='answer')['items']] == ['zhihu_answer_2']
+    assert list_contents(source='all')['total'] == 4

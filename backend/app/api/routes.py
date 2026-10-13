@@ -304,8 +304,9 @@ def delete_category(category_id: int, move_to: int | None = Query(default=None))
 @router.get("/contents")
 def contents(q: str = "", category_id: int | None = None, folder_id: str | None = None,
              page: int = Query(default=1, ge=1), page_size: int = Query(default=24, ge=1, le=100),
-             pending_only: bool = False, sort: Literal["synced", "title"] = "synced") -> dict:
-    return list_contents(q[:200], category_id, folder_id, page, page_size, pending_only, sort)
+             pending_only: bool = False, sort: Literal["synced", "title"] = "synced",
+             source: Literal["all", "answer", "article", "local"] = "all") -> dict:
+    return list_contents(q[:200], category_id, folder_id, page, page_size, pending_only, sort, source)
 
 
 @router.get("/contents/{content_id}")

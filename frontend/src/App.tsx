@@ -85,6 +85,7 @@ function App() {
         <span className="brand-mark"><Bookmark size={19} fill="currentColor" /></span>
         <span><strong>知微</strong><small>个人知识库</small></span>
       </Link>
+      <div className="sidebar-scroll">
       <div className="side-caption">工作区</div>
       <nav className="primary-nav">
         <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
@@ -122,6 +123,7 @@ function App() {
           <span>待整理</span><small aria-label={pendingCount === null ? '待整理数量暂不可用' : `${pendingCount} 篇待整理文章`}>{pendingCount ?? '—'}</small>
         </button>
       </nav>
+      </div>
       <div className="sidebar-bottom">
         <div className="storage-card">
           <div className="storage-icon"><FolderOpen size={17} /></div>
@@ -133,7 +135,7 @@ function App() {
     </aside>
     <main className="main-area">
       <WorkspaceTabs>{(href) => <Routes location={href}>
-          <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} onLibraryChanged={reload} />} />
+          <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
           <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
@@ -143,7 +145,7 @@ function App() {
           <Route path="/ask" element={<KnowledgePage categories={categories} />} />
           <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
           <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
-          <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onConnect={connectZhihu} onLibraryChanged={reload} />} />
+          <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
         </Routes>}</WorkspaceTabs>
     </main>
     {notice && <div className={notice.error ? 'toast toast-error' : 'toast'}><span>{notice.error ? <CircleHelp size={17} /> : <Check size={17} />}</span>{notice.message}<button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div>}
@@ -155,9 +157,9 @@ function shortenPath(path: string) {
   return home.length > 28 ? `…${home.slice(-26)}` : home
 }
 
-function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onConnect, onLibraryChanged }: {
+function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onLibraryChanged }: {
   search: string; categories: Category[]; refresh: number; onSearchChange: (search: string) => void; onImport: (file?: File) => void;
-  onNotice: (notice: Notice) => void; onConnect: () => Promise<void>; onLibraryChanged: () => void
+  onNotice: (notice: Notice) => void; onLibraryChanged: () => void
 }) {
   const [items, setItems] = useState<Content[]>([])
   const [total, setTotal] = useState(0)
@@ -166,6 +168,7 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
   const [category, setCategory] = useState<number | undefined>()
   const [categoryFromUrl, setCategoryFromUrl] = useState(false)
   const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [source, setSource] = useState('all')
   const [sort, setSort] = useState('synced')
   const [pageSize, setPageSize] = useState(24)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -186,13 +189,13 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
     let active = true
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      api.contents(search, pendingOnly ? undefined : category, page, pendingOnly, pageSize, sort, controller.signal).then((data) => {
+      api.contents(search, pendingOnly ? undefined : category, page, pendingOnly, pageSize, sort, controller.signal, source).then((data) => {
         if (active) { setItems(data.items); setTotal(data.total) }
       }).catch((e) => { if (active) onNotice({ message: e.message, error: true }) }).finally(() => { if (active) setLoading(false) })
     }, search ? 250 : 0)
     return () => { active = false; window.clearTimeout(timer); controller.abort() }
-  }, [search, category, pendingOnly, page, pageSize, sort, refresh])
-  useEffect(() => { setPage(1) }, [search, category, pendingOnly, sort, pageSize])
+  }, [search, category, pendingOnly, page, pageSize, sort, source, refresh])
+  useEffect(() => { setPage(1) }, [search, category, pendingOnly, sort, pageSize, source])
 
   const currentCategory = categories.find((item) => item.id === category)
   const title = search ? '搜索结果' : pendingOnly ? '待整理' : currentCategory?.name || '全部文章'
@@ -217,11 +220,11 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
 
   return <div className="library-page">
     {deleteTarget && <DeleteArticleDialog title={deleteTarget.title} busy={deletingId !== null} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => { void removeArticle(deleteTarget) }} />}
-    <section className="library-intro">
-      <div><h1>收藏好文章，慢慢读。</h1><p>你的本地阅读收藏</p></div>
-      <div className="library-intro-actions"><button className="button button-primary" onClick={() => document.getElementById('md-upload')?.click()}><Plus size={17} /> 导入 Markdown</button><button className="button button-soft" onClick={onConnect}><ArrowDownToLine size={16} /> 连接知乎</button><input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} /></div>
-    </section>
+    <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} />
+    <div className="library-search-row">
+      <label className="library-source-filter"><span>来源</span><select aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}><option value="all">全部来源</option><option value="answer">知乎问答</option><option value="article">知乎文章</option><option value="local">本地导入</option></select></label>
     <label className="library-search"><Search size={18} /><input aria-label="搜索文章库" placeholder="搜索文章标题或正文…" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} />{search && <button aria-label="清空文章搜索" onClick={() => onSearchChange('')}><X size={16} /></button>}</label>
+    </div>
     <div className="library-toolbar"><div className="section-heading"><div><h2>{title}</h2><p>{search ? `包含「${search}」的文章` : '你的私人阅读收藏'}</p></div><span className="article-total"><strong>{total}</strong> 篇</span></div>
       <div className="toolbar-controls"><label className="select-wrap"><span>排序</span><select value={sort} onChange={(e) => setSort(e.target.value)}><option value="synced">最后同步时间</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label><span className="control-divider" /><div className="view-toggle"><button aria-label="卡片视图" className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label="列表视图" className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button></div></div>
     </div>

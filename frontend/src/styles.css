@@ -468,3 +468,9 @@
 .workspace-context-menu>button{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border:0;border-radius:5px;background:transparent;color:#55675a;text-align:left;font-size:12px}
 .workspace-context-menu>button:hover,.workspace-context-menu>button:focus-visible{background:var(--green-pale);color:var(--green-dark)}
 .workspace-context-menu>button:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
+
+.library-search-row{display:flex;align-items:stretch;gap:12px;margin-bottom:18px}.library-search-row .library-search{flex:1;margin-bottom:0}.library-source-filter{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #dde5dc;border-radius:8px;background:#fff;color:#748177;font-size:13px}.library-source-filter select{border:0;background:transparent;color:#46544b;font:inherit;max-width:100%}.library-source-filter:focus-within{border-color:#76997c}@media(max-width:600px){.library-search-row{flex-direction:column}.library-source-filter select{flex:1}}
+
+.sidebar .brand{flex-shrink:0}.sidebar-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;padding-bottom:12px}.sidebar-bottom{flex-shrink:0;padding-top:12px}.profile-copy{min-width:0}.profile-copy strong,.profile-copy span{overflow-wrap:anywhere}.profile-row .avatar,.profile-row>.muted-icon,.storage-icon{flex-shrink:0}
+
+.sidebar .category-nav{gap:1px}.sidebar .category-link{padding:4px 11px;font-size:11px;line-height:1.4;gap:8px}.sidebar .category-link small{font-size:9px}.sidebar .category-dot{width:6px;height:6px;flex-shrink:0}
