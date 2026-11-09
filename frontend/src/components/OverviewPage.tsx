@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, FileText, RefreshCw, Sparkles, Tags } from 'lucide-react'
 import { api } from '../api'
 import type { Category, Content, LibrarySettings, SyncJob } from '../types'
+import { PageHeader } from '../design-system/PageHeader'
 
 type Props = { categories: Category[]; settings: LibrarySettings | null; pendingCount: number | null; refresh: number }
 const fmt = (value?: string) => { const date = new Date(value || ''); return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) }
@@ -28,10 +29,15 @@ export function OverviewPage({ categories, settings, pendingCount, refresh }: Pr
   const parents = categories.filter((item) => !item.parent_id)
   const latest = jobs[0]
   return <div className="zv-overview">
-    <div className="page-header">
-      <div><div className="page-eyebrow">YOUR KNOWLEDGE · PERSONAL SPACE</div><h1>让知识，慢慢生长。</h1><p className="subtitle">整理你收藏的好内容，把灵感变成可以持续积累的认知。</p></div>
-      <div className="header-actions"><Link className="btn" to="/sync"><RefreshCw size={15} /> 同步收藏</Link><Link className="btn primary" to="/library">打开文章库 <ArrowRight size={14} /></Link></div>
-    </div>
+    <PageHeader
+      eyebrow="YOUR KNOWLEDGE · PERSONAL SPACE"
+      title="让知识，慢慢生长。"
+      description="整理你收藏的好内容，把灵感变成可以持续积累的认知。"
+      actions={<>
+        <Link className="btn" to="/sync"><RefreshCw size={15} /> 同步收藏</Link>
+        <Link className="btn primary" to="/library">打开文章库 <ArrowRight size={14} /></Link>
+      </>}
+    />
     {error && <p className="zv-alert" role="alert">{error}</p>}
     <div className="stats">
       <Link className="panel stat" to="/library"><div className="metric-label"><BookOpen size={16} /> 收录文章</div><strong>{settings?.content_count ?? '—'}</strong><small>保存在本地的文章</small></Link>

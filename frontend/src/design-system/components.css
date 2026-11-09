@@ -168,7 +168,7 @@ body.dark .zv-app .category-overflow-menu{background:var(--surface);border-color
 .zv-app .knowledge-page .knowledge-controls h2{font-size:15px}
 .zv-app .research-query-card{display:grid;gap:14px;max-width:900px}
 .zv-app .research-query-card .knowledge-question{display:grid;gap:8px;font-size:12px;font-weight:650;color:var(--text2)}
-.zv-app .research-query-card .knowledge-question textarea{width:100%;min-height:118px;resize:vertical;border:1px solid var(--line-strong);border-radius:10px;padding:14px;background:var(--surface-soft);color:var(--text);font:13px/1.8 inherit;outline:none}
+.zv-app .research-query-card .knowledge-question textarea{width:100%;min-height:118px;resize:vertical;border:1px solid var(--line-strong);border-radius:10px;padding:14px;background:var(--surface-soft);color:var(--text);font:inherit;font-size:13px;line-height:1.8;outline:none}
 .zv-app .research-query-card .knowledge-question textarea:focus{border-color:#8bb49c;box-shadow:0 0 0 3px #d7e9dd77}
 .zv-app .research-query-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .zv-app .research-query-card>small{font-size:10px;color:var(--muted);line-height:1.7}
@@ -226,3 +226,12 @@ body.dark .zv-app .research-query-card .knowledge-question textarea{background:v
  .zv-app .question-detail-meta select{width:100%}
  .zv-app .question-detail-attach{grid-template-columns:1fr}
 }
+
+/* Shared page header spacing is consistent from overview to detail routes. */
+.zv-app .page-header-actions .header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.zv-app .page-header-actions .btn{flex:0 0 auto}
+.zv-app .page-header-meta{align-self:flex-start;padding-top:5px}
+.zv-app .overview-page .page-header{margin-bottom:28px}
+.zv-app .ui-library .page-header{margin-bottom:26px}
+.zv-app .question-detail .page-header{margin-bottom:20px}
+body.dark .zv-app .question-detail-meta{background:var(--surface)}

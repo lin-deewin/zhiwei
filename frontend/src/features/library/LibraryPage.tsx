@@ -7,6 +7,7 @@ import { Pagination } from '../../components/Pagination'
 import { DeleteArticleDialog } from '../../components/DeleteArticleDialog'
 import type { Notice } from '../../app/types'
 import { formatDate } from '../../shared/formatDate'
+import { PageHeader } from '../../design-system/PageHeader'
 
 export function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onLibraryChanged }: {
   search: string; categories: Category[]; refresh: number; onSearchChange: (search: string) => void; onImport: (file?: File) => void;
@@ -72,13 +73,15 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
   return <div className="library-page ui-library">
     {deleteTarget && <DeleteArticleDialog title={deleteTarget.title} busy={deletingId !== null} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => { void removeArticle(deleteTarget) }} />}
     <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(event) => { onImport(event.target.files?.[0]); event.currentTarget.value = '' }} />
-    <div className="page-header">
-      <div><div className="page-eyebrow">MY LIBRARY</div><h1>{title === '全部文章' ? '文章库' : title}</h1><p className="subtitle">集中阅读、检索和管理你的收藏内容。</p></div>
-      <div className="header-actions">
-        <button className="btn" onClick={() => document.getElementById('md-upload')?.click()}><Upload size={15} /> 导入 Markdown</button>
+    <PageHeader
+      eyebrow="MY LIBRARY"
+      title={title === '全部文章' ? '文章库' : title}
+      description="集中阅读、检索和管理你的收藏内容。"
+      actions={<>
+        <button className="btn" type="button" onClick={() => document.getElementById('md-upload')?.click()}><Upload size={15} /> 导入 Markdown</button>
         <Link className="btn primary" to="/sync"><ArrowDownToLine size={15} /> 同步知乎</Link>
-      </div>
-    </div>
+      </>}
+    />
     <div className="toolbar">
       <div className="filters">
         <label className="filter-input"><Search size={15} /><input aria-label="搜索文章或主题" type="search" placeholder="搜索文章、主题、关键词" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} /></label>
