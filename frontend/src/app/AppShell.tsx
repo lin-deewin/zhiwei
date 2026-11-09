@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { Layers, Menu, Moon, MoreHorizontal, Search, Sun, type LucideIcon } from 'lucide-react'
+import { Bookmark, Menu, Moon, MoreHorizontal, Search, Sun, type LucideIcon } from 'lucide-react'
 import { IconButton } from '../design-system/Button'
 
 export type AppNavItem = {
@@ -49,7 +49,7 @@ export function AppShell({
     />
     <aside className={'sidebar' + (mobileOpen ? ' open' : '')} aria-label="主导航">
       <Link className="brand" to="/" onClick={() => onMobileOpenChange(false)}>
-        <span className="brand-logo"><Layers size={20} /></span>
+        <span className="brand-logo"><Bookmark size={20} /></span>
         <span className="brand-word">知微<small>Knowledge, thoughtfully.</small></span>
       </Link>
 
