@@ -100,3 +100,31 @@ html,body,#root{min-height:100%}
 @media(max-width:1180px){.zv-app .reader-layout{grid-template-columns:minmax(0,1fr) 250px}.zv-app .ui-library .table-row,.zv-app .ui-library .table-head{grid-template-columns:minmax(200px,1fr) 104px 82px 76px 28px}}
 @media(max-width:900px){.zv-app .reader-layout{display:block}.zv-app .reader-aside{position:static;max-height:none;margin-top:18px}.zv-app .topbar{padding:0 17px}.zv-app .status-line{display:none}}
 @media(max-width:768px){.zv-app .main-area{margin-left:0}.zv-app .workspace{padding:21px 16px 48px}.zv-app .ui-library .table-head{display:none}.zv-app .ui-library .table-row{grid-template-columns:minmax(0,1fr) 30px;gap:6px;padding:16px}.zv-app .ui-library .table-row>div:nth-child(2),.zv-app .ui-library .table-row>span{display:none}.zv-app .ui-library .toolbar{flex-direction:column;align-items:stretch}.zv-app .ui-library .filters{width:100%;flex-wrap:wrap}.zv-app .ui-library .filter-input{min-width:0;flex:1}.zv-app .page-title-row{flex-wrap:wrap}}
+
+
+/* V1.1 application-wide layout corrections.
+   Keep the approved prototype's restrained hierarchy while preventing route tabs
+   from competing with the persistent sidebar navigation. */
+.zv-app .main-area{min-width:0}
+.zv-app .workspace{width:100%;max-width:1320px;margin:0 auto;padding:34px 42px 72px}
+.zv-app .page-content,.zv-app .subpage{width:100%;max-width:none;min-width:0}
+.zv-app .page-header{align-items:flex-start}
+.zv-app .page-header-actions{gap:8px}
+.zv-app .question-topic-filter{gap:7px;margin-bottom:22px}
+.zv-app .question-topic-filter .chip{min-height:31px;padding:6px 11px}
+.zv-app .question-card-list{grid-template-columns:minmax(0,1fr);gap:10px}
+.zv-app .question-card{min-height:88px;padding:16px 18px}
+.zv-app .question-card-copy h3{overflow-wrap:anywhere}
+.zv-app .question-card-action{padding-left:12px}
+.zv-app .question-results-heading{margin-top:2px}
+.zv-app .question-filters .filter-input{width:min(420px,100%)}
+.zv-app .workspace-tabbar:not(.zv-tabs-visible){display:none!important}
+.zv-app .workspace-tabbar.zv-tabs-visible{position:sticky;top:64px;z-index:15}
+@media(max-width:760px){
+  .zv-app .workspace{padding:25px 18px 56px}
+  .zv-app .page-header{display:flex;flex-direction:column;gap:14px}
+  .zv-app .page-header-actions{justify-content:flex-start}
+  .zv-app .question-card{align-items:flex-start}
+  .zv-app .question-card-action{font-size:0;padding-left:4px}
+  .zv-app .question-card-action svg{width:17px;height:17px}
+}
