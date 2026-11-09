@@ -110,7 +110,7 @@ function App() {
       { href: '/knowledge', title: '知识空间', icon: Network },
       { href: '/ask', title: 'AI 研究', icon: Sparkles },
     ] },
-    { heading: '', items: [
+    { heading: '工具与偏好', items: [
       { href: '/sync', title: '同步中心', icon: ArrowDownToLine },
       { href: '/settings', title: '偏好设置', icon: Settings2 },
     ] },
