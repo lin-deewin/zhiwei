@@ -3,14 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDownToLine, BookOpen, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
 
 const pages = {
-  '/': { title: '文章库', icon: LayoutGrid },
+  '/': { title: '概览', icon: LayoutGrid },
+  '/library': { title: '文章库', icon: BookOpen },
   '/questions': { title: '话题汇总', icon: CircleHelp },
-  '/categories': { title: '主题分类', icon: Tags },
-  '/ask': { title: '知识问答', icon: Sparkles },
+  '/categories': { title: '主题目录', icon: Tags },
+  '/ask': { title: 'AI 研究', icon: Sparkles },
   '/knowledge': { title: '知识空间', icon: BookOpen },
   '/notes': { title: '我的笔记', icon: FileText },
   '/sync': { title: '同步中心', icon: ArrowDownToLine },
-  '/settings': { title: '设置', icon: Settings2 },
+  '/settings': { title: '偏好设置', icon: Settings2 },
 }
 type WorkspaceTab = { key: string; href: string; title?: string; revision?: number }
 const ActiveContext = createContext(true)
@@ -156,8 +157,9 @@ export function WorkspaceTabs({ children }: { children: (href: string) => ReactN
     if (next !== undefined) { event.preventDefault(); select(visibleTabs[next], true) }
     if (event.key === 'Delete' && key !== '/') { event.preventDefault(); close(key) }
   }
+  const showWorkTabs = visibleTabs.filter((tab) => tab.key.startsWith('/read/') || /^\/questions\/[^/]+$/.test(tab.key)).length >= 2
   return <>
-    <div className="workspace-tabbar">
+    <div className={'workspace-tabbar' + (showWorkTabs ? ' zv-tabs-visible' : '')}>
       <button className="workspace-scroll" aria-label="向左滚动标签" onClick={() => strip.current?.scrollBy({ left: -240, behavior: 'smooth' })}><ChevronLeft size={15} /></button>
       <div className="workspace-tabstrip" ref={strip} role="tablist" aria-label="工作区页面">
         {visibleTabs.map((tab) => {

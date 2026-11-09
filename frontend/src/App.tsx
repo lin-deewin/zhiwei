@@ -10,6 +10,7 @@ import {
   ChevronRight, CircleHelp, Clock3, FileText, FolderOpen, Hash,
   LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Sparkles, Tags,
   Trash2, Upload, X,
+  Home, Layers, Menu, Moon, Sun, Network,
 } from 'lucide-react'
 import { api } from './api'
 import type { AccountStatus } from './api'
@@ -22,6 +23,7 @@ import { NotesPage, ReaderWorkspace } from './components/ReaderWorkspace'
 import { KnowledgePage } from './components/KnowledgePage'
 import { WorkspaceTabs, useWorkspaceTitle } from './components/WorkspaceTabs'
 import { KnowledgeHub } from './components/KnowledgeHub'
+import { OverviewPage } from './components/OverviewPage'
 
 type Notice = { message: string; error?: boolean } | null
 
@@ -32,17 +34,22 @@ function App() {
   const [pendingCount, setPendingCount] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [refresh, setRefresh] = useState(0)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
+  const [commandQuery, setCommandQuery] = useState('')
+  const [quickResults, setQuickResults] = useState<Content[]>([])
+  const [dark, setDark] = useState(() => window.localStorage.getItem('zhiwei-theme') === 'dark')
   const navigate = useNavigate()
+  const location = useLocation()
 
   const reload = useCallback(() => setRefresh((value) => value + 1), [])
   useEffect(() => {
-    api.categories().then(setCategories).catch((e) => setNotice({ message: e.message, error: true }))
+    api.categories().then(setCategories).catch((error) => setNotice({ message: error.message, error: true }))
     api.settings().then(setSettings).catch(() => undefined)
   }, [refresh])
   useEffect(() => {
     const controller = new AbortController()
     setPendingCount(null)
-    // Match the pending article list exactly, including manually locked unclassified articles.
     api.contents('', undefined, 1, true, 1, 'synced', controller.signal)
       .then((result) => { if (!controller.signal.aborted) setPendingCount(result.total) })
       .catch(() => { if (!controller.signal.aborted) setPendingCount(null) })
@@ -53,102 +60,152 @@ function App() {
     const timer = window.setTimeout(() => setNotice(null), 4200)
     return () => window.clearTimeout(timer)
   }, [notice])
+  useEffect(() => {
+    document.body.classList.toggle('dark', dark)
+    window.localStorage.setItem('zhiwei-theme', dark ? 'dark' : 'light')
+    return () => { document.body.classList.remove('dark') }
+  }, [dark])
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setCommandOpen((open) => !open)
+      }
+      if (event.key === 'Escape') { setCommandOpen(false); setMobileOpen(false) }
+    }
+    document.addEventListener('keydown', key)
+    return () => document.removeEventListener('keydown', key)
+  }, [])
+  useEffect(() => { setMobileOpen(false) }, [location.pathname])
+  useEffect(() => {
+    if (!commandOpen || !commandQuery.trim()) { setQuickResults([]); return }
+    let active = true
+    const timer = window.setTimeout(() => {
+      api.contents(commandQuery.trim(), undefined, 1, false, 5, 'synced')
+        .then((result) => { if (active) setQuickResults(result.items) })
+        .catch(() => { if (active) setQuickResults([]) })
+    }, 200)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [commandOpen, commandQuery])
 
   const importFile = async (file?: File) => {
     if (!file) return
     try {
       const item = await api.importMarkdown(file)
-      setNotice({ message: `已导入「${item.title}」` })
+      setNotice({ message: '已导入「' + item.title + '」' })
       reload()
-      navigate(`/read/${encodeURIComponent(item.id)}`)
-    } catch (e) {
-      setNotice({ message: (e as Error).message, error: true })
+      navigate('/read/' + encodeURIComponent(item.id))
+    } catch (error) {
+      setNotice({ message: (error as Error).message, error: true })
     }
   }
-
   const sync = async (mode: 'full' | 'incremental', folderIds: string[]) => {
     try {
       await api.startSync(mode, folderIds)
       setNotice({ message: '同步任务已启动，进度会在同步中心更新。' })
-    } catch (e) {
-      setNotice({ message: (e as Error).message, error: true })
+    } catch (error) {
+      setNotice({ message: (error as Error).message, error: true })
     }
   }
-
-  const connectZhihu = async () => {
-    navigate('/sync')
+  const navigateTo = (path: string) => {
+    navigate(path)
+    setCommandOpen(false)
+    setMobileOpen(false)
   }
-
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <Link to="/" className="brand">
-        <span className="brand-mark"><Bookmark size={19} fill="currentColor" /></span>
-        <span><strong>知微</strong><small>个人知识库</small></span>
+  const navGroups = [
+    { heading: '我的工作台', items: [
+      { href: '/', title: '概览', icon: Home },
+      { href: '/library', title: '文章库', icon: BookOpen },
+      { href: '/questions', title: '话题汇总', icon: CircleHelp },
+      { href: '/notes', title: '我的笔记', icon: FileText },
+    ] },
+    { heading: '知识探索', items: [
+      { href: '/categories', title: '主题目录', icon: Tags },
+      { href: '/knowledge', title: '知识空间', icon: Network },
+      { href: '/ask', title: 'AI 研究', icon: Sparkles },
+    ] },
+    { heading: '', items: [
+      { href: '/sync', title: '同步中心', icon: ArrowDownToLine },
+      { href: '/settings', title: '偏好设置', icon: Settings2 },
+    ] },
+  ]
+  const pageTitles: Record<string, string> = {
+    '/': '概览', '/library': '文章库', '/questions': '话题汇总',
+    '/notes': '我的笔记', '/categories': '主题目录', '/knowledge': '知识空间',
+    '/ask': 'AI 研究', '/sync': '同步中心', '/settings': '偏好设置',
+  }
+  const pageTitle = location.pathname.startsWith('/read/') ? '阅读文章'
+    : location.pathname.startsWith('/questions/') ? '话题详情'
+    : pageTitles[location.pathname] || '我的知识空间'
+  return <div className="app zv-app">
+    <button className={'sidebar-scrim' + (mobileOpen ? ' open' : '')} type="button" aria-label="关闭侧边菜单" onClick={() => setMobileOpen(false)} />
+    <aside className={'sidebar' + (mobileOpen ? ' open' : '')} aria-label="主导航">
+      <Link className="brand" to="/" onClick={() => setMobileOpen(false)}>
+        <span className="brand-logo"><Layers size={20} /></span>
+        <span className="brand-word">知微<small>Knowledge, thoughtfully.</small></span>
       </Link>
-      <div className="sidebar-scroll">
-      <div className="side-caption">工作区</div>
-      <nav className="primary-nav">
-        <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <LayoutGrid size={17} /> <span>文章库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
-        </NavLink>
-        <NavLink to="/questions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <CircleHelp size={17} /><span>话题汇总</span>
-        </NavLink>
-        <NavLink to="/categories" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <Tags size={17} /><span>主题分类</span>
-        </NavLink>
-        <NavLink to="/ask" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <Sparkles size={17} /><span>知识问答</span><span className="soon-dot" />
-        </NavLink>
-        <NavLink to="/knowledge" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}><BookOpen size={17} /><span>知识空间</span></NavLink>
-        <NavLink to="/notes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <FileText size={17} /><span>我的笔记</span>
-        </NavLink>
-        <NavLink to="/sync" aria-label="同步中心" title="同步中心" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <ArrowDownToLine size={17} /><span>同步中心</span>
-        </NavLink>
+      <nav className="sidebar-content" aria-label="知识工作台导航">
+        {navGroups.map((group, groupIndex) => <div key={groupIndex}>
+          {group.heading ? <div className="nav-heading">{group.heading}</div> : <div className="nav-separator" />}
+          {group.items.map((item) => {
+            const Icon = item.icon
+            return <NavLink key={item.href} to={item.href} end={item.href === '/' || item.href === '/library'}
+              className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
+              <Icon size={17} /><span>{item.title}</span>{item.href === '/library' && <em>{settings?.content_count ?? '—'}</em>}
+            </NavLink>
+          })}
+        </div>)}
       </nav>
-      <div className="side-caption side-caption-row"><span>我的主题</span><button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button></div>
-      <nav className="category-nav">
-        {categories.filter((item) => !item.parent_id).slice(0, 7).map((item, index) => {
-          const colors = ['#db8f62', '#6d9e8b', '#8c82bc', '#c39b4e', '#6484aa', '#bd7181', '#728c62']
-          return <button key={item.id} className="category-link" onClick={() => navigate(`/?category=${item.id}`)}>
-            <span className="category-dot" style={{ background: colors[index % colors.length] }} />
-            <span>{item.name}</span><small>{item.article_count}</small>
-          </button>
-        })}
-        {categories.length === 0 && <button className="category-empty" onClick={() => navigate('/categories')}>创建你的第一个主题</button>}
-        <button className="category-link" onClick={() => navigate('/?pending=1')}>
-          <span className="category-dot" style={{ background: '#a98e79' }} />
-          <span>待整理</span><small aria-label={pendingCount === null ? '待整理数量暂不可用' : `${pendingCount} 篇待整理文章`}>{pendingCount ?? '—'}</small>
-        </button>
-      </nav>
-      </div>
-      <div className="sidebar-bottom">
-        <div className="storage-card">
-          <div className="storage-icon"><FolderOpen size={17} /></div>
-          <div className="storage-info"><strong>本地资料库</strong><span>{settings?.library_dir ? shortenPath(settings.library_dir) : '正在读取目录…'}</span></div>
-          <button className="icon-button tiny" aria-label="设置资料目录" onClick={() => navigate('/settings')}><Settings2 size={15} /></button>
-        </div>
-        <div className="profile-row"><div className="avatar">知</div><div className="profile-copy"><strong>本地空间</strong><span>离线优先 · 私人使用</span></div><MoreHorizontal size={18} className="muted-icon" /></div>
-      </div>
+      <div className="sidebar-foot"><Link to="/settings" className="account-row" onClick={() => setMobileOpen(false)}>
+        <span className="account-avatar">知</span>
+        <span><b>我的知识空间</b><small>{settings?.library_dir ? shortenPath(settings.library_dir) : '本地优先 · 个人资料库'}</small></span>
+        <MoreHorizontal size={17} />
+      </Link></div>
     </aside>
-    <main className="main-area">
-      <WorkspaceTabs>{(href) => <Routes location={href}>
-          <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
+    <div className="main main-area">
+      <header className="topbar">
+        <div className="crumbs">
+          <button className="icon-btn mobile-menu" type="button" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={20} /></button>
+          <span>个人空间</span><span className="slash">/</span><strong>{pageTitle}</strong>
+        </div>
+        <div className="top-actions">
+          <button className="global-search-button" type="button" onClick={() => { setCommandOpen(true); setCommandQuery('') }} aria-label="全局搜索"><Search size={15} /><span>搜索任何内容...</span><kbd>⌘ K</kbd></button>
+          <span className="status-line"><i className="status-dot" /> {settings ? '本地就绪' : '正在连接'}</span>
+          <button className="icon-btn" type="button" onClick={() => setDark((value) => !value)} aria-label={dark ? '切换为浅色模式' : '切换为深色模式'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
+        </div>
+      </header>
+      <main className="workspace">
+        <WorkspaceTabs>{(href) => <Routes location={href}>
+          <Route path="/" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
+          <Route path="/library" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
           <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
           <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
           <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
-          <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(s) => { setSettings(s); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={connectZhihu} />} />
+          <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={() => { navigate('/sync') }} />} />
           <Route path="/ask" element={<KnowledgePage categories={categories} />} />
           <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
           <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
-          <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
+          <Route path="*" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
         </Routes>}</WorkspaceTabs>
-    </main>
-    {notice && <div className={notice.error ? 'toast toast-error' : 'toast'}><span>{notice.error ? <CircleHelp size={17} /> : <Check size={17} />}</span>{notice.message}<button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div>}
+      </main>
+    </div>
+    {commandOpen && <div className="zv-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandOpen(false) }}>
+      <div className="zv-command" role="dialog" aria-modal="true" aria-label="快速搜索">
+        <div className="zv-command-search"><Search size={20} /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="搜索页面、文章或功能..." /></div>
+        <div className="zv-command-results">
+          <div className="zv-command-heading">快速导航</div>
+          {navGroups.flatMap((group) => group.items).filter((item) => !commandQuery || item.title.includes(commandQuery)).map((item) => {
+            const Icon = item.icon
+            return <button key={item.href} onClick={() => navigateTo(item.href)}><Icon size={16} /><span>{item.title}</span><ArrowRight size={14} /></button>
+          })}
+          {quickResults.length > 0 && <div className="zv-command-heading">文章</div>}
+          {quickResults.map((item) => <button key={item.id} onClick={() => navigateTo('/read/' + encodeURIComponent(item.id))}><BookOpen size={16} /><span>{item.title}</span><ArrowRight size={14} /></button>)}
+        </div><div className="zv-command-footer">点击打开 · Esc 关闭 · ⌘ K 快速检索</div>
+      </div>
+    </div>}
+    {notice && <div className={'zv-toast' + (notice.error ? ' zv-error' : '')} role="status"><Check size={16} /><span>{notice.message}</span><button aria-label="关闭提示" onClick={() => setNotice(null)}><X size={15} /></button></div>}
   </div>
 }
 
@@ -167,7 +224,7 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
   const [page, setPage] = useState(1)
   const [category, setCategory] = useState<number | undefined>()
   const [categoryFromUrl, setCategoryFromUrl] = useState(false)
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [view, setView] = useState<'grid' | 'list'>(() => window.localStorage.getItem('zhiwei-library-view') === 'grid' ? 'grid' : 'list')
   const [source, setSource] = useState('all')
   const [sort, setSort] = useState('synced')
   const [pageSize, setPageSize] = useState(24)
@@ -218,21 +275,68 @@ function LibraryPage({ search, categories, refresh, onSearchChange, onImport, on
   }
   const visibleItems = items
 
-  return <div className="library-page">
+  return <div className="library-page ui-library">
     {deleteTarget && <DeleteArticleDialog title={deleteTarget.title} busy={deletingId !== null} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => { void removeArticle(deleteTarget) }} />}
-    <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} />
-    <div className="library-search-row">
-      <label className="library-source-filter"><span>来源</span><select aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}><option value="all">全部来源</option><option value="answer">知乎问答</option><option value="article">知乎文章</option><option value="local">本地导入</option></select></label>
-    <label className="library-search"><Search size={18} /><input aria-label="搜索文章库" placeholder="搜索文章标题或正文…" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} />{search && <button aria-label="清空文章搜索" onClick={() => onSearchChange('')}><X size={16} /></button>}</label>
+    <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(event) => { onImport(event.target.files?.[0]); event.currentTarget.value = '' }} />
+    <div className="page-header">
+      <div><div className="page-eyebrow">MY LIBRARY</div><h1>{title === '全部文章' ? '文章库' : title}</h1><p className="subtitle">集中阅读、检索和管理你的收藏内容。</p></div>
+      <div className="header-actions">
+        <button className="btn" onClick={() => document.getElementById('md-upload')?.click()}><Upload size={15} /> 导入 Markdown</button>
+        <Link className="btn primary" to="/sync"><ArrowDownToLine size={15} /> 同步知乎</Link>
+      </div>
     </div>
-    <div className="library-toolbar"><div className="section-heading"><div><h2>{title}</h2><p>{search ? `包含「${search}」的文章` : '你的私人阅读收藏'}</p></div><span className="article-total"><strong>{total}</strong> 篇</span></div>
-      <div className="toolbar-controls"><label className="select-wrap"><span>排序</span><select value={sort} onChange={(e) => setSort(e.target.value)}><option value="synced">最后同步时间</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label><span className="control-divider" /><div className="view-toggle"><button aria-label="卡片视图" className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label="列表视图" className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button></div></div>
+    <div className="toolbar">
+      <div className="filters">
+        <label className="filter-input"><Search size={15} /><input aria-label="搜索文章或主题" type="search" placeholder="搜索文章、主题、关键词" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} /></label>
+        <select className="select" aria-label="主题筛选" value={pendingOnly ? 'pending' : category || 'all'} onChange={(event) => {
+          const value = event.target.value
+          navigate(value === 'all' ? '/library' : value === 'pending' ? '/library?pending=1' : '/library?category=' + value)
+          setPage(1)
+        }}>
+          <option value="all">全部内容</option><option value="pending">待整理</option>
+          {categories.map((item) => <option key={item.id} value={item.id}>{item.parent_id ? '　' : ''}{item.name}</option>)}
+        </select>
+        <select className="select" aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}>
+          <option value="all">全部来源</option><option value="answer">知乎回答</option><option value="article">知乎文章</option><option value="local">本地导入</option>
+        </select>
+      </div>
+      <div className="filters">
+        <select className="select" aria-label="排序方式" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <option value="synced">最近收录</option><option value="title">按标题排序</option>
+        </select>
+        <div className="segmented" role="group" aria-label="文章展示模式">
+          <button className={view === 'list' ? 'on' : ''} aria-pressed={view === 'list'} title="列表视图" aria-label="列表视图" onClick={() => { setView('list'); window.localStorage.setItem('zhiwei-library-view','list') }}><FileText size={15} /></button>
+          <button className={view === 'grid' ? 'on' : ''} aria-pressed={view === 'grid'} title="卡片视图" aria-label="卡片视图" onClick={() => { setView('grid'); window.localStorage.setItem('zhiwei-library-view','grid') }}><LayoutGrid size={15} /></button>
+        </div>
+      </div>
     </div>
-    {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search)} onImport={() => document.getElementById('md-upload')?.click()} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
-      {visibleItems.map((item, index) => <ArticleCard key={item.id} item={item} index={index} view={view} onDelete={(content) => { setDeleteError(''); setDeleteTarget(content) }} deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
-    </div>}
-    <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-    {(categoryFromUrl || pendingOnly) && <button className="filter-reset" onClick={() => navigate('/')}>清除主题筛选</button>}
+    {loading ? <div className="loading-state"><LoaderCircle size={17} className="spin" /> 正在加载文章...</div>
+      : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search || category || pendingOnly)} onImport={() => document.getElementById('md-upload')?.click()} />
+      : view === 'list' ? <section className="panel" aria-label="文章列表">
+        <div className="table-head"><span>文章</span><span>主题</span><span>来源</span><span>收录时间</span><span /></div>
+        {visibleItems.map((item) => <div className="table-row" key={item.id}>
+          <div style={{ minWidth: 0 }}>
+            <Link className="table-title" to={'/read/' + encodeURIComponent(item.id)}>{item.title}</Link>
+            <div className="table-excerpt">{item.excerpt || '打开文章，开始阅读。'}</div>
+          </div>
+          <div><span className="tag">{item.category_name || '待整理'}</span></div>
+          <span className="cell-text">{item.id.startsWith('local_') ? '本地导入' : item.kind === 'answer' ? '知乎回答' : '知乎文章'}</span>
+          <span className="cell-text">{formatDate(item.last_synced_at || item.updated_at)}</span>
+          <details className="zv-row-menu">
+            <summary title="更多操作" aria-label={'操作：' + item.title}><MoreHorizontal size={17} /></summary>
+            <button type="button" disabled={deletingId !== null} onClick={() => setDeleteTarget(item)}><Trash2 size={14} /> 删除本地文章</button>
+          </details>
+        </div>)}
+      </section>
+      : <div className="article-grid">{visibleItems.map((item,index) =>
+        <ArticleCard key={item.id} item={item} index={index} view="grid"
+          onDelete={(value) => { setDeleteError(''); setDeleteTarget(value) }}
+          deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
+      </div>}
+    <div className="ui-footer"><p className="footer-count">共 {total} 篇文章 · 当前显示 {visibleItems.length} 篇</p>
+      <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+    </div>
+    {(categoryFromUrl || pendingOnly) && <button className="filter-reset" onClick={() => navigate('/library')}>清除筛选</button>}
   </div>
 }
 
@@ -318,7 +422,7 @@ function ReaderPage({ categories, onNotice, reload }: { categories: Category[]; 
     return () => { active = false }
   }, [id])
   if (loading) return <div className="loading-state"><LoaderCircle className="spin" /> 正在打开文章…</div>
-  if (!item) return <EmptyLibrary searched onImport={() => navigate('/')} />
+  if (!item) return <EmptyLibrary searched onImport={() => navigate('/library')} />
   const removeArticle = async () => {
     if (deleting) return
     setDeleteError('')
@@ -350,7 +454,7 @@ function ReaderPage({ categories, onNotice, reload }: { categories: Category[]; 
       <div className="reader-rule" />{item.file_missing ? <div className="inline-warning">正文文件暂时不可用，请检查本地资料目录。</div> : <div className="markdown-body"><ArticleMarkdown contentId={item.id} markdown={item.markdown || ''} blocks={reading?.blocks || []} /></div>}
       {reading && <ReaderWorkspace context={reading} setContext={(next) => setReading((current) => typeof next === 'function' ? current ? next(current) : current : next)} onNotice={(message, error) => onNotice({ message, error })} />}
       {item.url && <a className="original-link" href={item.url} target="_blank" rel="noreferrer">在知乎打开原文 <ArrowRight size={14} /></a>}
-    </div><aside id="reader-article-info" className="reader-aside" hidden={!infoVisible}><div className="aside-card"><div className="aside-card-heading"><Bookmark size={15} /><span>文章信息</span></div><div className="aside-field"><small>本地分类</small><div><select className="reader-category-select" value={item.category_id ?? ''} onChange={async (e) => { try { const updated = await api.classify(item.id, e.target.value ? Number(e.target.value) : null); setItem(updated); reload() } catch (err) { onNotice({ message: (err as Error).message, error: true }) } }}><option value="">待整理</option>{categories.filter((category) => category.parent_id || !categories.some((child) => child.parent_id === category.id)).map((category) => <option key={category.id} value={category.id}>{category.parent_id ? `${categories.find((parent) => parent.id === category.parent_id)?.name || ''} / ` : ''}{category.name}</option>)}</select>{item.category_id && <Link className="category-view-link" to={`/?category=${item.category_id}`}>查看该主题文章 <ArrowRight size={12} /></Link>}<button className="classify-ai" disabled={Boolean(item.classification_locked)} onClick={async () => { try { const result = await api.autoClassify(item.id); setItem(result.content); onNotice({ message: `分类建议：${result.reason}` }); reload() } catch (error) { onNotice({ message: (error as Error).message, error: true }) } }}>{item.classification_locked ? '已手动确认' : '✦ 智能分类'}</button>{item.classification_reason && <small className="classification-reason">{item.classification_reason}</small>}</div></div><div className="aside-field"><small>收藏夹来源</small>{item.folders?.length ? item.folders.map((folder) => /^https:\/\/www\.zhihu\.com\/collection\/\d+$/.test(folder.url || '') ? <a className="source-chip source-link" key={folder.id} href={folder.url!} target="_blank" rel="noopener noreferrer" title="在知乎打开收藏夹"><FolderOpen size={13} />{folder.name}<ArrowRight size={12} /></a> : <span className="source-chip" key={folder.id}><FolderOpen size={13} />{folder.name}</span>) : <span className="muted-text">本地导入 / 暂无记录</span>}</div><div className="aside-field"><small>本地文章 ID</small><code>{item.id}</code></div><div className="aside-field"><small>关联问题</small>{item.question && /^https:\/\/www\.zhihu\.com\/question\/\d+$/.test(item.question.url) ? <a className="source-chip source-link" href={item.question.url} target="_blank" rel="noopener noreferrer" title="在知乎打开问题"><CircleHelp size={13} />{item.question.title}<ArrowRight size={12} /></a> : <span className="muted-text">暂无问题信息</span>}</div></div><div className="offline-note"><span><Check size={15} /></span><div><strong>保存在你的设备</strong><p>正文文件位于本地资料目录，可离线阅读。</p></div></div></aside></div>
+    </div><aside id="reader-article-info" className="reader-aside" hidden={!infoVisible}><div className="aside-card"><div className="aside-card-heading"><Bookmark size={15} /><span>文章信息</span></div><div className="aside-field"><small>本地分类</small><div><select className="reader-category-select" value={item.category_id ?? ''} onChange={async (e) => { try { const updated = await api.classify(item.id, e.target.value ? Number(e.target.value) : null); setItem(updated); reload() } catch (err) { onNotice({ message: (err as Error).message, error: true }) } }}><option value="">待整理</option>{categories.filter((category) => category.parent_id || !categories.some((child) => child.parent_id === category.id)).map((category) => <option key={category.id} value={category.id}>{category.parent_id ? `${categories.find((parent) => parent.id === category.parent_id)?.name || ''} / ` : ''}{category.name}</option>)}</select>{item.category_id && <Link className="category-view-link" to={`/library?category=${item.category_id}`}>查看该主题文章 <ArrowRight size={12} /></Link>}<button className="classify-ai" disabled={Boolean(item.classification_locked)} onClick={async () => { try { const result = await api.autoClassify(item.id); setItem(result.content); onNotice({ message: `分类建议：${result.reason}` }); reload() } catch (error) { onNotice({ message: (error as Error).message, error: true }) } }}>{item.classification_locked ? '已手动确认' : '✦ 智能分类'}</button>{item.classification_reason && <small className="classification-reason">{item.classification_reason}</small>}</div></div><div className="aside-field"><small>收藏夹来源</small>{item.folders?.length ? item.folders.map((folder) => /^https:\/\/www\.zhihu\.com\/collection\/\d+$/.test(folder.url || '') ? <a className="source-chip source-link" key={folder.id} href={folder.url!} target="_blank" rel="noopener noreferrer" title="在知乎打开收藏夹"><FolderOpen size={13} />{folder.name}<ArrowRight size={12} /></a> : <span className="source-chip" key={folder.id}><FolderOpen size={13} />{folder.name}</span>) : <span className="muted-text">本地导入 / 暂无记录</span>}</div><div className="aside-field"><small>本地文章 ID</small><code>{item.id}</code></div><div className="aside-field"><small>关联问题</small>{item.question && /^https:\/\/www\.zhihu\.com\/question\/\d+$/.test(item.question.url) ? <a className="source-chip source-link" href={item.question.url} target="_blank" rel="noopener noreferrer" title="在知乎打开问题"><CircleHelp size={13} />{item.question.title}<ArrowRight size={12} /></a> : <span className="muted-text">暂无问题信息</span>}</div></div><div className="offline-note"><span><Check size={15} /></span><div><strong>保存在你的设备</strong><p>正文文件位于本地资料目录，可离线阅读。</p></div></div></aside></div>
   </article>
 }
 
@@ -471,7 +575,7 @@ function CategoriesPage({ categories, refresh, onNotice, onCategoryOpen }: { cat
   return <div className="subpage categories-page"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> ORGANIZE YOUR LIBRARY</div><h1>主题分类</h1><p>首次整理已有文章，之后只处理新增文章。</p></div><div className="page-title-actions"><button className="button button-primary" onClick={classify} disabled={classificationRunning}><Tags size={16} /> {classificationRunning ? '整理中…' : `整理新增文章（${classificationPending ?? 0}）`}</button>{latestClassification && ['queued', 'running'].includes(latestClassification.status) && <button className="button button-soft" onClick={() => api.cancelClassification(latestClassification.id).catch((e) => onNotice({ message: e.message, error: true }))}>取消</button>}<button className="button button-soft" onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={16} /> 新建分类</button></div></div>
     {adding && <div className="panel add-category-panel"><div className="panel-title"><h2>创建分类</h2><button className="icon-button" onClick={() => setAdding(false)}><X size={16} /></button></div><div className="form-row"><label>分类名称<input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="例如：人工智能" maxLength={80} /></label><label>上级分类<select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}><option value="">作为一级分类</option>{parents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button button-primary" onClick={add}>保存</button></div></div>}
     <div className="category-summary"><div className="summary-icon"><Tags size={19} /></div><div><strong>{parents.length} 个一级主题</strong><span>{categories.length} 个分类 · 可创建两级主题</span></div><div className="summary-side">分类由你掌握 <span>✳</span></div></div>
-    <div className="category-manage-list">{parents.map((parent, index) => { const children = categories.filter((item) => item.parent_id === parent.id); return <div className="category-manage-card" key={parent.id}><div className={`manage-category-icon hue-${index % 5}`}><Hash size={18} /></div><div className="manage-category-main"><div className="manage-category-heading"><h3><Link to={`/?category=${parent.id}`} onClick={onCategoryOpen} title={`查看${parent.name}的全部文章`}>{parent.name}</Link></h3><Link className="category-count-link" to={`/?category=${parent.id}`} onClick={onCategoryOpen}>{parent.article_count} 篇</Link></div><div className="subcategory-row">{children.map((child) => <span className="subcategory-chip" key={child.id}><Link to={`/?category=${child.id}`} onClick={onCategoryOpen} title={`查看${child.name}的文章`}>{child.name}<small>{child.article_count}</small></Link><button aria-label={`删除${child.name}`} onClick={() => remove(child)}><X size={12} /></button></span>)}<button className="add-subcategory" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子分类</button></div></div><button className="icon-button manage-delete" aria-label={`删除${parent.name}`} onClick={() => remove(parent)}><MoreHorizontal size={18} /></button></div> })}</div>
+    <div className="category-manage-list">{parents.map((parent, index) => { const children = categories.filter((item) => item.parent_id === parent.id); return <div className="category-manage-card" key={parent.id}><div className={`manage-category-icon hue-${index % 5}`}><Hash size={18} /></div><div className="manage-category-main"><div className="manage-category-heading"><h3><Link to={`/library?category=${parent.id}`} onClick={onCategoryOpen} title={`查看${parent.name}的全部文章`}>{parent.name}</Link></h3><Link className="category-count-link" to={`/library?category=${parent.id}`} onClick={onCategoryOpen}>{parent.article_count} 篇</Link></div><div className="subcategory-row">{children.map((child) => <span className="subcategory-chip" key={child.id}><Link to={`/library?category=${child.id}`} onClick={onCategoryOpen} title={`查看${child.name}的文章`}>{child.name}<small>{child.article_count}</small></Link><button aria-label={`删除${child.name}`} onClick={() => remove(child)}><X size={12} /></button></span>)}<button className="add-subcategory" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子分类</button></div></div><button className="icon-button manage-delete" aria-label={`删除${parent.name}`} onClick={() => remove(parent)}><MoreHorizontal size={18} /></button></div> })}</div>
     {parents.length === 0 && <div className="empty-state compact"><div className="empty-illustration"><Tags size={31} /></div><h3>还没有主题分类</h3><p>创建大类和小类，开始整理你的文章。</p><button className="button button-primary" onClick={() => setAdding(true)}><Plus size={16} /> 创建第一个分类</button></div>}
   </div>
 }
