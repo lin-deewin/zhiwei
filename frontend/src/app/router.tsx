@@ -11,7 +11,7 @@ import { QuestionsPage } from '../features/questions/QuestionsPage'
 import { QuestionDetail } from '../features/questions/QuestionDetail'
 import { CategoriesPage } from '../features/categories/CategoriesPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
-import type { Category, Content, LibrarySettings } from '../types'
+import type { Category, LibrarySettings } from '../types'
 import type { Notice } from './types'
 
 type AppRouterProps = {
