@@ -1,6 +1,9 @@
 import { useWikiLinks, wikiPlugin } from './utils/wiki_markdown'
+import { AppShell } from './app/AppShell'
+import { Button, IconButton } from './design-system/Button'
+import { PageHeader } from './design-system/PageHeader'
 import { Children, createElement, isValidElement, memo, useCallback, useEffect, useRef, useState, type ReactNode, type HTMLAttributes, type ElementType } from 'react'
-import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -10,7 +13,7 @@ import {
   ChevronRight, CircleHelp, Clock3, FileText, FolderOpen, Hash,
   LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Sparkles, Tags,
   Trash2, Upload, X,
-  Home, Layers, Menu, Moon, Sun, Network,
+  Home, Network,
 } from 'lucide-react'
 import { api } from './api'
 import type { AccountStatus } from './api'
@@ -137,60 +140,33 @@ function App() {
   const pageTitle = location.pathname.startsWith('/read/') ? '阅读文章'
     : location.pathname.startsWith('/questions/') ? '话题详情'
     : pageTitles[location.pathname] || '我的知识空间'
-  return <div className="app zv-app">
-    <button className={'sidebar-scrim' + (mobileOpen ? ' open' : '')} type="button" aria-label="关闭侧边菜单" onClick={() => setMobileOpen(false)} />
-    <aside className={'sidebar' + (mobileOpen ? ' open' : '')} aria-label="主导航">
-      <Link className="brand" to="/" onClick={() => setMobileOpen(false)}>
-        <span className="brand-logo"><Layers size={20} /></span>
-        <span className="brand-word">知微<small>Knowledge, thoughtfully.</small></span>
-      </Link>
-      <nav className="sidebar-content" aria-label="知识工作台导航">
-        {navGroups.map((group, groupIndex) => <div key={groupIndex}>
-          {group.heading ? <div className="nav-heading">{group.heading}</div> : <div className="nav-separator" />}
-          {group.items.map((item) => {
-            const Icon = item.icon
-            return <NavLink key={item.href} to={item.href} end={item.href === '/' || item.href === '/library'}
-              className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
-              <Icon size={17} /><span>{item.title}</span>{item.href === '/library' && <em>{settings?.content_count ?? '—'}</em>}
-            </NavLink>
-          })}
-        </div>)}
-      </nav>
-      <div className="sidebar-foot"><Link to="/settings" className="account-row" onClick={() => setMobileOpen(false)}>
-        <span className="account-avatar">知</span>
-        <span><b>我的知识空间</b><small>{settings?.library_dir ? shortenPath(settings.library_dir) : '本地优先 · 个人资料库'}</small></span>
-        <MoreHorizontal size={17} />
-      </Link></div>
-    </aside>
-    <div className="main main-area">
-      <header className="topbar">
-        <div className="crumbs">
-          <button className="icon-btn mobile-menu" type="button" onClick={() => setMobileOpen(true)} aria-label="打开菜单"><Menu size={20} /></button>
-          <span>个人空间</span><span className="slash">/</span><strong>{pageTitle}</strong>
-        </div>
-        <div className="top-actions">
-          <button className="global-search-button" type="button" onClick={() => { setCommandOpen(true); setCommandQuery('') }} aria-label="全局搜索"><Search size={15} /><span>搜索任何内容...</span><kbd>⌘ K</kbd></button>
-          <span className="status-line"><i className="status-dot" /> {settings ? '本地就绪' : '正在连接'}</span>
-          <button className="icon-btn" type="button" onClick={() => setDark((value) => !value)} aria-label={dark ? '切换为浅色模式' : '切换为深色模式'}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
-        </div>
-      </header>
-      <main className="workspace">
-        <WorkspaceTabs>{(href) => <Routes location={href}>
-          <Route path="/" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
-          <Route path="/library" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
-          <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
-          <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
-          <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
-          <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
-          <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
-          <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={async () => { navigate('/sync') }} />} />
-          <Route path="/ask" element={<KnowledgePage categories={categories} />} />
-          <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
-          <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
-          <Route path="*" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
-        </Routes>}</WorkspaceTabs>
-      </main>
-    </div>
+  return <AppShell
+    navGroups={navGroups}
+    pageTitle={pageTitle}
+    contentCount={settings?.content_count ?? '—'}
+    libraryPath={settings?.library_dir ? shortenPath(settings.library_dir) : '本地优先 · 个人资料库'}
+    isReady={Boolean(settings)}
+    mobileOpen={mobileOpen}
+    onMobileOpenChange={setMobileOpen}
+    onOpenSearch={() => { setCommandOpen(true); setCommandQuery('') }}
+    dark={dark}
+    onToggleTheme={() => setDark((value) => !value)}
+  >
+    <WorkspaceTabs>{(href) => <Routes location={href}>
+      <Route path="/" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
+      <Route path="/library" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
+      <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
+      <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
+      <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
+      <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
+      <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
+      <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={async () => { navigate('/sync') }} />} />
+      <Route path="/ask" element={<KnowledgePage categories={categories} />} />
+      <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
+      <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
+      <Route path="*" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
+    </Routes>}</WorkspaceTabs>
+
     {commandOpen && <div className="zv-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandOpen(false) }}>
       <div className="zv-command" role="dialog" aria-modal="true" aria-label="快速搜索">
         <div className="zv-command-search"><Search size={20} /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="搜索页面、文章或功能..." /></div>
@@ -206,7 +182,7 @@ function App() {
       </div>
     </div>}
     {notice && <div className={'zv-toast' + (notice.error ? ' zv-error' : '')} role="status"><Check size={16} /><span>{notice.message}</span><button aria-label="关闭提示" onClick={() => setNotice(null)}><X size={15} /></button></div>}
-  </div>
+  </AppShell>
 }
 
 function shortenPath(path: string) {
@@ -543,40 +519,140 @@ function CategoriesPage({ categories, refresh, onNotice, onCategoryOpen }: { cat
   useEffect(() => {
     let active = true
     const load = () => {
-      api.classificationOverview().then((data) => { if (active) setClassificationPending(data.pending) }).catch(() => { if (active) setClassificationPending(null) })
+      api.classificationOverview().then((data) => { if (active) setClassificationPending(data.pending) }).catch(() => {
+        if (active) setClassificationPending(null)
+      })
       return api.classificationJobs().then((items) => {
-      if (!active) return
-      setClassificationJobs(items)
-      const latest = items[0]
-      if (latest && ['completed', 'cancelled', 'failed'].includes(latest.status) && completedClassificationRef.current !== `${latest.id}:${latest.updated_at}`) {
-        completedClassificationRef.current = `${latest.id}:${latest.updated_at}`
-        refresh()
-      }
+        if (!active) return
+        setClassificationJobs(items)
+        const latest = items[0]
+        if (latest && ['completed', 'cancelled', 'failed'].includes(latest.status) && completedClassificationRef.current !== latest.id + ':' + latest.updated_at) {
+          completedClassificationRef.current = latest.id + ':' + latest.updated_at
+          refresh()
+        }
       }).catch(() => undefined)
     }
-    load()
+    void load()
     const timer = window.setInterval(load, 3000)
     return () => { active = false; window.clearInterval(timer) }
   }, [])
-  const classify = async () => { try { await api.startClassification(); onNotice({ message: '主题整理已启动；规则无法确定时会自动调用已配置的大模型。' }); setClassificationJobs(await api.classificationJobs()) } catch (e) { onNotice({ message: (e as Error).message, error: true }) } }
+  const classify = async () => {
+    try {
+      await api.startClassification()
+      onNotice({ message: '主题整理已启动；规则无法确定时会自动调用已配置的大模型。' })
+      setClassificationJobs(await api.classificationJobs())
+    } catch (error) {
+      onNotice({ message: (error as Error).message, error: true })
+    }
+  }
   const latestClassification = classificationJobs[0]
   const classificationRunning = classificationJobs.some((job) => ['queued', 'running'].includes(job.status))
   const parents = categories.filter((item) => !item.parent_id)
   const add = async () => {
     if (!name.trim()) return
-    try { await api.createCategory(name.trim(), parentId); setName(''); setAdding(false); setParentId(undefined); refresh(); onNotice({ message: '分类已创建' }) }
-    catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+    try {
+      await api.createCategory(name.trim(), parentId)
+      setName('')
+      setAdding(false)
+      setParentId(undefined)
+      refresh()
+      onNotice({ message: '主题已创建' })
+    } catch (error) {
+      onNotice({ message: (error as Error).message, error: true })
+    }
   }
   const remove = async (category: Category) => {
-    if (!window.confirm(`删除「${category.name}」？文章将移入待整理。`)) return
-    try { await api.deleteCategory(category.id); refresh(); onNotice({ message: '分类已删除' }) }
-    catch (e) { onNotice({ message: (e as Error).message, error: true }) }
+    if (!window.confirm('删除「' + category.name + '」？文章将移入待整理。')) return
+    try {
+      await api.deleteCategory(category.id)
+      refresh()
+      onNotice({ message: '主题已删除' })
+    } catch (error) {
+      onNotice({ message: (error as Error).message, error: true })
+    }
   }
-  return <div className="subpage categories-page"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> ORGANIZE YOUR LIBRARY</div><h1>主题分类</h1><p>首次整理已有文章，之后只处理新增文章。</p></div><div className="page-title-actions"><button className="button button-primary" onClick={classify} disabled={classificationRunning}><Tags size={16} /> {classificationRunning ? '整理中…' : `整理新增文章（${classificationPending ?? 0}）`}</button>{latestClassification && ['queued', 'running'].includes(latestClassification.status) && <button className="button button-soft" onClick={() => api.cancelClassification(latestClassification.id).catch((e) => onNotice({ message: e.message, error: true }))}>取消</button>}<button className="button button-soft" onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={16} /> 新建分类</button></div></div>
-    {adding && <div className="panel add-category-panel"><div className="panel-title"><h2>创建分类</h2><button className="icon-button" onClick={() => setAdding(false)}><X size={16} /></button></div><div className="form-row"><label>分类名称<input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="例如：人工智能" maxLength={80} /></label><label>上级分类<select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}><option value="">作为一级分类</option>{parents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button button-primary" onClick={add}>保存</button></div></div>}
-    <div className="category-summary"><div className="summary-icon"><Tags size={19} /></div><div><strong>{parents.length} 个一级主题</strong><span>{categories.length} 个分类 · 可创建两级主题</span></div><div className="summary-side">分类由你掌握 <span>✳</span></div></div>
-    <div className="category-manage-list">{parents.map((parent, index) => { const children = categories.filter((item) => item.parent_id === parent.id); return <div className="category-manage-card" key={parent.id}><div className={`manage-category-icon hue-${index % 5}`}><Hash size={18} /></div><div className="manage-category-main"><div className="manage-category-heading"><h3><Link to={`/library?category=${parent.id}`} onClick={onCategoryOpen} title={`查看${parent.name}的全部文章`}>{parent.name}</Link></h3><Link className="category-count-link" to={`/library?category=${parent.id}`} onClick={onCategoryOpen}>{parent.article_count} 篇</Link></div><div className="subcategory-row">{children.map((child) => <span className="subcategory-chip" key={child.id}><Link to={`/library?category=${child.id}`} onClick={onCategoryOpen} title={`查看${child.name}的文章`}>{child.name}<small>{child.article_count}</small></Link><button aria-label={`删除${child.name}`} onClick={() => remove(child)}><X size={12} /></button></span>)}<button className="add-subcategory" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子分类</button></div></div><button className="icon-button manage-delete" aria-label={`删除${parent.name}`} onClick={() => remove(parent)}><MoreHorizontal size={18} /></button></div> })}</div>
-    {parents.length === 0 && <div className="empty-state compact"><div className="empty-illustration"><Tags size={31} /></div><h3>还没有主题分类</h3><p>创建大类和小类，开始整理你的文章。</p><button className="button button-primary" onClick={() => setAdding(true)}><Plus size={16} /> 创建第一个分类</button></div>}
+  return <div className="subpage categories-page">
+    <PageHeader
+      eyebrow="KNOWLEDGE TAXONOMY"
+      title="主题目录"
+      description="用少量清晰的主题组织文章，让知识更容易被找到。"
+      actions={<>
+        <Button onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={15} /> 新建主题</Button>
+        <Button variant="primary" disabled={classificationRunning} onClick={classify}>
+          <Sparkles size={14} /> {classificationRunning ? '整理中…' : '智能整理'}
+        </Button>
+      </>}
+    />
+
+    {adding && <section className="panel add-category-panel">
+      <div className="panel-title">
+        <h2>创建主题</h2>
+        <IconButton label="关闭创建表单" onClick={() => setAdding(false)}><X size={16} /></IconButton>
+      </div>
+      <div className="form-row">
+        <label>主题名称<input autoFocus value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void add()} placeholder="例如：人工智能" maxLength={80} /></label>
+        <label>上级主题<select value={parentId ?? ''} onChange={(event) => setParentId(event.target.value ? Number(event.target.value) : undefined)}>
+          <option value="">作为一级主题</option>{parents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select></label>
+        <Button variant="primary" disabled={!name.trim()} onClick={() => void add()}>保存主题</Button>
+      </div>
+    </section>}
+
+    <div className="category-overview-strip">
+      <div className="category-overview-icon"><Tags size={18} /></div>
+      <div><strong>{parents.length} 个一级主题</strong><span>{categories.length} 个分类 · 最多支持两级主题</span></div>
+      <div className="category-overview-count"><strong>{classificationPending ?? '—'}</strong><span>篇待整理</span></div>
+    </div>
+
+    {latestClassification && <section className="panel classification-status">
+      <div className="classification-status-copy">
+        <strong>{classificationRunning ? '正在整理新增文章' : '最近一次智能整理'}</strong>
+        <span>{latestClassification.status} · 已处理 {latestClassification.processed} / {latestClassification.total} · 已归类 {latestClassification.classified} · 失败 {latestClassification.failed}</span>
+      </div>
+      {classificationRunning
+        ? <Button size="small" onClick={() => api.cancelClassification(latestClassification.id).catch((error) => onNotice({ message: error.message, error: true }))}>取消任务</Button>
+        : latestClassification.failed > 0
+          ? <Button size="small" onClick={() => api.retryClassification(latestClassification.id).then(refresh).catch((error) => onNotice({ message: error.message, error: true }))}>重试失败项</Button>
+          : <span className="badge grey">已结束</span>}
+    </section>}
+
+    {parents.length > 0
+      ? <div className="category-grid">
+        {parents.map((parent, index) => {
+          const children = categories.filter((item) => item.parent_id === parent.id)
+          return <section className="panel category-card category-card-v2" key={parent.id}>
+            <div className="category-top">
+              <div className={'icon-soft hue-' + (index % 5)}><FolderOpen size={19} /></div>
+              <span className="category-article-count">{parent.article_count} 篇文章</span>
+              <details className="category-overflow">
+                <summary aria-label={'更多操作：' + parent.name} title="更多操作"><MoreHorizontal size={17} /></summary>
+                <div className="category-overflow-menu">
+                  <button type="button" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子主题</button>
+                  <button type="button" className="danger" onClick={() => void remove(parent)}><Trash2 size={13} /> 删除主题</button>
+                </div>
+              </details>
+            </div>
+            <h3><Link to={'/library?category=' + parent.id} onClick={onCategoryOpen}>{parent.name}</Link></h3>
+            <p>{children.length ? children.length + ' 个子主题' : '还没有子主题'}</p>
+            <div className="category-subtopics">
+              {children.map((child) => <span className="subcategory-chip" key={child.id}>
+                <Link to={'/library?category=' + child.id} onClick={onCategoryOpen}>{child.name}<small>{child.article_count}</small></Link>
+                <button type="button" aria-label={'删除' + child.name} onClick={() => void remove(child)}><X size={12} /></button>
+              </span>)}
+              <button className="add-subcategory" type="button" onClick={() => { setAdding(true); setParentId(parent.id) }}><Plus size={13} /> 添加子主题</button>
+            </div>
+            <div className="category-foot">
+              <Link to={'/library?category=' + parent.id} onClick={onCategoryOpen}>查看主题文章 <ArrowRight size={14} /></Link>
+            </div>
+          </section>
+        })}
+      </div>
+      : <div className="empty-state compact">
+        <div className="empty-illustration"><Tags size={31} /></div>
+        <h3>还没有主题</h3>
+        <p>创建几个清晰的大类，再逐步添加子主题。</p>
+        <Button variant="primary" onClick={() => { setAdding(true); setParentId(undefined) }}><Plus size={15} /> 创建第一个主题</Button>
+      </div>}
   </div>
 }
 
@@ -614,7 +690,7 @@ function SettingsPage({ settings, onSaved, onNotice, onConnect }: { settings: Li
       onNotice({ message: '模型配置已保存。' })
     } catch (e) { onNotice({ message: (e as Error).message, error: true }) }
   }
-  return <div className="subpage"><div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> PREFERENCES</div><h1>设置</h1><p>管理你的资料存储和连接状态。</p></div></div><div className="settings-stack"><div className="panel settings-panel"><div className="panel-title"><div><h2>本地资料目录</h2><span>文章与数据库保存在本机，不会自动上传</span></div><div className="settings-section-icon"><FolderOpen size={18} /></div></div><label className="setting-label">目录路径<input value={path} onChange={(e) => setPath(e.target.value)} placeholder="例如 /home/you/Documents/ZhihuLibrary" /></label><p className="setting-help">路径由本地服务所在的电脑访问。修改目录后会切换到该目录中的资料库，不会自动搬移旧文章。</p><button className="button button-primary" onClick={save}>保存目录</button></div><div className="panel settings-panel"><div className="panel-title"><div><h2>知乎账号</h2><span>在知微页面扫码并完成必要的知乎验证</span></div><div className="settings-section-icon warm"><Bookmark size={18} /></div></div><div className="setting-status-row"><span className={`status-badge ${accountConnected ? 'status-connected' : 'status-muted'}`}><i /> {accountLabel}</span><button className="button button-soft" onClick={onConnect}>{accountConnected ? '查看连接' : '连接知乎'}</button></div>{accountStatus?.message && <p className="setting-help">{accountStatus.message}</p>}</div><div className="panel settings-panel"><div className="panel-title"><div><h2>AI 与知识问答</h2><span>可连接 OpenAI 兼容服务，或使用本机 OpenCode 免费模型</span></div><div className="settings-section-icon lilac"><Bot size={18} /></div></div><div className="ai-settings-grid"><label className="setting-label">API 地址<input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="opencode://local 或 https://api.example.com/v1" /></label><label className="setting-label">聊天模型<input value={chatModel} onChange={(e) => setChatModel(e.target.value)} placeholder={baseUrl === 'opencode://local' ? 'opencode/space-bunny-free' : '模型名称'} /></label><label className="setting-label">本地 Embedding 模型<input value={embeddingModel} onChange={(e) => setEmbeddingModel(e.target.value)} placeholder="留空使用 BAAI/bge-small-zh-v1.5" /></label>{baseUrl !== 'opencode://local' && <label className="setting-label">API Key<input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={settings?.ai_api_key_set ? '已保存；留空表示不更改' : '由本地后端保存'} autoComplete="new-password" /></label>}</div>{settings?.ai_api_key_set && <label className="clear-key-option"><input type="checkbox" checked={clearApiKey} onChange={(e) => setClearApiKey(e.target.checked)} /> 清除本机已保存的 API Key</label>}<p className="setting-help">提交知识库问题时会发送检索片段；你点击智能分类时会发送当前文章内容片段。{baseUrl === 'opencode://local' ? '通过本机 OpenCode CLI 调用所选模型；文章片段会发送给模型服务商。' : '密钥保存在本机权限受限的配置文件中。'} 语义向量在本机生成；在知识问答页面建立或更新索引。</p><button className="button button-primary" onClick={saveAI}>保存模型配置</button></div></div></div>
+  return <div className="subpage settings-page"><PageHeader eyebrow="PREFERENCES" title="偏好设置" description="管理你的资料存储、服务连接与隐私设置。" /><div className="settings-stack"><div className="panel settings-panel"><div className="panel-title"><div><h2>本地资料目录</h2><span>文章与数据库保存在本机，不会自动上传</span></div><div className="settings-section-icon"><FolderOpen size={18} /></div></div><label className="setting-label">目录路径<input value={path} onChange={(e) => setPath(e.target.value)} placeholder="例如 /home/you/Documents/ZhihuLibrary" /></label><p className="setting-help">路径由本地服务所在的电脑访问。修改目录后会切换到该目录中的资料库，不会自动搬移旧文章。</p><button className="button button-primary" onClick={save}>保存目录</button></div><div className="panel settings-panel"><div className="panel-title"><div><h2>知乎账号</h2><span>在知微页面扫码并完成必要的知乎验证</span></div><div className="settings-section-icon warm"><Bookmark size={18} /></div></div><div className="setting-status-row"><span className={`status-badge ${accountConnected ? 'status-connected' : 'status-muted'}`}><i /> {accountLabel}</span><button className="button button-soft" onClick={onConnect}>{accountConnected ? '查看连接' : '连接知乎'}</button></div>{accountStatus?.message && <p className="setting-help">{accountStatus.message}</p>}</div><div className="panel settings-panel"><div className="panel-title"><div><h2>AI 与知识问答</h2><span>可连接 OpenAI 兼容服务，或使用本机 OpenCode 免费模型</span></div><div className="settings-section-icon lilac"><Bot size={18} /></div></div><div className="ai-settings-grid"><label className="setting-label">API 地址<input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="opencode://local 或 https://api.example.com/v1" /></label><label className="setting-label">聊天模型<input value={chatModel} onChange={(e) => setChatModel(e.target.value)} placeholder={baseUrl === 'opencode://local' ? 'opencode/space-bunny-free' : '模型名称'} /></label><label className="setting-label">本地 Embedding 模型<input value={embeddingModel} onChange={(e) => setEmbeddingModel(e.target.value)} placeholder="留空使用 BAAI/bge-small-zh-v1.5" /></label>{baseUrl !== 'opencode://local' && <label className="setting-label">API Key<input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={settings?.ai_api_key_set ? '已保存；留空表示不更改' : '由本地后端保存'} autoComplete="new-password" /></label>}</div>{settings?.ai_api_key_set && <label className="clear-key-option"><input type="checkbox" checked={clearApiKey} onChange={(e) => setClearApiKey(e.target.checked)} /> 清除本机已保存的 API Key</label>}<p className="setting-help">提交知识库问题时会发送检索片段；你点击智能分类时会发送当前文章内容片段。{baseUrl === 'opencode://local' ? '通过本机 OpenCode CLI 调用所选模型；文章片段会发送给模型服务商。' : '密钥保存在本机权限受限的配置文件中。'} 语义向量在本机生成；在知识问答页面建立或更新索引。</p><button className="button button-primary" onClick={saveAI}>保存模型配置</button></div></div></div>
 }
 
 function formatDate(value: string) {
@@ -648,9 +724,13 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
       else next.delete(key)
     }
     filtersRef.current = next.toString()
-    navigate(`/questions?${next}`, { replace })
+    navigate('/questions?' + next.toString(), { replace })
   }
-  const selectCategory = (id?: number, unclassified = false) => updateFilters({ category: id ? String(id) : undefined, pending: unclassified ? '1' : undefined, page: undefined })
+  const selectCategory = (id?: number, unclassified = false) => updateFilters({
+    category: id ? String(id) : undefined,
+    pending: unclassified ? '1' : undefined,
+    page: undefined,
+  })
   const [overview, setOverview] = useState<import('./types').QuestionOverview | null>(null)
   const [overviewError, setOverviewError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -659,6 +739,7 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
   const [manualArticle, setManualArticle] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [job, setJob] = useState<QuestionJob | null>(null)
+
   useEffect(() => {
     setLoading(true)
     setLoadError('')
@@ -667,10 +748,15 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
     const timer = window.setTimeout(() => {
       api.questions(search, category, pending, page, pageSize, controller.signal).then((data) => {
         if (active) { setItems(data.items); setTotal(data.total) }
-      }).catch((error) => { if (active) setLoadError(error.message) }).finally(() => { if (active) setLoading(false) })
+      }).catch((error) => {
+        if (active) setLoadError(error.message)
+      }).finally(() => {
+        if (active) setLoading(false)
+      })
     }, search ? 250 : 0)
     return () => { active = false; window.clearTimeout(timer); controller.abort() }
   }, [search, category, pending, page, pageSize, refresh])
+
   useEffect(() => {
     const controller = new AbortController()
     setOverviewError('')
@@ -679,9 +765,14 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
     })
     return () => controller.abort()
   }, [refresh, categories, onNotice])
+
   useEffect(() => {
-    api.questionJobs().then((jobs) => { if (jobs[0]) api.questionJob(jobs[0].id).then(setJob).catch(() => setJob(jobs[0])); else setJob(null) }).catch(() => undefined)
+    api.questionJobs().then((jobs) => {
+      if (jobs[0]) api.questionJob(jobs[0].id).then(setJob).catch(() => setJob(jobs[0]))
+      else setJob(null)
+    }).catch(() => undefined)
   }, [refresh])
+
   useEffect(() => {
     if (!job || job.status !== 'running') return
     const timer = window.setInterval(() => api.questionJob(job.id).then((updated) => {
@@ -690,62 +781,144 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
     }).catch(() => undefined), 2000)
     return () => window.clearInterval(timer)
   }, [job?.id, job?.status])
+
   const action = async (run: () => Promise<unknown>, message: string) => {
-    try { await run(); onNotice({ message }); setRefresh((value) => value + 1) }
-    catch (error) { onNotice({ message: (error as Error).message, error: true }) }
+    try {
+      await run()
+      onNotice({ message })
+      setRefresh((value) => value + 1)
+    } catch (error) {
+      onNotice({ message: (error as Error).message, error: true })
+    }
   }
+
   const topicCategories = overview?.categories || []
+  const parentCategories = topicCategories.filter((item) => !item.parent_id)
   const selectedCategory = topicCategories.find((item) => item.id === category)
   const selectedParent = topicCategories.find((item) => item.id === selectedCategory?.parent_id)
-  const sectionTitle = pending ? '待整理的问题' : selectedCategory ? [selectedParent?.name, selectedCategory.name].filter(Boolean).join(' / ') : '全部问题'
-  const categoryButton = (item: typeof topicCategories[number], child = false) => <button
-    key={item.id} type="button" className={`topic-category${child ? ' topic-category-child' : ''}${category === item.id && !pending ? ' active' : ''}`}
-    aria-pressed={category === item.id && !pending} onClick={() => selectCategory(item.id)}>
-    {child ? <span className="topic-branch" /> : <Hash size={15} />}<span>{item.name}</span><small>{item.question_count}</small>
-  </button>
+  const sectionTitle = pending
+    ? '待整理的问题'
+    : selectedCategory
+      ? [selectedParent?.name, selectedCategory.name].filter(Boolean).join(' / ')
+      : '全部问题'
+  const childCategories = selectedCategory
+    ? topicCategories.filter((item) => item.parent_id === (selectedCategory.parent_id || selectedCategory.id))
+    : []
+
   return <div className="subpage questions-page">
-    <div className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> QUESTION COLLECTION</div><h1>话题汇总</h1><p>按分类发现感兴趣的问题，再阅读你收藏的回答。</p></div><span className="article-total"><strong>{overview?.total ?? '—'}</strong> 个问题</span></div>
-    <details className="topic-management">
+    <PageHeader
+      eyebrow="CURATED QUESTIONS"
+      title="话题汇总"
+      description="按主题浏览你收藏的问题，从一个好问题继续探索知识。"
+      meta={<span className="question-total"><strong>{overview?.total ?? '—'}</strong> 个问题</span>}
+    />
+
+    <details className="question-management">
       <summary><Settings2 size={15} /> 管理与整理 <ChevronDown size={14} /></summary>
-    <div className="question-actions"><button className="button button-soft" onClick={() => action(() => api.backfillQuestions(), '已检查并修复话题关联')}>回填已有回答</button><button className="button button-primary" disabled={job?.status === 'running'} onClick={() => action(async () => setJob(await api.startQuestionJob()), '话题整理已启动')}>✦ 整理话题（{overview?.organize_articles ?? 0}）</button></div>
-    {job && <div className="panel question-job"><strong>整理任务：{job.status}</strong><span>{job.processed} / {job.total} · 已归类 {job.classified} · 待整理 {job.pending} · 失败 {job.failed}</span>{job.error_summary && <small>最近失败：{job.error_summary}</small>}{job.items && job.items.length > 0 && <details className="question-failures"><summary>查看失败话题（{job.items.length}）</summary><ul>{job.items.slice(0, 30).map((failed) => <li key={failed.question_id}><Link to={`/questions/${failed.question_id}`}>问题 {failed.question_id}</Link>：{failed.reason}</li>)}</ul>{job.items.length > 30 && <small>仅展示前 30 条</small>}</details>}{job.status === 'running' && <button className="button button-soft" onClick={() => action(() => api.cancelQuestionJob(job.id), '已请求取消')}>取消</button>}{job.status !== 'running' && job.failed > 0 && <button className="button button-soft" onClick={() => action(async () => setJob(await api.retryQuestionJob(job.id)), '失败项已重试')}>重试失败项</button>}</div>}
-    <div className="question-attach"><input placeholder="知乎问题链接" value={manualUrl} onChange={(event) => setManualUrl(event.target.value)} /><input placeholder="本地专栏文章 ID" value={manualArticle} onChange={(event) => setManualArticle(event.target.value)} /><button className="button button-soft" disabled={!manualUrl.trim() || !manualArticle.trim()} onClick={() => action(async () => { await api.manualQuestionLink(manualUrl.trim(), manualArticle.trim()); setManualUrl(''); setManualArticle('') }, '已手动关联专栏文章')}>关联文章到话题</button></div>
-    </details>
-    <div className="topic-browser">
-      <aside className="topic-directory panel" aria-label="话题分类">
-        <div className="topic-directory-heading"><Tags size={16} /><h2>话题分类</h2></div>
-        <p>选择分类，查看相关问题</p>
-        <nav>
-          <button className={`topic-category${!category && !pending ? ' active' : ''}`} aria-pressed={!category && !pending} onClick={() => selectCategory()}><LayoutGrid size={15} /><span>全部问题</span><small>{overview?.total ?? '—'}</small></button>
-          <button className={`topic-category${pending ? ' active' : ''}`} aria-pressed={pending} onClick={() => selectCategory(undefined, true)}><Clock3 size={15} /><span>待整理</span><small>{overview?.pending ?? '—'}</small></button>
-          <div className="topic-directory-divider" />
-          {!overview && !overviewError && <p className="topic-directory-note">正在读取分类…</p>}
-          {overviewError && <div className="topic-directory-note"><p>{overviewError}</p><button className="button button-soft" onClick={() => setRefresh((value) => value + 1)}>重试</button></div>}
-          {topicCategories.filter((item) => !item.parent_id).map((parent) => <div className="topic-category-group" key={parent.id}>
-            {categoryButton(parent)}
-            {topicCategories.filter((item) => item.parent_id === parent.id).map((child) => categoryButton(child, true))}
-          </div>)}
-          {overview && topicCategories.length === 0 && <p className="topic-directory-note">还没有分类。可在主题分类中创建，再整理话题。</p>}
-        </nav>
-        <Link className="topic-manage-link" to="/categories"><Plus size={13} /> 管理分类</Link>
-      </aside>
-      <section className="topic-results" aria-label="分类下的问题" aria-busy={loading}>
-        <div className="topic-results-heading"><div><span>浏览问题</span><h2>{sectionTitle}</h2></div><small aria-live="polite">{loading ? '读取中…' : `${total} 个问题`}</small></div>
-        <div className="question-filters">
-          <label className="topic-search"><Search size={15} /><input aria-label="搜索当前分类的问题" placeholder="搜索当前分类的问题…" value={search} onChange={(event) => updateFilters({ q: event.target.value || undefined, page: undefined }, true)} />{search && <button aria-label="清除搜索" onClick={() => updateFilters({ q: undefined, page: undefined }, true)}><X size={14} /></button>}</label>
-          {search && <span className="topic-search-hint">当前分类内搜索</span>}
+      <div className="question-management-body">
+        <div className="question-actions">
+          <Button onClick={() => action(() => api.backfillQuestions(), '已检查并修复话题关联')}>
+            回填已有回答
+          </Button>
+          <Button variant="primary" disabled={job?.status === 'running'} onClick={() => action(async () => setJob(await api.startQuestionJob()), '话题整理已启动')}>
+            <Sparkles size={14} /> 整理话题（{overview?.organize_articles ?? 0}）
+          </Button>
         </div>
-        {loading ? <div className="topic-status"><LoaderCircle className="spin" size={19} /> 正在读取问题…</div> : loadError ? <div className="topic-status"><p>{loadError}</p><button className="button button-soft" onClick={() => setRefresh((value) => value + 1)}>重新加载</button></div> : <>
-          <div className="topic-question-list">{items.map((item) => <Link className="topic-question-row panel" to={`/questions/${item.id}${location.search}`} key={item.id}>
-            <span className="topic-question-icon"><CircleHelp size={19} /></span>
-            <div className="topic-question-copy"><small>{item.category_id ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</small><h3>{item.title}</h3><p><BookOpen size={13} /> {item.answer_count} 篇已收藏回答{item.article_count > 0 && <span> · {item.article_count} 篇关联文章</span>}</p></div>
-            <span className="topic-question-open">查看回答 <ChevronRight size={16} /></span>
-          </Link>)}</div>
-          {items.length === 0 && <div className="panel topic-empty"><CircleHelp size={28} /><h3>{search ? '没有找到匹配的问题' : '这个分类下还没有问题'}</h3><p>{search ? '试试其他关键词，或清除搜索条件。' : pending ? '已归类的问题可以从左侧分类中浏览。' : '可以查看其他分类，或展开「管理与整理」整理待分类问题。'}</p><button className="button button-soft" onClick={() => updateFilters({ category: undefined, pending: undefined, q: undefined, page: undefined })}>查看全部问题</button></div>}
+        {job && <div className="panel question-job">
+          <div className="question-job-heading"><strong>整理任务：{job.status}</strong><span>{job.processed} / {job.total}</span></div>
+          <div className="question-job-progress"><span style={{ width: (job.total ? Math.round(job.processed / job.total * 100) : 0) + '%' }} /></div>
+          <small>已归类 {job.classified} · 待整理 {job.pending} · 失败 {job.failed}</small>
+          {job.error_summary && <small>最近失败：{job.error_summary}</small>}
+          {job.items && job.items.length > 0 && <details className="question-failures">
+            <summary>查看失败话题（{job.items.length}）</summary>
+            <ul>{job.items.slice(0, 30).map((failed) => <li key={failed.question_id}>
+              <Link to={'/questions/' + failed.question_id}>问题 {failed.question_id}</Link>：{failed.reason}
+            </li>)}</ul>
+            {job.items.length > 30 && <small>仅展示前 30 条</small>}
+          </details>}
+          {job.status === 'running' && <Button size="small" onClick={() => action(() => api.cancelQuestionJob(job.id), '已请求取消')}>取消任务</Button>}
+          {job.status !== 'running' && job.failed > 0 && <Button size="small" onClick={() => action(async () => setJob(await api.retryQuestionJob(job.id)), '失败项已重试')}>重试失败项</Button>}
+        </div>}
+        <div className="question-attach">
+          <label><span>知乎问题链接</span><input placeholder="粘贴知乎问题链接" value={manualUrl} onChange={(event) => setManualUrl(event.target.value)} /></label>
+          <label><span>本地专栏文章 ID</span><input placeholder="输入文章 ID" value={manualArticle} onChange={(event) => setManualArticle(event.target.value)} /></label>
+          <Button disabled={!manualUrl.trim() || !manualArticle.trim()} onClick={() => action(async () => {
+            await api.manualQuestionLink(manualUrl.trim(), manualArticle.trim())
+            setManualUrl('')
+            setManualArticle('')
+          }, '已手动关联专栏文章')}>关联文章</Button>
+        </div>
+        {overviewError && <p className="question-management-error">{overviewError}</p>}
+      </div>
+    </details>
+
+    <nav className="question-topic-filter" aria-label="按主题筛选问题">
+      <button type="button" className={'chip' + (!category && !pending ? ' chosen' : '')} aria-pressed={!category && !pending} onClick={() => selectCategory()}>
+        全部主题 <small>{overview?.total ?? '—'}</small>
+      </button>
+      <button type="button" className={'chip' + (pending ? ' chosen' : '')} aria-pressed={pending} onClick={() => selectCategory(undefined, true)}>
+        待整理 <small>{overview?.pending ?? '—'}</small>
+      </button>
+      {parentCategories.map((item) => <button
+        key={item.id}
+        type="button"
+        className={'chip' + (category === item.id ? ' chosen' : '')}
+        aria-pressed={category === item.id}
+        onClick={() => selectCategory(item.id)}
+      >
+        {item.name} <small>{item.question_count}</small>
+      </button>)}
+    </nav>
+
+    {selectedCategory && childCategories.length > 0 && <nav className="question-subtopic-filter" aria-label="按子主题筛选问题">
+      <span>子主题</span>
+      {childCategories.map((item) => <button
+        key={item.id}
+        type="button"
+        className={'chip chip-subtle' + (category === item.id ? ' chosen' : '')}
+        aria-pressed={category === item.id}
+        onClick={() => selectCategory(item.id)}
+      >{item.name} <small>{item.question_count}</small></button>)}
+    </nav>}
+
+    <div className="question-results-heading">
+      <div><span>浏览问题</span><h2>{sectionTitle}</h2></div>
+      <small aria-live="polite">{loading ? '读取中…' : total + ' 个问题'}</small>
+    </div>
+
+    <div className="question-filters">
+      <label className="filter-input">
+        <Search size={15} />
+        <input aria-label="搜索当前分类的问题" placeholder="搜索当前分类的问题…" value={search} onChange={(event) => updateFilters({ q: event.target.value || undefined, page: undefined }, true)} />
+        {search && <button type="button" aria-label="清除搜索" onClick={() => updateFilters({ q: undefined, page: undefined }, true)}><X size={14} /></button>}
+      </label>
+      {search && <span className="question-search-hint">当前分类内搜索</span>}
+    </div>
+
+    {loading
+      ? <div className="question-status"><LoaderCircle className="spin" size={19} /> 正在读取问题…</div>
+      : loadError
+        ? <div className="panel question-status"><p>{loadError}</p><Button onClick={() => setRefresh((value) => value + 1)}>重新加载</Button></div>
+        : <>
+          <div className="question-card-list">
+            {items.map((item) => <Link className="panel question-card" to={'/questions/' + item.id + location.search} key={item.id}>
+              <span className="icon-soft question-card-icon"><CircleHelp size={19} /></span>
+              <div className="question-card-copy">
+                <small>{item.category_id ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</small>
+                <h3>{item.title}</h3>
+                <p><BookOpen size={13} /> {item.answer_count} 篇已收藏回答{item.article_count > 0 && <span> · {item.article_count} 篇关联文章</span>}</p>
+              </div>
+              <span className="question-card-action">查看回答 <ChevronRight size={16} /></span>
+            </Link>)}
+          </div>
+          {items.length === 0 && <div className="panel question-empty">
+            <CircleHelp size={28} />
+            <h3>{search ? '没有找到匹配的问题' : '这个主题下还没有问题'}</h3>
+            <p>{search ? '试试其他关键词，或清除搜索条件。' : pending ? '已归类的问题可以从上方主题中浏览。' : '可以选择其他主题，或展开「管理与整理」整理待分类问题。'}</p>
+            <Button onClick={() => updateFilters({ category: undefined, pending: undefined, q: undefined, page: undefined })}>查看全部问题</Button>
+          </div>}
           <Pagination page={page} total={total} pageSize={pageSize} onPageChange={(value) => updateFilters({ page: String(value) })} onPageSizeChange={(value) => updateFilters({ size: String(value), page: undefined })} />
         </>}
-      </section>
-    </div>
   </div>
 }
 
