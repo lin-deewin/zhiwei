@@ -9,6 +9,7 @@ import { ResearchWorkspacePanel } from './ResearchWorkspacePanel'
 import { MarkdownPanel } from './MarkdownPanel'
 import { UnsavedTopicDialog } from './UnsavedTopicDialog'
 import { nodePath, type KnowledgeNode } from '../utils/knowledge_links'
+import { PageHeader } from '../design-system/PageHeader'
 
 export function GraphPanel({ sourceId, version = 0 }: { sourceId: string; version?: string | number }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof api.knowledgeLinks>> | null>(null)
@@ -76,8 +77,13 @@ export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: strin
     })
   }
   const run = async (action: () => Promise<void>) => { setBusy(true); setError(''); try { await action() } catch (e) { setError((e as Error).message) } finally { setBusy(false) } }
-  return <div className="subpage knowledge-page"><div className="page-title-row"><div><div className="eyebrow">KNOWLEDGE SPACE</div><h1>知识空间</h1><p>维护主题知识页，让文章、笔记与研究成果相互连接。</p></div></div>
-    <div className="knowledge-actions"><button className="button button-soft" onClick={() => setTab('topics')}>主题与链接</button><button className="button button-soft" onClick={() => setTab('markdown')}>Markdown 互通</button><button className="button button-soft" onClick={() => setTab('projects')}>持续研究</button></div>
+  return <div className="subpage knowledge-page">
+    <PageHeader eyebrow="KNOWLEDGE SPACE" title="知识空间" description="维护主题知识页，让文章、笔记与研究成果相互连接。" />
+    <nav className="page-tabs knowledge-tabs" aria-label="知识空间视图">
+      <button type="button" className={'page-tab' + (tab === 'topics' ? ' active' : '')} aria-pressed={tab === 'topics'} onClick={() => setTab('topics')}>主题与链接</button>
+      <button type="button" className={'page-tab' + (tab === 'markdown' ? ' active' : '')} aria-pressed={tab === 'markdown'} onClick={() => setTab('markdown')}>Markdown 互通</button>
+      <button type="button" className={'page-tab' + (tab === 'projects' ? ' active' : '')} aria-pressed={tab === 'projects'} onClick={() => setTab('projects')}>持续研究</button>
+    </nav>
     {pendingTopicId && topic && <UnsavedTopicDialog title={topic.title} onCancel={() => setPendingTopicId(null)} onConfirm={() => { setParams({ topic: pendingTopicId }); setPendingTopicId(null) }} />}
     {tab === 'markdown' && <MarkdownPanel />}
     {tab === 'projects' && <ResearchWorkspacePanel />}

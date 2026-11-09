@@ -30,6 +30,7 @@ function App() {
   const [commandQuery, setCommandQuery] = useState('')
   const [quickResults, setQuickResults] = useState<Content[]>([])
   const [dark, setDark] = useState(() => window.localStorage.getItem('zhiwei-theme') === 'dark')
+  const [density, setDensity] = useState<'comfortable' | 'compact'>(() => window.localStorage.getItem('zhiwei-density') === 'compact' ? 'compact' : 'comfortable')
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -56,6 +57,11 @@ function App() {
     window.localStorage.setItem('zhiwei-theme', dark ? 'dark' : 'light')
     return () => { document.body.classList.remove('dark') }
   }, [dark])
+  useEffect(() => {
+    document.body.classList.toggle('compact', density === 'compact')
+    window.localStorage.setItem('zhiwei-density', density)
+    return () => { document.body.classList.remove('compact') }
+  }, [density])
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -148,7 +154,7 @@ function App() {
       <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
       <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
       <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
-      <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={async () => { navigate('/sync') }} />} />
+      <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={async () => { navigate('/sync') }} dark={dark} density={density} onThemeChange={setDark} onDensityChange={setDensity} />} />
       <Route path="/ask" element={<KnowledgePage categories={categories} />} />
       <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
       <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />

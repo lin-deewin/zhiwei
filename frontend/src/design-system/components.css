@@ -154,3 +154,75 @@ body.dark .zv-app .category-overflow-menu{background:var(--surface);border-color
 @media(prefers-reduced-motion:reduce){
   .zv-app *, .zv-app *::before, .zv-app *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* Final page patterns: research, sync, notes, settings and question detail. */
+.zv-app .sync-page .page-header,.zv-app .research-page .page-header,.zv-app .knowledge-page .page-header,.zv-app .notes-page .page-header{margin-bottom:24px}
+.zv-app .sync-page .sync-account-card{border-radius:12px;padding:16px 18px;margin-bottom:18px}
+.zv-app .sync-page .sync-setup-grid{gap:16px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.zv-app .sync-page .sync-mode-panel,.zv-app .sync-page .folder-panel{padding:20px}
+.zv-app .sync-page .jobs-panel{margin-top:16px;padding:20px}
+.zv-app .sync-page .panel-title h2{font-size:14px}
+.zv-app .knowledge-tabs{margin:0 0 20px}
+.zv-app .knowledge-tabs .page-tab{padding:0 0 11px}
+.zv-app .knowledge-page .knowledge-controls{padding:20px}
+.zv-app .knowledge-page .knowledge-controls h2{font-size:15px}
+.zv-app .research-query-card{display:grid;gap:14px;max-width:900px}
+.zv-app .research-query-card .knowledge-question{display:grid;gap:8px;font-size:12px;font-weight:650;color:var(--text2)}
+.zv-app .research-query-card .knowledge-question textarea{width:100%;min-height:118px;resize:vertical;border:1px solid var(--line-strong);border-radius:10px;padding:14px;background:var(--surface-soft);color:var(--text);font:13px/1.8 inherit;outline:none}
+.zv-app .research-query-card .knowledge-question textarea:focus{border-color:#8bb49c;box-shadow:0 0 0 3px #d7e9dd77}
+.zv-app .research-query-actions{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.zv-app .research-query-card>small{font-size:10px;color:var(--muted);line-height:1.7}
+.zv-app .research-options{border-top:1px solid var(--line);padding-top:12px}
+.zv-app .research-options>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;font-size:11px;font-weight:600;color:var(--text2)}
+.zv-app .research-options>summary::-webkit-details-marker{display:none}
+.zv-app .research-options>summary span{margin-left:auto;color:var(--muted);font-weight:400}
+.zv-app .research-options-grid{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(0,1.2fr);gap:16px;padding:16px 0}
+.zv-app .research-options-grid>label{display:grid;align-content:start;gap:7px;font-size:11px;color:var(--text2)}
+.zv-app .research-options-grid select{height:35px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);padding:0 10px}
+.zv-app .research-options-grid fieldset{border:0;padding:0;margin:0;display:flex;gap:8px 14px;flex-wrap:wrap}
+.zv-app .research-options-grid legend{font-size:11px;color:var(--text2);margin-bottom:8px}
+.zv-app .research-options-grid fieldset label{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.zv-app .research-options-grid input{accent-color:var(--accent)}
+.zv-app .research-advanced{max-width:900px;margin:0 0 18px}
+.zv-app .research-advanced>summary{cursor:pointer;font-size:11px;color:var(--muted)}
+.zv-app .notes-page .page-header{margin-bottom:22px}
+.zv-app .notes-search{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+.zv-app .notes-search>input{width:min(420px,100%);height:36px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);padding:0 12px;color:var(--text);font-size:12px}
+.zv-app .notes-search>label{display:inline-flex;align-items:center;gap:7px;color:var(--text2);font-size:11px}
+.zv-app .notes-search input[type=checkbox]{accent-color:var(--accent)}
+.zv-app .notes-search-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.zv-app .notes-result{padding:17px 19px;border-radius:10px;display:block}
+.zv-app .notes-result small{font-size:10px;color:var(--muted)}
+.zv-app .notes-result h2,.zv-app .notes-result h3{font-size:13px;line-height:1.6;margin:8px 0;color:var(--text)}
+.zv-app .notes-result p{font-size:11px;line-height:1.7;color:var(--text2);margin:0 0 10px}
+.zv-app .notes-result strong{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--accent)}
+.zv-app .question-detail-meta{padding:15px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:24px}
+.zv-app .question-detail-meta label{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text2)}
+.zv-app .question-detail-meta select{height:34px;min-width:180px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);padding:0 10px;color:var(--text);font-size:11px}
+.zv-app .question-detail-meta p{font-size:10px;color:var(--muted);margin:0;flex:1}
+.zv-app .question-detail-section{margin:22px 0}
+.zv-app .question-detail-section>.section-title{margin-bottom:12px}
+.zv-app .question-detail-section>.section-title span{font-size:10px;color:var(--muted)}
+.zv-app .question-detail-attach{grid-template-columns:minmax(0,360px) auto;margin-top:12px}
+.zv-app .settings-page .settings-stack{max-width:900px}
+.zv-app .settings-page .settings-panel{padding:21px 23px}
+.zv-app .settings-page .setting-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0;border-bottom:1px solid var(--line)}
+.zv-app .settings-page .setting-row:last-child{border-bottom:0}
+.zv-app .settings-page .setting-row strong{font-size:12px;display:block}
+.zv-app .settings-page .setting-row small{font-size:10px;color:var(--muted)}
+.zv-app .settings-page .setting-row .select{min-width:150px}
+.zv-app .settings-page .appearance-settings{margin-bottom:0}
+body.dark .zv-app .research-query-card .knowledge-question textarea{background:var(--surface-soft);color:var(--text)}
+@media(max-width:900px){
+ .zv-app .sync-page .sync-setup-grid{grid-template-columns:1fr}
+ .zv-app .notes-search-results{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+ .zv-app .research-options-grid{grid-template-columns:1fr}
+ .zv-app .research-query-actions{justify-content:stretch}
+ .zv-app .research-query-actions .btn{flex:1}
+ .zv-app .question-detail-meta{align-items:stretch}
+ .zv-app .question-detail-meta label{align-items:flex-start;flex-direction:column}
+ .zv-app .question-detail-meta select{width:100%}
+ .zv-app .question-detail-attach{grid-template-columns:1fr}
+}

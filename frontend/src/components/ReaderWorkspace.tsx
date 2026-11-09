@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import { Pagination } from './Pagination'
 import { ResearchNotesList } from './KnowledgePage'
+import { PageHeader } from '../design-system/PageHeader'
 import { GraphPanel } from './KnowledgeHub'
 import { api } from '../api'
 import { newRequestKey } from '../utils/request_key'
@@ -486,7 +487,7 @@ export function NotesPage({ onNotice }: { onNotice: (message: string, error?: bo
     }, query ? 250 : 0)
     return () => { active = false; window.clearTimeout(timer) }
   }, [query, includeQuotes, page, pageSize, onNotice])
-  return <div className="notes-page"><div className="page-title-row"><div><div className="eyebrow">PERSONAL NOTES</div><h1>我的笔记</h1><p>搜索自己的理解、批注和原文引用。</p></div><span className="article-total">{total} 条个人笔记与批注</span></div>
+  return <div className="notes-page"><PageHeader eyebrow="PERSONAL NOTES" title="我的笔记" description="搜索自己的理解、批注和原文引用。" meta={<span><strong>{total}</strong> 条笔记与批注</span>} />
     <div className="notes-search"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="搜索笔记内容…" /><label><input type="checkbox" checked={includeQuotes} onChange={(event) => { setIncludeQuotes(event.target.checked); setPage(1) }} />包含原文引用</label></div>
     {loading && <p>正在搜索…</p>}
     <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={`${item.type}:${item.id}`} to={`/read/${encodeURIComponent(item.content_id)}${item.type === 'note' ? `?note=${encodeURIComponent(item.id)}` : `?annotation=${encodeURIComponent(item.id)}`}`}>
