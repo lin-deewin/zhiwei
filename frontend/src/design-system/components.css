@@ -235,3 +235,20 @@ body.dark .zv-app .research-query-card .knowledge-question textarea{background:v
 .zv-app .ui-library .page-header{margin-bottom:26px}
 .zv-app .question-detail .page-header{margin-bottom:20px}
 body.dark .zv-app .question-detail-meta{background:var(--surface)}
+
+/* Legacy page actions now resolve to the same button tokens as the shared Button component. */
+.zv-app .button{
+  height:35px;min-height:35px;padding:0 13px;border:1px solid var(--line-strong);
+  border-radius:8px;background:var(--surface);color:var(--text2);font-size:12px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+  transition:background .14s,border-color .14s,color .14s,transform .14s;
+}
+.zv-app .button:hover:not(:disabled){background:var(--surface-alt);border-color:#c8d7cc;color:var(--text)}
+.zv-app .button.button-primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 5px #246b5818}
+.zv-app .button.button-primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+.zv-app .button.button-soft{background:var(--surface);border-color:var(--line-strong);color:var(--text2)}
+.zv-app .button.button-soft:hover:not(:disabled){background:var(--surface-alt);border-color:#c8d7cc;color:var(--text)}
+.zv-app .button:disabled{opacity:.52;cursor:not-allowed}
+.zv-app .icon-button{width:34px;height:34px;min-width:34px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text2);display:inline-grid;place-items:center}
+.zv-app .icon-button:hover:not(:disabled){background:var(--surface-alt);color:var(--accent)}
+.zv-app .icon-button:disabled{opacity:.45}
