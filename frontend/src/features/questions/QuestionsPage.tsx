@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BookOpen, ChevronDown, ChevronRight, CircleHelp, LoaderCircle, Search, Settings2, Sparkles, X } from 'lucide-react'
 import { api } from '../../api'
-import type { Category, Question, QuestionJob } from '../../types'
+import type { Category, Question, QuestionJob, QuestionOverview } from '../../types'
 import { Pagination } from '../../components/Pagination'
 import { Button } from '../../design-system/Button'
 import { PageHeader } from '../../design-system/PageHeader'
@@ -37,7 +37,7 @@ export function QuestionsPage({ categories, onNotice }: { categories: Category[]
     pending: unclassified ? '1' : undefined,
     page: undefined,
   })
-  const [overview, setOverview] = useState<import('./types').QuestionOverview | null>(null)
+  const [overview, setOverview] = useState<QuestionOverview | null>(null)
   const [overviewError, setOverviewError] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

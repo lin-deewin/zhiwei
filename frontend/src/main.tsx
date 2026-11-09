@@ -4,10 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './styles.css'
 import './design-v1.css'
+import './design-system/components.css'
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter><App /></BrowserRouter>
   </React.StrictMode>,
 )
 
-import './design-system/components.css'

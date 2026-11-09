@@ -142,7 +142,7 @@ function ArticleCard({ item, index, view, onDelete, deleting, deleteDisabled }: 
   </Link><button className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} title="删除本地文章" disabled={deleteDisabled} onClick={() => onDelete(item)}>{deleting ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}</button></div>
 }
 
-function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {
+export function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {
   return <div className="empty-state"><div className="empty-illustration"><div className="empty-sun" /><div className="empty-page"><span /><span /><span /></div><div className="empty-spark">✦</div></div><h3>{searched ? '没有找到相关文章' : '这里还空着，导入第一篇文章吧'}</h3><p>{searched ? '试试其他关键词，或清除筛选条件。' : '支持 Markdown 文件。导入后可以在这里阅读和整理。'}</p>{!searched && <button className="button button-primary" onClick={onImport}><Upload size={16} /> 选择 Markdown 文件</button>}</div>
 }
 
