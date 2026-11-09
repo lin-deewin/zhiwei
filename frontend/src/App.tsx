@@ -1,22 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDownToLine, ArrowRight, BookOpen, Check, CircleHelp, FileText, Home, Network, Search, Settings2, Sparkles, Tags, X } from 'lucide-react'
 import { api } from './api'
 import type { Category, Content, LibrarySettings } from './types'
 import type { Notice } from './app/types'
 import { AppShell } from './app/AppShell'
-import { WorkspaceTabs } from './components/WorkspaceTabs'
-import { KnowledgeHub } from './components/KnowledgeHub'
-import { KnowledgePage } from './components/KnowledgePage'
-import { NotesPage } from './components/ReaderWorkspace'
-import { OverviewPage } from './components/OverviewPage'
-import { LibraryPage } from './features/library/LibraryPage'
-import { ReaderPage } from './features/reader/ReaderPage'
-import { SyncPage } from './features/sync/SyncPage'
-import { QuestionsPage } from './features/questions/QuestionsPage'
-import { QuestionDetail } from './features/questions/QuestionDetail'
-import { CategoriesPage } from './features/categories/CategoriesPage'
-import { SettingsPage } from './features/settings/SettingsPage'
+import { AppRouter } from './app/router'
 
 function App() {
   const [notice, setNotice] = useState<Notice>(null)
@@ -146,20 +135,23 @@ function App() {
     dark={dark}
     onToggleTheme={() => setDark((value) => !value)}
   >
-    <WorkspaceTabs>{(href) => <Routes location={href}>
-      <Route path="/" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
-      <Route path="/library" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
-      <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
-      <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
-      <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
-      <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
-      <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
-      <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={async () => { navigate('/sync') }} dark={dark} density={density} onThemeChange={setDark} onDensityChange={setDensity} />} />
-      <Route path="/ask" element={<KnowledgePage categories={categories} />} />
-      <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
-      <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
-      <Route path="*" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
-    </Routes>}</WorkspaceTabs>
+    <AppRouter
+      categories={categories}
+      settings={settings}
+      pendingCount={pendingCount}
+      refresh={refresh}
+      search={search}
+      onSearchChange={setSearch}
+      onImport={importFile}
+      onNotice={setNotice}
+      onLibraryChanged={reload}
+      onSync={sync}
+      onSettingsSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }}
+      dark={dark}
+      density={density}
+      onThemeChange={setDark}
+      onDensityChange={setDensity}
+    />
 
     {commandOpen && <div className="zv-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommandOpen(false) }}>
       <div className="zv-command" role="dialog" aria-modal="true" aria-label="快速搜索">
