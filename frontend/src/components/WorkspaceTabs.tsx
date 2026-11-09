@@ -157,12 +157,16 @@ export function WorkspaceTabs({ children }: { children: (href: string) => ReactN
     if (next !== undefined) { event.preventDefault(); select(visibleTabs[next], true) }
     if (event.key === 'Delete' && key !== '/') { event.preventDefault(); close(key) }
   }
-  const showWorkTabs = visibleTabs.filter((tab) => tab.key.startsWith('/read/') || /^\/questions\/[^/]+$/.test(tab.key)).length >= 2
+  // Only document-level workspaces belong in the tab strip. Ordinary navigation
+  // routes (library, questions index, settings, etc.) stay in the sidebar and must
+  // never accumulate as competing top-level navigation.
+  const documentTabs = visibleTabs.filter((tab) => tab.key.startsWith('/read/') || /^\/questions\/[^/]+$/.test(tab.key))
+  const showWorkTabs = documentTabs.length >= 2
   return <>
     <div className={'workspace-tabbar' + (showWorkTabs ? ' zv-tabs-visible' : '')}>
       <button className="workspace-scroll" aria-label="向左滚动标签" onClick={() => strip.current?.scrollBy({ left: -240, behavior: 'smooth' })}><ChevronLeft size={15} /></button>
       <div className="workspace-tabstrip" ref={strip} role="tablist" aria-label="工作区页面">
-        {visibleTabs.map((tab) => {
+        {documentTabs.map((tab) => {
           const descriptor = describe(tab.key)
           const Icon = descriptor.icon
           const title = tab.title || descriptor.title
@@ -177,7 +181,7 @@ export function WorkspaceTabs({ children }: { children: (href: string) => ReactN
       </div>
       <button className="workspace-scroll" aria-label="向右滚动标签" onClick={() => strip.current?.scrollBy({ left: 240, behavior: 'smooth' })}><ChevronRight size={15} /></button>
       <div className="workspace-tab-tools" ref={menu} onKeyDown={(event) => { if (event.key === 'Escape') { setMenuOpen(false); menu.current?.querySelector('button')?.focus() } }}>
-        <button className="workspace-menu-trigger" aria-label="标签页操作" aria-expanded={menuOpen} onClick={() => { setContextMenu(null); setMenuOpen(!menuOpen) }} title="标签页操作"><span>{visibleTabs.length}</span><ChevronDown size={14} /></button>
+        <button className="workspace-menu-trigger" aria-label="标签页操作" aria-expanded={menuOpen} onClick={() => { setContextMenu(null); setMenuOpen(!menuOpen) }} title="标签页操作"><span>{documentTabs.length}</span><ChevronDown size={14} /></button>
         {menuOpen && <div className="workspace-tab-menu"><small>工作区标签</small><button disabled={visibleTabs.length <= (activeKey === '/' ? 1 : 2)} onClick={() => closeMany(true)}>关闭其他标签</button><button disabled={visibleTabs.length === 1} onClick={() => closeMany(false)}>关闭全部标签</button><p>← → 切换 · Delete 关闭<br />文章库固定保留</p></div>}
       </div>
     </div>
