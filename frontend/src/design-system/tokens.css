@@ -1,0 +1,8 @@
+/* Central visual tokens. Import after legacy styles and before component styles. */
+:root{
+  --bg:#f8f9f8;--surface:#fff;--surface-soft:#fbfcfb;--surface-alt:#f3f6f4;--sidebar:#fcfdfc;
+  --text:#212a27;--text2:#5f6a65;--muted:#929c97;--line:#e9eeea;--line-strong:#dde4de;
+  --accent:#246b58;--accent-hover:#1d5949;--accent-bg:#eaf4ee;--accent-ring:#cde5d5;
+  --shadow:0 5px 22px rgba(26,53,39,.028);--radius:12px;
+}
+body.dark{--bg:#151a18;--surface:#202623;--surface-soft:#1d2520;--surface-alt:#29312b;--sidebar:#1a201d;--text:#e8eee8;--text2:#b3c0b5;--muted:#8b9e92;--line:#303a33;--line-strong:#455046;--accent:#79bfa0;--accent-hover:#96c7aa;--accent-bg:#26382e;--accent-ring:#537c60;--shadow:none}
