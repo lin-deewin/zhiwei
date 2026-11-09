@@ -69,3 +69,4 @@ export function QuestionDetail({ categories, onNotice }: { categories: Category[
       </div>
     </div>
   </div>
+}
