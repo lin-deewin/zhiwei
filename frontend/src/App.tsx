@@ -183,7 +183,7 @@ function App() {
           <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
           <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
           <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
-          <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={() => { navigate('/sync') }} />} />
+          <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(value) => { setSettings(value); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={async () => { navigate('/sync') }} />} />
           <Route path="/ask" element={<KnowledgePage categories={categories} />} />
           <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
           <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
