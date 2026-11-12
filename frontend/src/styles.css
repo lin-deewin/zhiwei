@@ -784,3 +784,12 @@
   .knowledge-workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:0 0 10px}
   .knowledge-workspace-tabs button{min-width:0;padding:0 8px;font-size:11px}
 }
+
+
+/* Durable research jobs */
+.research-job-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--color-surface-subtle)}
+.research-job-status>strong{font-size:12px;color:var(--green-dark)}
+.research-job-status>small{flex:1 1 220px;min-width:0;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.research-job-status>p{flex:1 1 100%;margin:0;color:#a65b4b;font-size:11px}
+.research-job-status>.button{min-height:34px}
+@media(max-width:560px){.research-job-status{align-items:stretch;flex-direction:column}.research-job-status>.button{width:100%;justify-content:center}}
