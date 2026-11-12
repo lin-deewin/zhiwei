@@ -73,7 +73,7 @@ async def ask(project_id: str, payload: ProjectAskInput):
 
 
 @router.post("/projects/{project_id}/research")
-async def research(project_id: str, payload: AskInput):
+async def research(project_id: str, payload: ProjectAskInput):
     run(workspace.project, project_id)
     return await translate_model(
         workspace.ask(project_id, payload.question.strip(), payload.revision, True)
