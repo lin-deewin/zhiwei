@@ -28,6 +28,12 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Summarize dependency advisories
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node -e "const a=require('/tmp/npm-audit.json'); console.log('Dependency advisories:', a.metadata?.vulnerabilities || {}); for (const [name, item] of Object.entries(a.vulnerabilities || {})) console.log(name + ': severity=' + item.severity + ', direct=' + item.isDirect + ', range=' + item.range + ', fix=' + JSON.stringify(item.fixAvailable))"
+      - name: Block high-severity production dependency advisories
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run build
 
   backend:
