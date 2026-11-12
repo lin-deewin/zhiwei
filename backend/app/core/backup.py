@@ -68,7 +68,11 @@ def _copy_library_files(source: Path, target: Path) -> None:
                 raise ValueError(f"Unsupported filesystem entry in library backup: {candidate}")
             destination = target / Path(*relative.parts)
             destination.parent.mkdir(parents=True, exist_ok=True)
+            before_hash = _sha256(candidate)
+            before_size = candidate.stat().st_size
             shutil.copy2(candidate, destination)
+            if _sha256(candidate) != before_hash or candidate.stat().st_size != before_size:
+                raise RuntimeError(f"Library file changed while backing up: {candidate}")
 
 
 def _backup_database(source: Path, target: Path) -> dict[str, Any]:
@@ -86,7 +90,7 @@ def _backup_database(source: Path, target: Path) -> dict[str, Any]:
 
 def _safe_manifest_path(value: str) -> Path:
     relative = PurePosixPath(value)
-    if relative.is_absolute() or not relative.parts or any(part in {"", ".", ".."} for part in relative.parts):
+    if "\\" in value or relative.is_absolute() or not relative.parts or ":" in relative.parts[0] or any(part in {"", ".", ".."} for part in relative.parts):
         raise ValueError(f"Unsafe path in backup manifest: {value}")
     return Path(*relative.parts)
 
@@ -94,7 +98,7 @@ def _safe_manifest_path(value: str) -> Path:
 def verify_backup(backup_dir: Path | str) -> dict[str, Any]:
     root = Path(backup_dir).expanduser().resolve()
     manifest_path = root / MANIFEST_NAME
-    if not manifest_path.is_file():
+    if manifest_path.is_symlink() or not manifest_path.is_file():
         raise FileNotFoundError(f"Backup manifest not found: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("format_version") != 1 or not isinstance(manifest.get("files"), dict):
@@ -103,8 +107,11 @@ def verify_backup(backup_dir: Path | str) -> dict[str, Any]:
     total_bytes = 0
     for relative_name, expected in manifest["files"].items():
         relative = _safe_manifest_path(relative_name)
-        path = (root / relative).resolve()
-        if not path.is_relative_to(root) or not path.is_file() or path.is_symlink():
+        original_path = root / relative
+        if original_path.is_symlink():
+            raise ValueError(f"Backup file is missing or unsafe: {relative_name}")
+        path = original_path.resolve()
+        if not path.is_relative_to(root) or not path.is_file():
             raise ValueError(f"Backup file is missing or unsafe: {relative_name}")
         if path.stat().st_size != expected.get("size") or _sha256(path) != expected.get("sha256"):
             raise ValueError(f"Backup checksum mismatch: {relative_name}")
@@ -189,8 +196,11 @@ def restore_library(backup_dir: Path | str, destination_dir: Path | str) -> dict
     try:
         for relative_name in manifest["files"]:
             relative = _safe_manifest_path(relative_name)
-            source = (backup / relative).resolve()
-            if not source.is_relative_to(backup) or source.is_symlink():
+            original_source = backup / relative
+            if original_source.is_symlink():
+                raise ValueError(f"Unsafe source path in backup: {relative_name}")
+            source = original_source.resolve()
+            if not source.is_relative_to(backup):
                 raise ValueError(f"Unsafe source path in backup: {relative_name}")
             target = temporary / relative
             target.parent.mkdir(parents=True, exist_ok=True)
