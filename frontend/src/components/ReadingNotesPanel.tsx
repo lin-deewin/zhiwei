@@ -58,7 +58,7 @@ export function ReadingNotesPanel({
     </div>}
     <div className="reading-record-list">
       {annotations.map((item) => <article className="reading-record-card" key={item.id}>
-        <button type="button" className="record-quote" onClick={() => onLocate(item)}><span className={\`annotation-swatch \${item.color}\`} />“{item.current_anchor?.exact || item.original_anchor.exact}”</button>
+        <button type="button" className="record-quote" onClick={() => onLocate(item)}><span className={'annotation-swatch ' + item.color} />“{item.current_anchor?.exact || item.original_anchor.exact}”</button>
         {item.comment_md && <p>{item.comment_md}</p>}
         {item.anchor_status !== 'resolved' && <small className="anchor-warning">原文位置{item.anchor_status === 'ambiguous' ? '不明确' : '已失效'}</small>}
         <div className="record-actions">
