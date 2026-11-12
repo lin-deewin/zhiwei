@@ -51,8 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           cd backend
-          python - <<'PY'
-          import os
+          article_id="$(python - <<'PY'
           from app.services.library import import_markdown
           paragraphs = [
               f"第 {index} 段：这是 CI 自动生成的离线阅读正文，用于验证稳定文本锚点、阅读进度、高亮批注和阅读笔记的保存恢复。"
@@ -60,10 +59,11 @@ jobs:
           ]
           markdown = "# V3 浏览器验收文章\n\n" + "\n\n".join(paragraphs)
           article = import_markdown("e2e.md", markdown.encode())
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
-              environment.write(f"ZHIWEI_E2E_CONTENT_ID={article['id']}\n")
-          print("Created synthetic article:", article["id"])
+          print(article["id"])
           PY
+          )"
+          export ZHIWEI_E2E_CONTENT_ID="$article_id"
+          echo "Created synthetic article: $article_id"
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8765 > "/tmp/zhiwei-uvicorn.log" 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
