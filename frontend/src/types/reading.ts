@@ -27,3 +27,30 @@ export interface ReadingContext {
   normalization_version: number; markdown: string; blocks: ReadingBlock[]; file_missing: boolean
   annotations: Annotation[]; notes: PersonalNote[]; ai_results: ReadingAIResult[]
 }
+
+
+export interface ReadingProgress {
+  content_id: string
+  progress_ratio: number
+  scroll_y: number
+  block_id: string | null
+  read_later: boolean
+  last_read_at: string
+  updated_at: string
+}
+
+export interface ReadingListItem {
+  id: string
+  title: string
+  kind: string
+  author?: string | null
+  url?: string | null
+  excerpt: string
+  category_id?: number | null
+  progress_ratio: number
+  scroll_y: number
+  block_id: string | null
+  read_later: boolean
+  last_read_at: string
+  updated_at: string
+}
