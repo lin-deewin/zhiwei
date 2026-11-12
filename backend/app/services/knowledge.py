@@ -16,7 +16,7 @@ from app.services.semantic import hybrid_retrieve as retrieve
 
 LABELS = {
     "article": "文章原文",
-    "note": "个人笔记",
+    "note": "阅读笔记",
     "annotation": "原文引用与个人批注",
     "research": "AI 研究笔记（需核对）",
     "topic": "主题页整理（需核对）",
