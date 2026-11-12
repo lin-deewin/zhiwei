@@ -139,7 +139,7 @@ async def _test_reader(browser) -> None:
     page.on("pageerror", lambda error: errors.append(str(error)))
     try:
         await page.goto(f"{BASE}/read/{content_id}", wait_until="domcontentloaded")
-        await page.get_by_role("heading", name="V3 浏览器验收文章", exact=True).wait_for(timeout=20000)
+        await page.get_by_role("heading", name="V3 浏览器验收文章", exact=True).first.wait_for(timeout=20000)
         await page.locator("[data-reading-block-id]").first.wait_for(timeout=15000)
 
         # Save a non-zero reading position and verify restoration after reload.
@@ -151,7 +151,7 @@ async def _test_reader(browser) -> None:
         assert progress["progress_ratio"] > 0.1 and progress["scroll_y"] > 0, progress
         await page.goto("about:blank")
         await page.goto(f"{BASE}/read/{content_id}", wait_until="domcontentloaded")
-        await page.get_by_role("heading", name="V3 浏览器验收文章", exact=True).wait_for(timeout=20000)
+        await page.get_by_role("heading", name="V3 浏览器验收文章", exact=True).first.wait_for(timeout=20000)
         await page.wait_for_function("() => window.scrollY > 0", timeout=10000)
 
         # Select a real text node, then exercise highlight + comment persistence.
