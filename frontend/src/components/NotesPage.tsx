@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { api } from '../api'
 import { Pagination } from './Pagination'
-import { ResearchNotesList } from './KnowledgePage'
 
 export function NotesPage({ onNotice }: { onNotice: (message: string, error?: boolean) => void }) {
   const [query, setQuery] = useState('')
@@ -29,6 +28,5 @@ export function NotesPage({ onNotice }: { onNotice: (message: string, error?: bo
     <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={`${item.type}:${item.id}`} to={`/read/${encodeURIComponent(item.content_id)}${item.type === 'note' ? `?note=${encodeURIComponent(item.id)}` : `?annotation=${encodeURIComponent(item.id)}`}`}>
       <small>{item.type === 'note' ? '阅读笔记' : '高亮批注'} · {new Date(item.updated_at).toLocaleDateString()}</small><h2>{item.title || item.quote || '未命名笔记'}</h2><p>{item.body_md || (includeQuotes ? item.quote : '')}</p><strong>{item.article_title}<ArrowRight size={14} /></strong>
     </Link>)}</div><Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1) }} />
-    <ResearchNotesList query={query} />
   </div>
 }
