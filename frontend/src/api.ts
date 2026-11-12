@@ -196,15 +196,18 @@ export const api = {
   personalNote: (id: string) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`),
   personalNoteVersions: (id: string) => request<PersonalNoteVersionSummary[]>(`/personal-notes/${encodeURIComponent(id)}/versions`),
   personalNoteVersion: (id: string, revision: number) => request<PersonalNoteVersion>(`/personal-notes/${encodeURIComponent(id)}/versions/${revision}`),
-  createPersonalNote: (title = '', body = '', sourceIds: string[] = []) => request<PersonalKnowledgeNote>('/personal-notes', {
+  createPersonalNote: (title = '', body = '', sourceIds: string[] = [], tags: string[] = []) => request<PersonalKnowledgeNote>('/personal-notes', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body_md: body, source_ids: sourceIds }),
+    body: JSON.stringify({ title, body_md: body, source_ids: sourceIds, tags }),
   }),
-  savePersonalNote: (id: string, title: string, body: string, revision: number, sourceIds: string[]) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`, {
+  savePersonalNote: (id: string, title: string, body: string, revision: number, sourceIds: string[], tags: string[] = []) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body_md: body, revision, source_ids: sourceIds }),
+    body: JSON.stringify({ title, body_md: body, revision, source_ids: sourceIds, tags }),
   }),
   deletePersonalNote: (id: string, revision: number) => request<void>(`/personal-notes/${encodeURIComponent(id)}?revision=${revision}`, { method: 'DELETE' }),
+  bulkDeletePersonalNotes: (items: Array<{ id: string; revision: number }>) => request<{ deleted: number }>('/personal-notes/bulk-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }),
+  }),
   importMarkdown: async (file: File) => {
     const data = new FormData()
     data.append('file', file)
