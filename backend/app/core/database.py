@@ -508,6 +508,12 @@ def _backup_if_upgrade_required(
     if not version_upgrade and not legacy_upgrade:
         return None
 
+    # executescript() below would commit any pending setup transaction anyway.
+    # The SQLite online backup API cannot advance while this same connection
+    # holds an uncommitted write transaction; commit before making the snapshot.
+    if connection.in_transaction:
+        connection.commit()
+
     backup_dir = library / "app-data" / "backups"
     backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     try:
