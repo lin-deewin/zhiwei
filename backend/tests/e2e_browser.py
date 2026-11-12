@@ -66,7 +66,10 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
             timeout=15000,
         )
         await page.reload(wait_until="domcontentloaded")
-        await page.get_by_placeholder("给这条笔记起个标题…").wait_for(timeout=15000)
+        await page.wait_for_function(
+            "(expected) => document.querySelector('input.personal-note-title')?.value === expected",
+            arg=note_title, timeout=15000,
+        )
         assert await page.get_by_placeholder("给这条笔记起个标题…").input_value() == note_title
 
         await page.get_by_role("button", name="卡片视图").click()
