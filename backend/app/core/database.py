@@ -368,8 +368,31 @@ def _migration_personal_notes(connection: sqlite3.Connection) -> None:
     """)
 
 
+def _migration_reading_progress(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS reading_progress (
+            content_id TEXT PRIMARY KEY REFERENCES contents(id) ON DELETE CASCADE,
+            progress_ratio REAL NOT NULL DEFAULT 0 CHECK(progress_ratio >= 0 AND progress_ratio <= 1),
+            scroll_y REAL NOT NULL DEFAULT 0 CHECK(scroll_y >= 0),
+            block_id TEXT,
+            read_later INTEGER NOT NULL DEFAULT 0 CHECK(read_later IN (0,1)),
+            last_read_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_reading_progress_recent
+        ON reading_progress(last_read_at DESC)
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_reading_progress_later
+        ON reading_progress(read_later,updated_at DESC)
+    """)
+
+
 _VERSIONED_MIGRATIONS = (
     (2, "personal_notes", _migration_personal_notes),
+    (3, "reading_progress", _migration_reading_progress),
 )
 
 
