@@ -87,6 +87,6 @@ python -m app.release_check compare \
   --candidate "/path/to/library-after"
 ```
 
-检查器以只读模式打开 SQLite，执行 `PRAGMA integrity_check` 与 `foreign_key_check`，对关键领域表的稳定 ID 集合计算 SHA-256，并对文章目录文件内容计算 SHA-256。缺失原表、ID/数量变化、文章文件变化、正文文件缺失或数据库外键错误会返回非零退出码。
+检查器以只读模式打开 SQLite，执行 `PRAGMA integrity_check` 与 `foreign_key_check`，对全部既有 SQLite 用户表按主键比较每条记录的所有原字段值，并对文章目录文件内容计算 SHA-256；允许新增迁移表/字段，但不允许丢失旧表、旧字段或改写旧记录。缺失原表、ID/数量变化、文章文件变化、正文文件缺失或数据库外键错误会返回非零退出码。
 
 迁移版本：当前 V3 schema registry 为 v6（包含持久化 `research_jobs`）。升级前自动 SQLite 快照仅保护数据库文件；生产演练仍必须使用完整 `backup_cli` 备份，以覆盖文章 Markdown、图片附件、数据库及 manifest。
