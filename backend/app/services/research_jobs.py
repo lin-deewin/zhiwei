@@ -23,7 +23,8 @@ RETRYABLE = {"failed", "cancelled", "interrupted"}
 def _row(row) -> dict:
     value = dict(row)
     value["research"] = bool(value["research"])
-    value["result"] = json.loads(value.pop("result_json")) if value.get("result_json") else None
+    payload = value.pop("result_json")
+    value["result"] = json.loads(payload) if payload else None
     return value
 
 
@@ -170,12 +171,14 @@ class ResearchJobManager:
 
     async def shutdown(self) -> None:
         tasks = list(self._tasks.items())
-        for job_id, task in tasks:
+        # Shutdown is not a user cancellation. Preserve retryable interrupted
+        # state and prevent CancelledError handlers from overwriting it.
+        self.recover()
+        for _, task in tasks:
             if not task.done():
                 task.cancel()
         if tasks:
             await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
-        self.recover()
 
 
 research_job_manager = ResearchJobManager()
