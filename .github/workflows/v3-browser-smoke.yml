@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
-      ZHILIB_LIBRARY_DIR: ${{ runner.temp }}/zhiwei-e2e-library
-      ZHIWEI_E2E_ARTIFACTS: ${{ github.workspace }}/artifacts/browser-smoke
+      ZHILIB_LIBRARY_DIR: /tmp/zhiwei-e2e-library
+      ZHIWEI_E2E_ARTIFACTS: artifacts/browser-smoke
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,7 +56,7 @@ jobs:
           article = import_markdown("e2e.md", "# V3 浏览器验收文章\n\n这是一篇 CI 生成的测试文章，用于验证阅读和资料库界面。".encode())
           print("Created synthetic article:", article["id"])
           PY
-          python -m uvicorn app.main:app --host 127.0.0.1 --port 8765 > "$RUNNER_TEMP/zhiwei-uvicorn.log" 2>&1 &
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8765 > "/tmp/zhiwei-uvicorn.log" 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for i in $(seq 1 40); do
@@ -71,6 +71,6 @@ jobs:
         with:
           name: v3-browser-smoke
           path: |
-            artifacts/browser-smoke/
-            ${{ runner.temp }}/zhiwei-uvicorn.log
+            backend/artifacts/browser-smoke/
+            /tmp/zhiwei-uvicorn.log
           if-no-files-found: ignore
