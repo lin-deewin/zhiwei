@@ -6,100 +6,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import { api } from '../api'
+import { anchorFromSelection } from '../utils/reading_anchors'
+import { useAnnotationHighlights } from '../hooks/useAnnotationHighlights'
 import { newRequestKey } from '../utils/request_key'
 import type { Annotation, PersonalNote, ReadingAIJob, ReadingAIResult, ReadingContext, TextAnchor } from '../types'
 
-function codePointOffset(node: Node, offset: number): number {
-  const root = node.parentElement?.closest<HTMLElement>('[data-reading-block-id]')
-  if (!root) return 0
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let result = 0
-  while (walker.nextNode()) {
-    const textNode = walker.currentNode as Text
-    if (textNode === node) return result + Array.from(textNode.data.slice(0, offset)).length
-    result += Array.from(textNode.data).length
-  }
-  return result
-}
-
-export function anchorFromSelection(context: ReadingContext): TextAnchor | null {
-  const selection = window.getSelection()
-  if (!selection || selection.isCollapsed || !selection.rangeCount) return null
-  const range = selection.getRangeAt(0)
-  const startElement = range.startContainer.parentElement?.closest<HTMLElement>('[data-reading-block-id]')
-  const endElement = range.endContainer.parentElement?.closest<HTMLElement>('[data-reading-block-id]')
-  if (!startElement || startElement !== endElement || !context.revision_id) return null
-  const blockId = startElement.dataset.readingBlockId
-  const block = context.blocks.find((item) => item.id === blockId)
-  if (!block?.markable) return null
-  const start = codePointOffset(range.startContainer, range.startOffset)
-  const end = codePointOffset(range.endContainer, range.endOffset)
-  const chars = Array.from(block.text)
-  if (end <= start || end > chars.length) return null
-  const exact = chars.slice(start, end).join('')
-  if (exact !== range.toString()) return null
-  return {
-    revision_id: context.revision_id,
-    normalization_version: context.normalization_version,
-    block_id: block.id,
-    start,
-    end,
-    exact,
-    prefix: chars.slice(Math.max(0, start - 32), start).join(''),
-    suffix: chars.slice(end, end + 32).join(''),
-    block_hash: block.text_hash,
-    heading_path: block.heading_path,
-  }
-}
-
-function rangeForAnchor(anchor: TextAnchor): Range | null {
-  const root = document.querySelector<HTMLElement>(`[data-reading-block-id="${CSS.escape(anchor.block_id)}"]`)
-  if (!root) return null
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let remainingStart = anchor.start
-  let remainingEnd = anchor.end
-  let startNode: Text | null = null
-  let startOffset = 0
-  let endNode: Text | null = null
-  let endOffset = 0
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text
-    const length = Array.from(node.data).length
-    if (!startNode && remainingStart <= length) {
-      startNode = node
-      startOffset = Array.from(node.data).slice(0, remainingStart).join('').length
-    }
-    if (remainingEnd <= length) {
-      endNode = node
-      endOffset = Array.from(node.data).slice(0, remainingEnd).join('').length
-      break
-    }
-    remainingStart -= length
-    remainingEnd -= length
-  }
-  if (!startNode || !endNode) return null
-  const range = document.createRange()
-  range.setStart(startNode, startOffset)
-  range.setEnd(endNode, endOffset)
-  return range
-}
-
-function useAnnotationHighlights(annotations: Annotation[]) {
-  useEffect(() => {
-    const css = (window as Window & { CSS?: { highlights?: { set: (name: string, value: unknown) => void; delete: (name: string) => void } } }).CSS
-    const HighlightCtor = (window as Window & { Highlight?: new (...ranges: Range[]) => unknown }).Highlight
-    if (!css?.highlights || !HighlightCtor) return
-    const names = ['reader-yellow', 'reader-green', 'reader-blue']
-    const colors: Record<string, string> = { yellow: names[0], green: names[1], blue: names[2] }
-    for (const name of names) css.highlights.delete(name)
-    for (const color of ['yellow', 'green', 'blue'] as const) {
-      const ranges = annotations.filter((a) => a.anchor_status === 'resolved' && a.current_anchor && a.color === color)
-        .map((a) => rangeForAnchor(a.current_anchor!)).filter((value): value is Range => value !== null)
-      if (ranges.length) css.highlights.set(colors[color], new HighlightCtor(...ranges))
-    }
-    return () => { for (const name of names) css.highlights?.delete(name) }
-  }, [annotations])
-}
 
 export function ReaderWorkspace({ context, setContext, onNotice }: {
   context: ReadingContext; setContext: (next: ReadingContext | ((current: ReadingContext) => ReadingContext)) => void
