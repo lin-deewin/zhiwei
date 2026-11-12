@@ -22,6 +22,7 @@ import { NotesPage, ReaderWorkspace } from './components/ReaderWorkspace'
 import { KnowledgePage } from './components/KnowledgePage'
 import { WorkspaceTabs, useWorkspaceTitle } from './components/WorkspaceTabs'
 import { KnowledgeHub } from './components/KnowledgeHub'
+import { AppSidebar } from './components/AppSidebar'
 
 type Notice = { message: string; error?: boolean } | null
 
@@ -80,67 +81,7 @@ function App() {
   }
 
   return <div className="app-shell">
-    <aside className="sidebar">
-      <Link to="/" className="brand">
-        <span className="brand-mark"><Bookmark size={19} fill="currentColor" /></span>
-        <span><strong>知微</strong><small>个人知识库</small></span>
-      </Link>
-      <div className="sidebar-scroll">
-      <div className="side-caption">核心工作区</div>
-      <nav className="primary-nav">
-        <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <LayoutGrid size={17} /> <span>资料库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
-        </NavLink>
-        <NavLink to="/notes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <FileText size={17} /><span>个人笔记</span>
-        </NavLink>
-        <NavLink to="/ask" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <Sparkles size={17} /><span>AI 助手</span>
-        </NavLink>
-        <NavLink to="/knowledge" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <BookOpen size={17} /><span>研究工作区</span>
-        </NavLink>
-      </nav>
-      <div className="side-caption">资料管理</div>
-      <nav className="primary-nav">
-        <NavLink to="/questions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <CircleHelp size={17} /><span>话题汇总</span>
-        </NavLink>
-        <NavLink to="/categories" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <Tags size={17} /><span>主题分类</span>
-        </NavLink>
-      </nav>
-      <div className="side-caption">系统</div>
-      <nav className="primary-nav">
-        <NavLink to="/sync" aria-label="同步中心" title="同步中心" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <ArrowDownToLine size={17} /><span>同步中心</span>
-        </NavLink>
-      </nav>
-      <div className="side-caption side-caption-row"><span>常用主题</span><button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button></div>
-      <nav className="category-nav">
-        {categories.filter((item) => !item.parent_id).slice(0, 7).map((item, index) => {
-          const colors = ['#db8f62', '#6d9e8b', '#8c82bc', '#c39b4e', '#6484aa', '#bd7181', '#728c62']
-          return <button key={item.id} className="category-link" onClick={() => navigate(`/?category=${item.id}`)}>
-            <span className="category-dot" style={{ background: colors[index % colors.length] }} />
-            <span>{item.name}</span><small>{item.article_count}</small>
-          </button>
-        })}
-        {categories.length === 0 && <button className="category-empty" onClick={() => navigate('/categories')}>创建你的第一个主题</button>}
-        <button className="category-link" onClick={() => navigate('/?pending=1')}>
-          <span className="category-dot" style={{ background: '#a98e79' }} />
-          <span>待整理</span><small aria-label={pendingCount === null ? '待整理数量暂不可用' : `${pendingCount} 篇待整理文章`}>{pendingCount ?? '—'}</small>
-        </button>
-      </nav>
-      </div>
-      <div className="sidebar-bottom">
-        <div className="storage-card">
-          <div className="storage-icon"><FolderOpen size={17} /></div>
-          <div className="storage-info"><strong>本地资料库</strong><span>{settings?.library_dir ? shortenPath(settings.library_dir) : '正在读取目录…'}</span></div>
-          <button className="icon-button tiny" aria-label="设置资料目录" onClick={() => navigate('/settings')}><Settings2 size={15} /></button>
-        </div>
-        <div className="profile-row"><div className="avatar">知</div><div className="profile-copy"><strong>本地空间</strong><span>离线优先 · 私人使用</span></div><MoreHorizontal size={18} className="muted-icon" /></div>
-      </div>
-    </aside>
+    <AppSidebar categories={categories} settings={settings} pendingCount={pendingCount} />
     <main className="main-area">
       <WorkspaceTabs>{(href) => <Routes location={href}>
           <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
