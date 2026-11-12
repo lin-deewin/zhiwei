@@ -14,12 +14,12 @@
 
 ## 2. API 路由盘点
 
-当前 8 个路由模块，共 118 个路由声明：
+当前 8 个路由模块，共 123 个路由声明：
 
 | 路由模块 | 数量 | 主要职责 |
 |---|---:|---|
 | `api/routes.py` | 53 | 健康检查、账号/登录、收藏夹、设置、分类、内容、同步、分类任务、问题汇总 |
-| `api/reading_routes.py` | 22 | 阅读上下文、高亮/批注、个人笔记、阅读 AI、阅读记录导入导出 |
+| `api/reading_routes.py` | 27 | 阅读上下文、高亮/批注、个人笔记、阅读 AI、阅读记录导入导出 |
 | `api/knowledge_routes.py` | 6 | 证据检索、研究笔记生成、查询、保存和删除 |
 | `api/graph_routes.py` | 10 | 知识节点、双向链接、主题页和链接解析 |
 | `api/semantic_routes.py` | 7 | 语义索引任务、评测案例、检索评估 |
@@ -36,7 +36,7 @@
 
 ## 3. SQLite 表盘点
 
-当前 schema 声明 39 张表（原有 36 张 + 独立个人笔记 2 张 + 迁移登记 1 张）。按领域归类如下：
+当前 schema 声明 40 张表（原有 36 张 + 独立个人笔记 2 张 + 迁移登记 1 张 + 阅读进度 1 张）。按领域归类如下：
 
 ### Library / Sync
 
@@ -58,6 +58,7 @@
 - `reading_library_meta`
 - `content_revisions`
 - `reading_content_state`
+- `reading_progress`：最近阅读位置、进度比例、正文区块锚点与稍后阅读标记
 - `annotations`
 - `notes`
 - `reading_ai_jobs`
@@ -80,7 +81,7 @@
 
 ### Platform / Migration
 
-- `schema_migrations`：按版本登记迁移名称和应用时间；当前已落地版本 2（personal_notes）。
+- `schema_migrations`：按版本登记迁移名称和应用时间；当前已落地版本 3（personal_notes、reading_progress）。
 
 ### AI Retrieval / Markdown Interop
 
@@ -106,13 +107,13 @@
 
 ### 需要在后续版本解决
 
-1. `schema_migrations` 已建立有序迁移登记；当前版本 2 创建 `personal_notes` 与 `personal_note_sources`，并推进 `schema_version`。
+1. `schema_migrations` 已建立有序迁移登记；当前版本 2 创建 `personal_notes` 与 `personal_note_sources`；版本 3 创建 `reading_progress`，并推进 `schema_version`。
 2. 历史列补齐仍保留列存在性检查，后续应逐步纳入 registry。
-3. 当前 v2 为纯新增表迁移；统一的迁移前自动备份策略尚未覆盖所有未来迁移。
+3. 当前 v2/v3 均为新增表迁移；统一的迁移前自动备份策略尚未覆盖所有未来迁移。
 4. 尚无生产数据副本上的完整升级、回滚、备份恢复演练。
 5. 尚未对所有表的外键关系、级联删除策略、索引覆盖和迁移前后数据数量做机器化差异报告。
 
-**结论：** 当前已有最小版本化迁移 registry，个人笔记迁移可重复执行且旧库数据保留测试已加入；但迁移前备份、失败回滚演练和完整 schema diff 尚未完成。不得直接在用户生产库上试验。
+**结论：** 当前已有最小版本化迁移 registry，个人笔记和阅读进度迁移可重复执行，旧库数据保留测试已加入；但迁移前备份、失败回滚演练和完整 schema diff 尚未完成。不得直接在用户生产库上试验。
 
 ## 5. 文件系统与数据安全
 
@@ -144,6 +145,6 @@
 
 ## 7. 自动化验证基线
 
-- 后端：当前仓库测试套件在 GitHub Actions 上通过，最近记录为 64 passed。
-- 前端：TypeScript 项目构建与 Vite 生产构建此前通过；当前个人笔记页面在后续修正后尚待新一轮 CI 验证。
+- 后端：此前完整 CI 基线为 70 passed；阅读进度新增测试尚未获得新一轮 CI 结果。
+- 前端：此前 TypeScript 项目构建与 Vite 生产构建通过；阅读器拆分、阅读进度页面和个人笔记样式修正尚待新一轮 CI 验证。
 - 当前自动化尚未包含前端交互测试、浏览器端端到端流程、跨平台文件系统测试或真实数据迁移演练。
