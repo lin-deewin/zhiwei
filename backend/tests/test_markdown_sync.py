@@ -155,3 +155,90 @@ def test_personal_note_markdown_export_and_external_tag_sync(monkeypatch, tmp_pa
     assert "新增的外部思考" in updated["body_md"]
     assert updated["tags"] == ["投资", "风险控制"]
     assert [source["source_id"] for source in updated["sources"]] == ["article:" + article["id"]]
+
+
+def test_cross_library_personal_note_restore_preserves_source_snapshots(monkeypatch, tmp_path):
+    original = tmp_path / "original"
+    restored = tmp_path / "restored"
+    vault = tmp_path / "vault"
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(original))
+    article = import_markdown("origin.md", "# 来源\n\n原文".encode())
+    created = create_personal_note({
+        "title": "独立的理解",
+        "body_md": "跨资料库笔记必须保留原来源快照。",
+        "source_ids": ["article:" + article["id"]],
+        "tags": ["学习", "阅读"],
+    })
+    sync.configure(str(vault))
+    sync.export_all()
+    path = f"personal_note/{created['id']}.md"
+    metadata, _body = sync._parse(vault / path)
+    assert metadata["zhilib_kind"] == "personal_note"
+    assert metadata["sources"][0]["source_id"] == "article:" + article["id"]
+
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(restored))
+    sync.configure(str(vault))
+    items = sync.preview()["items"]
+    restored_item = next(item for item in items if item["path"] == path)
+    assert restored_item["status"] == "restore"
+    assert restored_item["source_id"] == "personal_note:" + created["id"]
+    applied = sync.apply([path], {path: restored_item["file_hash"]})["items"][0]
+    assert applied["status"] == "imported"
+    assert applied["source_id"] != restored_item["source_id"]
+    restored_id = applied["source_id"].partition(":")[2]
+    recovered = get_personal_note(restored_id)
+    assert recovered["title"] == "独立的理解"
+    assert recovered["tags"] == ["学习", "阅读"]
+    assert recovered["sources"][0]["source_id"] == "article:" + article["id"]
+    assert recovered["sources"][0]["title_snapshot"] == "来源"
+    assert recovered["sources"][0]["available"] is False
+    assert next(item for item in sync.preview()["items"] if item["path"] == path)["status"] == "unchanged"
+    assert sync.apply([path])["items"][0]["status"] == "skipped"
+
+
+def test_cross_library_personal_note_restore_requires_valid_sources(monkeypatch, tmp_path):
+    library = tmp_path / "empty"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(library))
+    sync.configure(str(vault))
+    path = vault / "foreign.md"
+    metadata = {
+        "zhilib_source": "personal_note:foreign123",
+        "zhilib_kind": "personal_note",
+        "zhilib_library": "another-library",
+        "title": "无效快照",
+        "sources": [{"source_id": "article:one", "source_type": "topic", "title_snapshot": "错误"}],
+    }
+    path.write_text(
+        "---\n" + yaml.safe_dump(metadata, allow_unicode=True) + "---\n正文",
+        encoding="utf-8",
+    )
+    item = sync.preview()["items"][0]
+    assert item["status"] == "restore"
+    result = sync.apply(["foreign.md"], {"foreign.md": item["file_hash"]})["items"][0]
+    assert result["status"] == "error"
+    assert "类型与 ID 不一致" in result["message"]
+    with sync.session() as db:
+        assert db.execute("SELECT COUNT(*) FROM personal_notes").fetchone()[0] == 0
+
+
+def test_cross_library_duplicate_personal_note_ids_are_not_imported(monkeypatch, tmp_path):
+    library = tmp_path / "empty"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(library))
+    sync.configure(str(vault))
+    metadata = {
+        "zhilib_source": "personal_note:duplicate",
+        "zhilib_kind": "personal_note",
+        "zhilib_library": "outside",
+        "sources": [],
+    }
+    contents = "---\n" + yaml.safe_dump(metadata) + "---\n正文"
+    (vault / "a.md").write_text(contents)
+    (vault / "b.md").write_text(contents)
+    preview = sync.preview()
+    assert {item["status"] for item in preview["items"]} == {"conflict"}
+    applied = sync.apply(["a.md", "b.md"])["items"]
+    assert all(item["status"] == "skipped" for item in applied)
