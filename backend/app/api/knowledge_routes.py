@@ -14,16 +14,16 @@ from app.services.ai import AIRequestError
 from app.services.semantic import hybrid_retrieve as retrieve
 
 router = APIRouter(prefix="/api/v1")
-Kind = Literal["article", "note", "annotation", "research", "topic"]
+Kind = Literal["article", "note", "annotation", "research", "topic", "personal_note"]
 
 
 class EvidenceInput(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     category_id: int | None = None
     kinds: list[Kind] = Field(
-        default_factory=lambda: ["article", "note", "annotation", "research", "topic"],
+        default_factory=lambda: ["article", "note", "annotation", "research", "topic", "personal_note"],
         min_length=1,
-        max_length=5,
+        max_length=6,
     )
 
 
