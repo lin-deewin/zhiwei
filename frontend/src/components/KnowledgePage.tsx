@@ -1,7 +1,7 @@
 import { useWorkspaceActive } from './WorkspaceTabs'
 import { useWikiLinks, wikiPlugin } from '../utils/wiki_markdown'
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -52,6 +52,7 @@ export function ResearchNotesList({ query = '', version = 0 }: { query?: string;
 
 export function KnowledgePage({ categories }: { categories: Category[] }) {
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const [question, setQuestion] = useState('')
   const [categoryId, setCategoryId] = useState<number | undefined>()
   const [kinds, setKinds] = useState<EvidenceKind[]>(['article', 'note', 'annotation', 'research', 'topic'])
@@ -106,6 +107,21 @@ export function KnowledgePage({ categories }: { categories: Category[] }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url; a.download = `${title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80) || '研究笔记'}.md`; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
+
+  const saveAsPersonalNote = () => {
+    if (!draft) return
+    void run('转存个人笔记', async () => {
+      const saved = draft.status !== 'saved' || dirty
+        ? await api.saveResearch(draft.id, title, body, draft.revision)
+        : draft
+      if (saved !== draft) {
+        acceptNote(saved)
+        setVersion((value) => value + 1)
+      }
+      const note = await api.createPersonalNote(saved.title, saved.body_md, [`research:${saved.id}`])
+      navigate(`/personal-notes?note=${encodeURIComponent(note.id)}`)
+    })
+  }
   return <div className="subpage knowledge-page">
     <div className="page-title-row"><div><div className="eyebrow">ASK YOUR LIBRARY</div><h1>让资料，开始回答。</h1><p>文章、笔记与批注一起检索；用多份证据形成可追溯的研究笔记。</p></div></div>
     <SemanticPanel question={question} expected={[...new Set(sources.filter((s) => selected.includes(s.chunk_id)).map((s) => s.source_id))]} />
@@ -124,7 +140,7 @@ export function KnowledgePage({ categories }: { categories: Category[] }) {
     </section>}
     {draft && <section className="panel research-editor"><div className="panel-title"><h2>{draft.status === 'saved' ? '研究笔记' : '研究笔记草稿'}</h2><span>研究问题：{draft.question}</span></div>
       <label>标题<input disabled={Boolean(busy)} value={title} maxLength={1000} onChange={(e) => setTitle(e.target.value)} /></label><label>正文（Markdown）<textarea disabled={Boolean(busy)} value={body} maxLength={100000} onChange={(e) => setBody(e.target.value)} /></label>
-      <div className="knowledge-actions"><button className="button button-primary" disabled={Boolean(busy) || !title.trim() || !body.trim()} onClick={() => void run('保存研究笔记', async () => { acceptNote(await api.saveResearch(draft.id, title, body, draft.revision)); setVersion((v) => v + 1) })}><Save size={16} />{draft.status === 'saved' ? '保存修改' : '保存到我的笔记'}</button><button className="button button-soft" onClick={download}>导出 Markdown</button><button className="button button-soft" disabled={Boolean(busy)} onClick={() => { if (window.confirm('删除这篇研究笔记？')) void run('删除笔记', async () => { await api.deleteResearch(draft.id); setDraft(null); setParams({}); setVersion((v) => v + 1) }) }}><Trash2 size={16} />删除</button></div>
+      <div className="knowledge-actions"><button className="button button-primary" disabled={Boolean(busy) || !title.trim() || !body.trim()} onClick={() => void run('保存研究笔记', async () => { acceptNote(await api.saveResearch(draft.id, title, body, draft.revision)); setVersion((v) => v + 1) })}><Save size={16} />{draft.status === 'saved' ? '保存修改' : '保存研究笔记'}</button><button className="button button-soft" onClick={download}>导出 Markdown</button><button className="button button-soft" disabled={Boolean(busy) || !title.trim() || !body.trim()} onClick={saveAsPersonalNote}>转存为独立个人笔记</button><button className="button button-soft" disabled={Boolean(busy)} onClick={() => { if (window.confirm('删除这篇研究笔记？')) void run('删除笔记', async () => { await api.deleteResearch(draft.id); setDraft(null); setParams({}); setVersion((v) => v + 1) }) }}><Trash2 size={16} />删除</button></div>
       {draft.status === 'saved' && <GraphPanel sourceId={'research:' + draft.id} version={version} />}<ResearchHistory note={draft} onRestore={(note) => { acceptNote(note); setVersion((v) => v + 1) }} /><CitedMarkdown text={body} prefix="research-evidence" /><EvidenceList sources={draft.sources} prefix="research-evidence" /><small>出处快照保留生成时的片段；当前原文可能已修改。引用编号有效不代表模型结论一定正确，请核对。</small>
     </section>}
     <ResearchNotesList version={version} />
