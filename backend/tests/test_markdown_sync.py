@@ -1,8 +1,10 @@
 import pytest
+import yaml
 
 from app.services import markdown_sync as sync
 from app.services.library import import_markdown
 from app.services.reading_workspace import create_note, patch_note
+from app.services.personal_notes import create_personal_note, get_personal_note
 
 
 def test_export_external_edit_import_and_conflict(monkeypatch, tmp_path):
@@ -112,3 +114,46 @@ def test_rename_symlink_image_and_explicit_merge(monkeypatch, tmp_path):
         next(x for x in sync.preview()["items"] if x["path"] == "symlink-image.md")["status"]
         == "error"
     )
+
+
+def test_personal_note_markdown_export_and_external_tag_sync(monkeypatch, tmp_path):
+    library = tmp_path / "lib"
+    vault = tmp_path / "vault"
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(library))
+    article = import_markdown("source.md", "# 来源文章\\n\\n引用来源。".encode())
+    note = create_personal_note({
+        "title": "长期投资原则",
+        "body_md": "先理解企业，再考虑价格。",
+        "source_ids": ["article:" + article["id"]],
+        "tags": ["投资", "长期主义"],
+    })
+    sync.configure(str(vault))
+
+    exported = sync.export_all()
+    item = next(x for x in exported["items"] if x["path"] == f"personal_note/{note['id']}.md")
+    assert item["status"] == "exported"
+    path = vault / item["path"]
+    metadata, body = sync._parse(path)
+    assert metadata["zhilib_source"] == "personal_note:" + note["id"]
+    assert metadata["tags"] == ["投资", "长期主义"]
+    assert sync.preview()["items"][0]["status"] == "unchanged" or next(
+        x for x in sync.preview()["items"] if x["path"] == item["path"]
+    )["status"] == "unchanged"
+
+    metadata["title"] = "长期投资与风险控制"
+    metadata["tags"] = ["投资", "风险控制"]
+    path.write_text(
+        "---\\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False) + "---\\n"
+        + body + "\\n\\n新增的外部思考。",
+        encoding="utf-8",
+    )
+    preview = next(x for x in sync.preview()["items"] if x["path"] == item["path"])
+    assert preview["status"] == "update"
+    result = sync.apply([item["path"]], {item["path"]: preview["file_hash"]})
+    assert result["items"][0]["status"] == "imported"
+
+    updated = get_personal_note(note["id"])
+    assert updated["title"] == "长期投资与风险控制"
+    assert "新增的外部思考" in updated["body_md"]
+    assert updated["tags"] == ["投资", "风险控制"]
+    assert [source["source_id"] for source in updated["sources"]] == ["article:" + article["id"]]
