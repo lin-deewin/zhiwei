@@ -1,5 +1,5 @@
 import { newRequestKey } from './utils/request_key'
-import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, ReadingContext, ReadingAIJob, ReadingAIResult, ReadingProgress, ReadingListItem } from './types'
+import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, PersonalNoteVersionSummary, PersonalNoteVersion, ReadingContext, ReadingAIJob, ReadingAIResult, ReadingProgress, ReadingListItem } from './types'
 
 export type AccountStatus = { status: string; message: string; profile?: { name: string } | null }
 export type LoginStatus = {
@@ -194,6 +194,8 @@ export const api = {
 
   personalNotes: (q = '', page = 1, pageSize = 20) => request<{ items: PersonalKnowledgeNoteListItem[]; total: number; page: number; page_size: number }>(`/personal-notes?q=${encodeURIComponent(q)}&page=${page}&page_size=${pageSize}`),
   personalNote: (id: string) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`),
+  personalNoteVersions: (id: string) => request<PersonalNoteVersionSummary[]>(`/personal-notes/${encodeURIComponent(id)}/versions`),
+  personalNoteVersion: (id: string, revision: number) => request<PersonalNoteVersion>(`/personal-notes/${encodeURIComponent(id)}/versions/${revision}`),
   createPersonalNote: (title = '', body = '', sourceIds: string[] = []) => request<PersonalKnowledgeNote>('/personal-notes', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, body_md: body, source_ids: sourceIds }),
