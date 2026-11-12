@@ -17,7 +17,6 @@ def test_schema_migrations_are_versioned_and_idempotent(monkeypatch, tmp_path):
         assert db.execute("SELECT name FROM schema_migrations WHERE version=2").fetchone()[0] == "personal_notes"
         assert db.execute("SELECT name FROM schema_migrations WHERE version=3").fetchone()[0] == "reading_progress"
         assert db.execute("SELECT name FROM schema_migrations WHERE version=4").fetchone()[0] == "personal_note_versions"
-        assert db.execute("SELECT name FROM schema_migrations WHERE version=4").fetchone()[0] == "personal_note_versions"
         assert db.execute(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='personal_note_sources'"
         ).fetchone()[0] == 1
@@ -59,3 +58,4 @@ def test_legacy_migrations_preserve_existing_library_rows(monkeypatch, tmp_path)
         assert db.execute("SELECT version FROM schema_version").fetchone()[0] == 4
         assert db.execute("SELECT name FROM schema_migrations WHERE version=2").fetchone()[0] == "personal_notes"
         assert db.execute("SELECT name FROM schema_migrations WHERE version=3").fetchone()[0] == "reading_progress"
+        assert db.execute("SELECT name FROM schema_migrations WHERE version=4").fetchone()[0] == "personal_note_versions"
