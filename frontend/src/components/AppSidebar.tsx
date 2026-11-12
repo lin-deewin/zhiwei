@@ -1,4 +1,4 @@
-import { ArrowDownToLine, BookOpen, Bookmark, CircleHelp, FileText, FolderOpen, LayoutGrid, MoreHorizontal, Plus, Settings2, Sparkles, Tags } from 'lucide-react'
+import { ArrowDownToLine, BookOpen, Bookmark, Clock3, CircleHelp, FileText, FolderOpen, LayoutGrid, MoreHorizontal, Plus, Settings2, Sparkles, Tags } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import type { Category, LibrarySettings } from '../types'
 
@@ -34,6 +34,7 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
       </nav>
       <div className="side-caption">阅读与整理</div>
       <nav className="primary-nav" aria-label="阅读与整理">
+        <NavLink to="/reading" className={navClass}><Clock3 size={17} /><span>最近阅读</span></NavLink>
         <NavLink to="/notes" className={navClass}><BookOpen size={17} /><span>阅读记录</span></NavLink>
         <NavLink to="/questions" className={navClass}><CircleHelp size={17} /><span>话题汇总</span></NavLink>
         <NavLink to="/categories" className={navClass}><Tags size={17} /><span>主题分类</span></NavLink>
