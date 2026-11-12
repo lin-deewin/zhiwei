@@ -716,3 +716,27 @@
   .personal-note-bulk-bar .button{flex:1;justify-content:center}
   .personal-note-tags{padding:10px}
 }
+
+
+/* Personal knowledge cards */
+.personal-notes-index-tools{display:flex;align-items:center;gap:8px}
+.personal-note-view-toggle{display:flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--color-surface-subtle)}
+.personal-note-view-toggle button{width:30px;height:29px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+.personal-note-view-toggle button.selected{background:var(--color-surface);color:var(--green-dark);box-shadow:0 1px 3px #203b2912}
+.personal-note-view-toggle button:focus-visible{outline:2px solid var(--green);outline-offset:1px}
+.personal-notes-items.is-cards{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));align-content:start;gap:9px}
+.personal-notes-items.is-cards .personal-note-list-row{grid-template-columns:16px minmax(0,1fr);gap:4px;min-width:0}
+.personal-notes-items.is-cards .personal-note-list-row>input{margin:15px 0 0 1px}
+.personal-notes-items.is-cards .personal-note-list-item.as-card{height:100%;min-height:160px;align-content:start;gap:9px;padding:14px;border:1px solid var(--line);background:var(--color-surface);box-shadow:0 1px 2px #1c302508}
+.personal-notes-items.is-cards .personal-note-list-item.as-card:hover,.personal-notes-items.is-cards .personal-note-list-item.as-card.active{border-color:var(--green);background:var(--green-pale)}
+.personal-notes-items.is-cards .personal-note-list-item.as-card strong{font-size:13px;line-height:1.55}
+.personal-notes-items.is-cards .personal-note-list-item.as-card>span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;line-height:1.6}
+.personal-notes-items.is-cards .personal-note-list-item.as-card small{align-self:end;margin-top:auto;padding-top:5px}
+@media(max-width:560px){
+  .personal-notes-index-tools{gap:5px}
+  .personal-notes-items.is-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .personal-notes-items.is-cards .personal-note-list-item.as-card{padding:10px;min-height:150px}
+}
+@media(max-width:380px){
+  .personal-notes-items.is-cards{grid-template-columns:1fr}
+}
