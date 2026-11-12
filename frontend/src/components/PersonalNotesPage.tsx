@@ -220,7 +220,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const bulkDeleteNotes = async () => {
     if (busy) return
     const selected = items.filter((item) => selectedNoteIds.has(item.id))
-    if (!selected.length || !window.confirm(\`确定删除选中的 \${selected.length} 条个人笔记？其来源引用、版本历史和知识链接也会删除。\`)) return
+    if (!selected.length || !window.confirm(`确定删除选中的 ${selected.length} 条个人笔记？其来源引用、版本历史和知识链接也会删除。`)) return
     setBusy(true)
     try {
       const result = await api.bulkDeletePersonalNotes(selected.map(({ id, revision }) => ({ id, revision })))
@@ -230,7 +230,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
       }
       setSelectedNoteIds(new Set())
       setReloadKey((value) => value + 1)
-      onNotice({ message: \`已删除 \${result.deleted} 条个人笔记\` })
+      onNotice({ message: `已删除 ${result.deleted} 条个人笔记` })
     } catch (error) {
       onNotice({ message: (error as Error).message, error: true })
     } finally { setBusy(false) }
