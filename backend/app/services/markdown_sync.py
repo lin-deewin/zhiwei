@@ -295,17 +295,31 @@ def preview() -> dict:
             source_id = meta.get("zhilib_source") or (baseline["source_id"] if baseline else None)
             if source_id and not isinstance(source_id, str):
                 raise ValueError("资料 ID 无效")
-            if source_id and meta.get("zhilib_library", cfg["library_id"]) != cfg["library_id"]:
+            personal_note_restore = bool(source_id and meta.get("zhilib_kind") == "personal_note")
+            foreign_library = bool(
+                source_id and meta.get("zhilib_library", cfg["library_id"]) != cfg["library_id"]
+            )
+            record = None
+            current_hash = None
+            if foreign_library and not personal_note_restore:
                 items.append(
                     {
                         "path": relative,
                         "status": "foreign",
-                        "message": "来自其他资料库，请移除 zhilib_source 后作为新文章导入",
+                        "message": "来自其他资料库；只有带完整来源快照的独立个人笔记支持恢复",
                     }
                 )
                 continue
-            if source_id:
-                record = _record(source_id)
+            if source_id and not foreign_library:
+                try:
+                    record = _record(source_id)
+                except LookupError:
+                    if not personal_note_restore:
+                        raise
+            if personal_note_restore and (foreign_library or record is None):
+                state = "restore"
+                ids.setdefault(source_id, []).append(len(items))
+            elif source_id:
                 current_hash = _record_hash(record)
                 if baseline:
                     file_changed = file_hash != baseline["file_hash"]
@@ -329,8 +343,9 @@ def preview() -> dict:
                     "path": relative,
                     "status": state,
                     "source_id": source_id,
+                    "kind": "personal_note" if personal_note_restore else (record or {}).get("kind"),
                     "file_hash": file_hash,
-                    "record_hash": current_hash if source_id else None,
+                    "record_hash": current_hash,
                     "title": str(meta.get("title") or path.stem)[:1000],
                 }
             )
