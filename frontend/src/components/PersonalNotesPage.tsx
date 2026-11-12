@@ -161,7 +161,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
         <p>个人笔记独立于外部文章，可以引用多份资料，也可以与其他个人笔记建立明确的双向链接。</p>
         <button className="button button-primary" onClick={() => void createNote()} disabled={busy}><Plus size={16} /> 新建个人笔记</button>
       </div>}
-      {selectedId && <div className="personal-note-editor panel">
+      {selectedId && <div className="personal-note-document panel">
         {loading && <div className="personal-note-loading"><LoaderCircle size={18} /> 正在读取笔记…</div>}
         {note && <>
           <div className="personal-note-editor-head">
