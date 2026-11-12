@@ -434,10 +434,26 @@ def _migration_personal_note_versions(connection: sqlite3.Connection) -> None:
         )
 
 
+def _migration_personal_note_tags(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_note_tags (
+            note_id TEXT NOT NULL REFERENCES personal_notes(id) ON DELETE CASCADE,
+            tag TEXT NOT NULL CHECK(length(tag) BETWEEN 1 AND 24),
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(note_id, tag)
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_note_tags_tag
+        ON personal_note_tags(tag, note_id)
+    """)
+
+
 _VERSIONED_MIGRATIONS = (
     (2, "personal_notes", _migration_personal_notes),
     (3, "reading_progress", _migration_reading_progress),
     (4, "personal_note_versions", _migration_personal_note_versions),
+    (5, "personal_note_tags", _migration_personal_note_tags),
 )
 
 
