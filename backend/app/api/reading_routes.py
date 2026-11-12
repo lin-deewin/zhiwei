@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.services import reading_workspace as service
+from app.services import reading_progress as progress_service
 
 router = APIRouter(prefix="/api/v1")
 
@@ -50,6 +51,16 @@ class ReadingAIInput(BaseModel):
     request_key: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=8, max_length=100)
 
 
+class ReadingProgressInput(BaseModel):
+    progress_ratio: float = Field(ge=0, le=1)
+    scroll_y: float = Field(default=0, ge=0)
+    block_id: str | None = Field(default=None, max_length=200)
+
+
+class ReadLaterInput(BaseModel):
+    enabled: bool
+
+
 class SearchInput(BaseModel):
     q: str = Field(default="", max_length=300)
     page: int = Field(default=1, ge=1)
@@ -88,6 +99,31 @@ def _translate(call, *args, **kwargs):
 @router.get("/contents/{content_id}/reading-context")
 def get_reading_context(content_id: str):
     return _translate(service.reading_context, content_id)
+
+
+@router.get("/contents/{content_id}/reading-progress")
+def get_reading_progress(content_id: str):
+    return _translate(progress_service.get_reading_progress, content_id)
+
+
+@router.patch("/contents/{content_id}/reading-progress")
+def patch_reading_progress(content_id: str, payload: ReadingProgressInput):
+    return _translate(progress_service.save_reading_progress, content_id, payload.model_dump())
+
+
+@router.post("/contents/{content_id}/read-later")
+def update_read_later(content_id: str, payload: ReadLaterInput):
+    return _translate(progress_service.set_read_later, content_id, payload.enabled)
+
+
+@router.get("/reading/recent")
+def get_recently_read(limit: int = 50):
+    return _translate(progress_service.recently_read, limit)
+
+
+@router.get("/reading/later")
+def get_read_later(limit: int = 50):
+    return _translate(progress_service.read_later, limit)
 
 
 @router.post("/contents/{content_id}/annotations", status_code=201)
