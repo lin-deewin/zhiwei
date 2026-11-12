@@ -82,12 +82,15 @@ def list_personal_notes(q: str = "", page: int = 1, page_size: int = 20) -> dict
     query = q.strip()[:300]
     page = max(1, page)
     page_size = min(100, max(1, page_size))
-    where = "WHERE n.title LIKE ? OR n.body_md LIKE ?" if query else ""
-    params = (f"%{query}%", f"%{query}%") if query else ()
+    where = ""
+    params: tuple = ()
+    if query:
+        where = """WHERE n.title LIKE ? OR n.body_md LIKE ?
+                   OR EXISTS (SELECT 1 FROM personal_note_tags t
+                              WHERE t.note_id=n.id AND t.tag LIKE ?)"""
+        params = (f"%{query}%", f"%{query}%", f"%{query}%")
     with session() as db:
-        total = db.execute(
-            f"SELECT COUNT(*) FROM personal_notes n {where}", params
-        ).fetchone()[0]
+        total = db.execute(f"SELECT COUNT(*) FROM personal_notes n {where}", params).fetchone()[0]
         rows = db.execute(
             f"""SELECT n.id,n.title,n.revision,n.created_at,n.updated_at,
                        substr(n.body_md,1,180) AS excerpt,
@@ -96,9 +99,12 @@ def list_personal_notes(q: str = "", page: int = 1, page_size: int = 20) -> dict
                 ORDER BY n.updated_at DESC,n.id LIMIT ? OFFSET ?""",
             (*params, page_size, (page - 1) * page_size),
         ).fetchall()
-    return {"items": [dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}
-
-
+        items = []
+        for row in rows:
+            item = dict(row)
+            item["tags"] = _tags(db, row["id"])
+            items.append(item)
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 def create_personal_note(payload: dict) -> dict:
     title = str(payload.get("title") or "").strip()[:1000]
     body = str(payload.get("body_md") or "")
@@ -107,6 +113,7 @@ def create_personal_note(payload: dict) -> dict:
     note_id = uuid.uuid4().hex
     source_ids = payload.get("source_ids") or []
     sources = _validated_sources(note_id, source_ids) if source_ids else []
+    tags = _validated_tags(payload.get("tags", [])) or []
     timestamp = now()
     with session() as db:
         db.execute(
@@ -122,10 +129,6 @@ def create_personal_note(payload: dict) -> dict:
             )
         for tag in tags:
             db.execute("INSERT INTO personal_note_tags(note_id,tag,created_at) VALUES(?,?,?)", (note_id, tag, timestamp))
-        if tags is not None:
-            db.execute("DELETE FROM personal_note_tags WHERE note_id=?", (note_id,))
-            for tag in tags:
-                db.execute("INSERT INTO personal_note_tags(note_id,tag,created_at) VALUES(?,?,?)", (note_id, tag, timestamp))
         snapshot = _sources(db, note_id)
         db.execute(
             """INSERT INTO personal_note_versions(note_id,revision,title,body_md,sources_json,created_at)
@@ -133,8 +136,6 @@ def create_personal_note(payload: dict) -> dict:
             (note_id, title, body, json.dumps(snapshot, ensure_ascii=False), timestamp),
         )
     return get_personal_note(note_id)
-
-
 def update_personal_note(note_id: str, payload: dict) -> dict:
     title = str(payload.get("title") or "").strip()[:1000]
     body = str(payload.get("body_md") or "")
@@ -142,6 +143,7 @@ def update_personal_note(note_id: str, payload: dict) -> dict:
         raise ValueError("笔记正文不能超过 100000 个字符")
     source_ids = payload.get("source_ids")
     sources = _validated_sources(note_id, source_ids) if source_ids is not None else None
+    tags = _validated_tags(payload.get("tags"))
     timestamp = now()
     with session() as db:
         row = db.execute("SELECT revision FROM personal_notes WHERE id=?", (note_id,)).fetchone()
@@ -165,6 +167,10 @@ def update_personal_note(note_id: str, payload: dict) -> dict:
                     (note_id, source["source_id"], source["source_type"], source["title"],
                      source.get("url"), timestamp),
                 )
+        if tags is not None:
+            db.execute("DELETE FROM personal_note_tags WHERE note_id=?", (note_id,))
+            for tag in tags:
+                db.execute("INSERT INTO personal_note_tags(note_id,tag,created_at) VALUES(?,?,?)", (note_id, tag, timestamp))
         snapshot = _sources(db, note_id)
         db.execute(
             """INSERT INTO personal_note_versions(note_id,revision,title,body_md,sources_json,created_at)
@@ -172,8 +178,6 @@ def update_personal_note(note_id: str, payload: dict) -> dict:
             (note_id, payload["revision"] + 1, title, body, json.dumps(snapshot, ensure_ascii=False), timestamp),
         )
     return get_personal_note(note_id)
-
-
 def delete_personal_note(note_id: str, revision: int) -> None:
     source_id = "personal_note:" + note_id
     with session() as db:
@@ -228,6 +232,8 @@ def delete_personal_notes(items: list[dict]) -> dict:
         revision = int(item.get("revision", 0))
         if not note_id or revision < 1:
             raise ValueError("批量删除参数无效")
+        if note_id in unique:
+            raise ValueError("批量删除列表中存在重复笔记")
         unique[note_id] = revision
 
     with session() as db:
@@ -239,6 +245,6 @@ def delete_personal_notes(items: list[dict]) -> dict:
                 raise RuntimeError("所选个人笔记已被修改，请刷新列表后重试")
         for note_id in unique:
             source_id = "personal_note:" + note_id
-            db.execute("DELETE FROM knowledge_links WHERE source_id=? OR target_id=?", (source_id, source_id))
+            db.execute("DELETE FROM knowledge_links WHERE from_id=? OR to_id=?", (source_id, source_id))
             db.execute("DELETE FROM personal_notes WHERE id=?", (note_id,))
     return {"deleted": len(unique)}
