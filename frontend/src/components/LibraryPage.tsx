@@ -9,6 +9,7 @@ import type { Category, Content } from '../types'
 import { formatDate } from '../utils/format'
 import { DeleteArticleDialog } from './DeleteArticleDialog'
 import { Pagination } from './Pagination'
+import './LibraryPage.css'
 
 type Notice = { message: string; error?: boolean } | null
 
@@ -72,29 +73,51 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
     }
   }
   const visibleItems = items
+  const description = search ? `包含「${search}」的资料` : pendingOnly ? '尚未归入主题的外部资料' : currentCategory ? `主题：${currentCategory.name}` : '集中阅读你收藏和导入的外部资料。个人观点请写入个人笔记。'
+  const triggerImport = () => document.getElementById('md-upload')?.click()
 
   return <div className="library-page">
     {deleteTarget && <DeleteArticleDialog title={deleteTarget.title} busy={deletingId !== null} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => { void removeArticle(deleteTarget) }} />}
     <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} />
-    <div className="library-search-row">
-      <label className="library-source-filter"><span>来源</span><select aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}><option value="all">全部来源</option><option value="answer">知乎问答</option><option value="article">知乎文章</option><option value="local">本地导入</option></select></label>
-    <label className="library-search"><Search size={18} /><input aria-label="搜索文章库" placeholder="搜索文章标题或正文…" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} />{search && <button aria-label="清空文章搜索" onClick={() => onSearchChange('')}><X size={16} /></button>}</label>
+
+    <header className="library-heading">
+      <div className="library-heading-copy">
+        <span className="eyebrow">YOUR LIBRARY</span>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      <div className="library-heading-actions">
+        <span className="article-total"><strong>{total}</strong> 篇资料</span>
+        <button className="button button-primary" onClick={triggerImport}><Upload size={15} /> 导入 Markdown</button>
+      </div>
+    </header>
+
+    <div className="library-controls">
+      <label className="library-search">
+        <Search size={17} />
+        <input aria-label="搜索文章库" placeholder="搜索标题或正文…" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} />
+        {search && <button aria-label="清空搜索" onClick={() => onSearchChange('')}><X size={15} /></button>}
+      </label>
+      <div className="library-control-group">
+        <label className="library-source-filter"><span>来源</span><select aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}><option value="all">全部</option><option value="answer">知乎回答</option><option value="article">知乎文章</option><option value="local">本地导入</option></select></label>
+        <label className="select-wrap"><span>排序</span><select aria-label="资料排序" value={sort} onChange={(event) => setSort(event.target.value)}><option value="synced">最近同步</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label>
+        <div className="view-toggle" role="group" aria-label="资料显示方式">
+          <button aria-label="卡片视图" aria-pressed={view === 'grid'} className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button>
+          <button aria-label="列表视图" aria-pressed={view === 'list'} className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button>
+        </div>
+      </div>
     </div>
-    <div className="library-toolbar"><div className="section-heading"><div><h2>{title}</h2><p>{search ? `包含「${search}」的文章` : '你的私人阅读收藏'}</p></div><span className="article-total"><strong>{total}</strong> 篇</span></div>
-      <div className="toolbar-controls"><label className="select-wrap"><span>排序</span><select value={sort} onChange={(e) => setSort(e.target.value)}><option value="synced">最后同步时间</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label><span className="control-divider" /><div className="view-toggle"><button aria-label="卡片视图" className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button><button aria-label="列表视图" className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button></div></div>
-    </div>
-    {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search)} onImport={() => document.getElementById('md-upload')?.click()} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
-      {visibleItems.map((item, index) => <ArticleCard key={item.id} item={item} index={index} view={view} onDelete={(content) => { setDeleteError(''); setDeleteTarget(content) }} deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
+
+    {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search)} onImport={triggerImport} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
+      {visibleItems.map((item) => <ArticleCard key={item.id} item={item} view={view} onDelete={(content) => { setDeleteError(''); setDeleteTarget(content) }} deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
     </div>}
     <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
     {(categoryFromUrl || pendingOnly) && <button className="filter-reset" onClick={() => navigate('/')}>清除主题筛选</button>}
   </div>
 }
 
-const cardTones = ['tone-apricot', 'tone-sage', 'tone-lilac', 'tone-blue']
-
-function ArticleCard({ item, index, view, onDelete, deleting, deleteDisabled }: { item: Content; index: number; view: 'grid' | 'list'; onDelete: (item: Content) => void; deleting: boolean; deleteDisabled: boolean }) {
-  return <div className="article-card-container"><Link to={`/read/${encodeURIComponent(item.id)}`} className={`article-card ${cardTones[index % cardTones.length]} ${view === 'list' ? 'as-list' : ''}`}>
+function ArticleCard({ item, view, onDelete, deleting, deleteDisabled }: { item: Content; index: number; view: 'grid' | 'list'; onDelete: (item: Content) => void; deleting: boolean; deleteDisabled: boolean }) {
+  return <div className="article-card-container"><Link to={`/read/${encodeURIComponent(item.id)}`} className={'article-card' + (view === 'list' ? ' as-list' : '')}>
     <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><h3>{item.title}</h3><p>{item.excerpt || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
   </Link><button className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} title="删除本地文章" disabled={deleteDisabled} onClick={() => onDelete(item)}>{deleting ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}</button></div>
 }
