@@ -80,3 +80,27 @@ def test_backup_verification_rejects_path_traversal_manifest(tmp_path):
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="Unsafe path"):
         verify_backup(backup)
+
+
+def test_backup_verification_requires_database_checksum(tmp_path):
+    source = tmp_path / "library"
+    backup = tmp_path / "backup"
+    _make_library(source)
+    backup_library(source, backup)
+    manifest_path = backup / "backup-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    del manifest["files"]["app-data/library.sqlite"]
+    manifest["file_count"] = len(manifest["files"])
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing the database checksum"):
+        verify_backup(backup)
+
+
+def test_backup_verification_detects_unlisted_extra_file(tmp_path):
+    source = tmp_path / "library"
+    backup = tmp_path / "backup"
+    _make_library(source)
+    backup_library(source, backup)
+    (backup / "unexpected.txt").write_text("not in manifest", encoding="utf-8")
+    with pytest.raises(ValueError, match="file set mismatch"):
+        verify_backup(backup)
