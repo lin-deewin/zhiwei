@@ -74,12 +74,19 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
                 arg=note_title, timeout=15000,
             )
         except Exception:
-            diagnostics = await page.evaluate("""() => ({
-                url: location.href,
-                titleInput: document.querySelector('input.personal-note-title')?.value ?? null,
-                loading: document.querySelector('.personal-note-loading')?.textContent ?? null,
-                body: document.body.innerText.slice(0, 1200),
-            })""")
+            diagnostics = await page.evaluate("""async () => {
+                const id = new URL(location.href).searchParams.get('note');
+                const response = id ? await fetch('/api/v1/personal-notes/' + id, {cache: 'no-store'}) : null;
+                const item = response?.ok ? await response.json() : null;
+                return {
+                    url: location.href,
+                    titleInput: document.querySelector('input.personal-note-title')?.value ?? null,
+                    loading: document.querySelector('.personal-note-loading')?.textContent ?? null,
+                    persisted: item ? {title:item.title, revision:item.revision, body:item.body_md.slice(0,100)} : null,
+                    status: response?.status ?? null,
+                    body: document.body.innerText.slice(0, 1200),
+                };
+            }""")
             print(f"{name} reload failure diagnostics: {diagnostics}, page errors: {errors}", flush=True)
             await page.screenshot(path=str(CAPTURES / f"{name}-reload-failure.png"), full_page=True)
             raise
