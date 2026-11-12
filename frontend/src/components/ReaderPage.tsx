@@ -107,24 +107,34 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
   useEffect(() => {
     if (loading || progressContentId !== id || !item || !reading || !progressRestored.current) return
     let timer: number | null = null
+    const save = (updateState = true) => {
+      if (timer !== null) {
+        window.clearTimeout(timer)
+        timer = null
+      }
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight
+      const ratio = maxScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / maxScroll)) : 0
+      const visibleBlock = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-block-id]'))
+        .find((block) => block.getBoundingClientRect().bottom > 0)
+      const pending = api.saveReadingProgress(id, {
+        progress_ratio: ratio,
+        scroll_y: window.scrollY,
+        block_id: visibleBlock?.dataset.readingBlockId || null,
+      })
+      if (updateState) void pending.then(setReadingProgress).catch(() => undefined)
+      else void pending.catch(() => undefined)
+    }
     const persist = () => {
       if (timer !== null) window.clearTimeout(timer)
-      timer = window.setTimeout(() => {
-        const maxScroll = document.documentElement.scrollHeight - window.innerHeight
-        const ratio = maxScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / maxScroll)) : 0
-        const visibleBlock = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-block-id]'))
-          .find((block) => block.getBoundingClientRect().bottom > 0)
-        void api.saveReadingProgress(id, {
-          progress_ratio: ratio,
-          scroll_y: window.scrollY,
-          block_id: visibleBlock?.dataset.readingBlockId || null,
-        }).then(setReadingProgress).catch(() => undefined)
-      }, 800)
+      timer = window.setTimeout(() => save(true), 800)
     }
+    const pageHide = () => save(false)
     window.addEventListener('scroll', persist, { passive: true })
+    window.addEventListener('pagehide', pageHide)
     return () => {
       window.removeEventListener('scroll', persist)
-      if (timer !== null) window.clearTimeout(timer)
+      window.removeEventListener('pagehide', pageHide)
+      if (timer !== null) save(false)
     }
   }, [id, loading, progressContentId, item?.id, reading?.revision_id])
 
