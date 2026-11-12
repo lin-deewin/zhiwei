@@ -6,7 +6,7 @@
 
 ## Build, Test, and Development Commands
 
-Install backend dependencies with `cd backend && python3 -m venv .venv && .venv/bin/pip install -e .`; start the API locally with `.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010`; LAN access requires `ZHILIB_ALLOW_REMOTE=1` and `--host 0.0.0.0` (private networks only). Install and run the frontend with `cd frontend && npm install && npm run dev -- --host 127.0.0.1 --port 5173`. Build production assets with `npm run build`. The frontend dev server proxies `/api` to port 8010. Scan-to-login works without a desktop. Install Playwright Chromium with `cd backend && .venv/bin/python -m playwright install chromium` only for optional browser login. Update these commands when ports or package scripts change.
+Install backend dependencies with `cd backend && python3 -m venv .venv && .venv/bin/pip install -e .`; start the API locally with `.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010`; LAN access requires `ZHILIB_ALLOW_REMOTE=1` and `--host 0.0.0.0` (private networks only). Install and run the frontend with `cd frontend && npm ci && npm run dev -- --host 127.0.0.1 --port 5173`. Build production assets with `npm run build`. The frontend dev server proxies `/api` to port 8010. Scan-to-login works without a desktop. Install Playwright Chromium with `cd backend && .venv/bin/python -m playwright install chromium` only for optional browser login. Update these commands when ports or package scripts change.
 
 ## Coding Style & Naming Conventions
 
@@ -14,7 +14,7 @@ Use Python type hints and 4-space indentation; Ruff is configured in `backend/py
 
 ## Testing Guidelines
 
-Pytest is configured for `backend/tests/` and currently includes coverage for AI, API fallback, classification, content deletion, knowledge, knowledge graph, library listing, login, Markdown sync, questions, research workspace, semantic search, sync, and workspace APIs. Run the complete suite with `cd backend && .venv/bin/pytest -q`. Frontend type-checking and production compilation are verified with `cd frontend && npm ci && npm run build`. The V3 GitHub Actions workflow runs both gates on pushes to `main` and `refactor/**`, and pull requests targeting `main`. Continue adding focused regression coverage for sync resumability, filesystem boundaries, classification validation, reading progress, annotation anchoring, and citation provenance.
+Pytest is configured for `backend/tests/` and currently includes coverage for AI, API fallback, classification, content deletion, knowledge, knowledge graph, library listing, login, Markdown sync, questions, research workspace, semantic search, sync, and workspace APIs. Run the complete suite with `cd backend && .venv/bin/pytest -q`. Frontend type-checking and production compilation are verified with `cd frontend && npm ci && npm run build`. The V3 GitHub Actions workflow runs both gates on pushes to `main` and `refactor/**`, and pull requests targeting `main`. Continue adding focused regression coverage for sync resumability, filesystem boundaries, classification validation, reading progress, annotation anchoring, and citation provenance. New frontend domain types should live under `frontend/src/types/` (`library.ts`, `reading.ts`, `knowledge.ts`); `frontend/src/types.ts` is a backward-compatible barrel. Keep route composition in `App.tsx` and feature UI in domain components.
 
 ## Commit & Pull Request Guidelines
 
@@ -22,4 +22,4 @@ Git history is not available in this checkout, so no established commit conventi
 
 ## Security & Configuration
 
-Never commit Zhihu credentials, session cookies, API keys, or personal article exports. Use local environment configuration for secrets, provide a safe example configuration with placeholders, and ensure logs do not reveal credentials or private content.
+Never commit Zhihu credentials, session cookies, API keys, or personal article exports. Use local environment configuration for secrets, provide a safe example configuration with placeholders, and ensure logs do not reveal credentials or private content. `ZHILIB_ALLOW_REMOTE=1` is not authentication: any remote deployment must be protected by a trusted authenticated reverse proxy or VPN and a restrictive firewall. Do not expose the backend port directly to the public internet. Keep external source articles distinct from personal knowledge notes; do not add automatic article-to-article links or force graph editing into the reader.
