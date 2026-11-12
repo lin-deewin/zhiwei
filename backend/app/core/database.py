@@ -490,26 +490,60 @@ def _apply_versioned_migrations(connection: sqlite3.Connection) -> None:
             raise
 
 
+def _backup_if_upgrade_required(
+    connection: sqlite3.Connection, library: Path, tables: set[str]
+) -> Path | None:
+    # A newly created database has nothing to protect. Existing user data must
+    # be backed up before both legacy ALTER statements and versioned migrations.
+    if not tables.intersection({"contents", "research_notes", "personal_notes", "annotations"}):
+        return None
+    target_version = _VERSIONED_MIGRATIONS[-1][0]
+    existing = set()
+    if "schema_migrations" in tables:
+        existing = {
+            row[0] for row in connection.execute("SELECT version FROM schema_migrations")
+        }
+    version_upgrade = any(version not in existing for version, _, _ in _VERSIONED_MIGRATIONS)
+    legacy_upgrade = "content_revisions" not in tables
+    if not version_upgrade and not legacy_upgrade:
+        return None
+
+    backup_dir = library / "app-data" / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        backup_dir.chmod(0o700)
+    except OSError:
+        pass
+    path = backup_dir / (
+        f"library-before-schema-v{target_version}-"
+        f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}.sqlite"
+    )
+    destination = sqlite3.connect(path)
+    try:
+        connection.backup(destination)
+        destination.commit()
+        if destination.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise ValueError("升级前数据库备份完整性检查失败")
+    except Exception:
+        destination.close()
+        path.unlink(missing_ok=True)
+        raise
+    finally:
+        try:
+            destination.close()
+        except Exception:
+            pass
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return path
+
+
 def _initialize_schema(connection: sqlite3.Connection, library: Path) -> None:
     connection.execute("PRAGMA journal_mode = WAL")
     tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    if "contents" in tables and "content_revisions" not in tables:
-        backup_dir = library / "app-data" / "backups"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            backup_dir.chmod(0o700)
-        except OSError:
-            pass
-        backup_path = backup_dir / f"library-before-reading-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}.sqlite"
-        backup = sqlite3.connect(backup_path)
-        try:
-            connection.backup(backup)
-        finally:
-            backup.close()
-        try:
-            backup_path.chmod(0o600)
-        except OSError:
-            pass
+    _backup_if_upgrade_required(connection, library, tables)
     connection.executescript(SCHEMA)
     research_columns = {row["name"] for row in connection.execute("PRAGMA table_info(research_notes)")}
     if "revision" not in research_columns:
