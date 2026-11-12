@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 
 import pytest
@@ -66,3 +67,16 @@ def test_backup_rejects_symlinks(tmp_path):
     (source / "articles" / "external-link").symlink_to(source / "articles" / "article-1", target_is_directory=True)
     with pytest.raises(ValueError, match="Symbolic links"):
         backup_library(source, tmp_path / "backup")
+
+
+def test_backup_verification_rejects_path_traversal_manifest(tmp_path):
+    source = tmp_path / "library"
+    backup = tmp_path / "backup"
+    _make_library(source)
+    backup_library(source, backup)
+    manifest_path = backup / "backup-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"]["../outside.txt"] = {"size": 0, "sha256": "0" * 64}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="Unsafe path"):
+        verify_backup(backup)
