@@ -4,7 +4,7 @@ import { rangeForAnchor } from '../utils/reading_anchors'
 
 export function useAnnotationHighlights(annotations: Annotation[]) {
   useEffect(() => {
-    const css = (window as Window & { CSS?: { highlights?: { set: (name: string, value: unknown) => void; delete: (name: string) => void } }).CSS
+    const css = (window as Window & { CSS?: { highlights?: { set: (name: string, value: unknown) => void; delete: (name: string) => void } } }).CSS
     const HighlightCtor = (window as Window & { Highlight?: new (...ranges: Range[]) => unknown }).Highlight
     if (!css?.highlights || !HighlightCtor) return
     const names = ['reader-yellow', 'reader-green', 'reader-blue']
