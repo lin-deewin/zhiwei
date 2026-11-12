@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import { api } from '../api'
-import type { ResearchNote, ResearchProject } from '../types'
+import type { ResearchJob, ResearchNote, ResearchProject } from '../types'
 import { nodePath, type KnowledgeNode } from '../utils/knowledge_links'
 
 function Markdown({ text }: { text: string }) {
@@ -38,23 +38,84 @@ export function ResearchWorkspacePanel() {
   const [chosen, setChosen] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [job, setJob] = useState<ResearchJob | null>(null)
   const [generatedNoteId, setGeneratedNoteId] = useState<string | null>(null)
   const projectId = params.get('project')
+  const jobActive = Boolean(job && (job.status === 'pending' || job.status === 'running'))
   const refresh = () => api.projects().then((d) => setItems(d.items))
   const accept = (p: ResearchProject) => { setProject(p); setChosen([...new Set(p.evidence.map((s) => s.source_id))]) }
   useEffect(() => { void refresh().catch((e) => setError((e as Error).message)) }, [])
   useEffect(() => { setGeneratedNoteId(null); let active = true; if (!projectId) { setProject(null); setChosen([]); return } api.project(projectId).then((p) => { if (active) { accept(p); setFollowup('') } }).catch((e) => { if (active) setError((e as Error).message) }); return () => { active = false } }, [projectId])
   useEffect(() => { let active = true; const timer = window.setTimeout(() => { api.knowledgeNodes(query).then((d) => { if (active) setNodes(d.items.slice(0, 50)) }).catch(() => undefined) }, 300); return () => { active = false; window.clearTimeout(timer) } }, [query])
+
+  useEffect(() => {
+    let active = true
+    setJob(null)
+    if (projectId) {
+      api.projectJobs(projectId).then((result) => {
+        if (!active) return
+        const pending = result.items.find((item) => item.status === 'pending' || item.status === 'running')
+        setJob(pending || result.items[0] || null)
+      }).catch((reason) => { if (active) setError((reason as Error).message) })
+    }
+    return () => { active = false }
+  }, [projectId])
+  useEffect(() => {
+    if (!projectId || !jobActive || !job) return
+    let active = true
+    const timer = window.setInterval(() => {
+      api.projectJob(projectId, job.id).then((updated) => {
+        if (!active) return
+        setJob(updated)
+        if (updated.status === 'completed' && updated.result) {
+          accept(updated.result.project)
+          setFollowup('')
+          setGeneratedNoteId(updated.result.note_id)
+          void refresh().catch(() => undefined)
+        }
+      }).catch((reason) => { if (active) setError((reason as Error).message) })
+    }, 1300)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [projectId, job?.id, jobActive])
+  const submitJob = (research = false) => {
+    if (!project || busy || jobActive) return
+    const prompt = research ? followup.trim() || project.question : followup.trim()
+    if (prompt.length < 2) return
+    void run(async () => {
+      setGeneratedNoteId(null)
+      const created = await api.startProjectJob(project.id, project.revision, prompt, research)
+      setJob(created)
+    })
+  }
+  const cancelJob = () => {
+    if (!projectId || !job || !jobActive) return
+    void run(async () => setJob(await api.cancelProjectJob(projectId, job.id)))
+  }
+  const retryJob = () => {
+    if (!projectId || !job || jobActive) return
+    void run(async () => {
+      setGeneratedNoteId(null)
+      setJob(await api.retryProjectJob(projectId, job.id))
+    })
+  }
+
   const run = async (call: () => Promise<void>) => { setBusy(true); setError(''); try { await call(); await refresh() } catch (e) { setError((e as Error).message) } finally { setBusy(false) } }
   return <><section className="panel knowledge-controls"><h2>持续研究工作区</h2><p>保存研究问题、证据快照和每次追问。原文更新不会悄悄改变当前证据集；需要时可主动刷新。</p><div className="knowledge-actions"><button className="button button-soft" disabled={busy} onClick={() => setParams({})}>新建研究</button>{items.map((p) => <button className="button button-soft" key={p.id} disabled={busy} onClick={() => setParams({ project: p.id })}>{p.title}</button>)}</div>
     {!project && <><label>项目名称<input value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>研究主问题<textarea value={question} onChange={(e) => setQuestion(e.target.value)} /></label></>}
     {project && <><h3>{project.title}</h3><p>{project.question}</p><small>证据集与对话版本：{project.revision}</small></>}
     <h3>选择证据资料（最多 16 份）</h3><input placeholder="搜索资料标题或 ID" value={query} disabled={busy} onChange={(e) => setQuery(e.target.value)} /><div className="knowledge-directory">{nodes.map((n) => <label key={n.source_id}><input type="checkbox" checked={chosen.includes(n.source_id)} disabled={busy || (chosen.length >= 16 && !chosen.includes(n.source_id))} onChange={() => setChosen(chosen.includes(n.source_id) ? chosen.filter((id) => id !== n.source_id) : [...chosen, n.source_id])} />{n.title} · {n.source_type}</label>)}</div><small>已选 {chosen.length} 份。未出现在搜索结果中的已选资料仍保留在下方证据集中。</small>
-    <div className="knowledge-actions">{project ? <><button className="button button-primary" disabled={busy || !chosen.length} onClick={() => void run(async () => accept(await api.projectEvidence(project.id, project.revision, chosen)))}>保存证据集选择</button><button className="button button-soft" disabled={busy || !chosen.length} onClick={() => { if (window.confirm('从当前原文重新提取证据快照？历史回答的出处不会改变。')) void run(async () => accept(await api.projectEvidence(project.id, project.revision, chosen, true))) }}>刷新为当前原文</button></> : <button className="button button-primary" disabled={busy || !title.trim() || question.trim().length < 2 || !chosen.length} onClick={() => void run(async () => { const p = await api.createProject(title, question, chosen); accept(p); setParams({ project: p.id }) })}>创建并保存研究项目</button>}</div></section>
+    <div className="knowledge-actions">{project ? <><button className="button button-primary" disabled={busy || jobActive || !chosen.length} onClick={() => void run(async () => accept(await api.projectEvidence(project.id, project.revision, chosen)))}>保存证据集选择</button><button className="button button-soft" disabled={busy || !chosen.length} onClick={() => { if (window.confirm('从当前原文重新提取证据快照？历史回答的出处不会改变。')) void run(async () => accept(await api.projectEvidence(project.id, project.revision, chosen, true))) }}>刷新为当前原文</button></> : <button className="button button-primary" disabled={busy || !title.trim() || question.trim().length < 2 || !chosen.length} onClick={() => void run(async () => { const p = await api.createProject(title, question, chosen); accept(p); setParams({ project: p.id }) })}>创建并保存研究项目</button>}</div></section>
     {project && <><section className="panel knowledge-controls"><h3>当前证据快照</h3>{[...new Map(project.evidence.map((s) => [s.source_id, s])).values()].map((s) => <div key={s.source_id} className="knowledge-actions"><Link to={nodePath(s)}>{s.title}</Link><small>{s.source_type}</small><button disabled={busy} onClick={() => setChosen(chosen.filter((id) => id !== s.source_id))}>从选择中移除</button></div>)}<details><summary>展开证据片段</summary>{project.evidence.map((s) => <p key={s.chunk_id}>[{s.citation_id}] {s.title}：{s.text}</p>)}</details></section>
-    <section className="panel knowledge-controls"><h3>继续研究</h3><textarea aria-label="研究追问" placeholder="追问、比较观点，或说明下一篇研究笔记的目标" value={followup} disabled={busy} onChange={(e) => setFollowup(e.target.value)} /><div className="knowledge-actions"><button className="button button-primary" disabled={busy || followup.trim().length < 2} onClick={() => void run(async () => { const d = await api.projectAsk(project.id, project.revision, followup); accept(d.project); setFollowup('') })}>基于证据集追问</button><button className="button button-soft" disabled={busy} onClick={() => void run(async () => { setGeneratedNoteId(null); const d = await api.projectAsk(project.id, project.revision, followup.trim() || project.question, true); accept(d.project); setGeneratedNoteId(d.note_id) })}>生成新的研究笔记</button></div><small>追问使用已保存的证据集，请先保存资料选择。</small></section>
-    {generatedNoteId && <section className="panel knowledge-controls" role="status"><strong>研究笔记草稿已生成，已收录到「我的笔记」。</strong><p>核对内容与出处后，可保存为正式笔记。</p><div className="knowledge-actions"><Link className="button button-primary" to={`/ask?research=${encodeURIComponent(generatedNoteId)}`}>审阅生成的笔记</Link><Link className="button button-soft" to="/notes">查看我的笔记</Link></div></section>}
+    <section className="panel knowledge-controls"><h3>继续研究</h3><textarea aria-label="研究追问" placeholder="追问、比较观点，或说明下一篇研究笔记的目标" value={followup} disabled={busy} onChange={(e) => setFollowup(e.target.value)} /><div className="knowledge-actions"><button className="button button-primary" disabled={busy || jobActive || followup.trim().length < 2} onClick={() => submitJob(false)}>基于证据集追问</button><button className="button button-soft" disabled={busy || jobActive} onClick={() => submitJob(true)}>生成新的研究笔记</button></div><small>追问使用已保存的证据集，请先保存资料选择。</small>
+      {job && <div className="research-job-status" role="status" aria-live="polite">
+        <strong>{({ pending: '研究任务已提交', running: '正在调用模型生成', completed: '研究任务已完成', failed: '研究任务失败', cancelled: '研究任务已取消', interrupted: '服务重启，研究任务已中断' } as Record<string, string>)[job.status] || job.status}</strong>
+        <small>{job.research ? '研究笔记' : '研究追问'} · {job.question}</small>
+        {job.error_message && <p role="alert">{job.error_message}</p>}
+        {jobActive && <button className="button button-soft" disabled={busy} type="button" onClick={cancelJob}>取消任务</button>}
+        {['failed', 'cancelled', 'interrupted'].includes(job.status) && <button className="button button-soft" disabled={busy} type="button" onClick={retryJob}>重新执行</button>}
+      </div>}</section>
+    {generatedNoteId && <section className="panel knowledge-controls" role="status"><strong>研究笔记草稿已生成，已加入研究笔记列表。</strong><p>核对内容与出处后，可保存为正式笔记。</p><div className="knowledge-actions"><Link className="button button-primary" to={`/ask?research=${encodeURIComponent(generatedNoteId)}`}>审阅生成的笔记</Link><Link className="button button-soft" to="/knowledge?tab=assistant">查看研究笔记列表</Link></div></section>}
     {project.turns.map((t) => <section className="panel knowledge-result" key={t.id}><h3>{t.question}</h3><Markdown text={t.answer} /><details><summary>本轮出处快照 · {new Date(t.created_at).toLocaleString()}</summary>{t.sources.map((s) => <p key={s.chunk_id}>[{s.citation_id}] {s.title}：{s.text}</p>)}</details></section>)}<section className="panel knowledge-controls"><h3>研究成果</h3>{project.notes.map((n) => <p key={n.id}><Link to={'/ask?research=' + n.id}>{n.title}</Link> · {n.status === 'draft' ? '待审阅草稿' : '已保存'}</p>)}</section></>}
-    {busy && <p role="status">正在处理，模型生成可能需要数分钟…</p>}{error && <p className="ask-error" role="alert">{error}</p>}
+    {busy && <p role="status">正在提交请求…</p>}{error && <p className="ask-error" role="alert">{error}</p>}
   </>
 }

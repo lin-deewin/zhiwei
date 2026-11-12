@@ -335,26 +335,251 @@ def connect(library: Path | None = None) -> sqlite3.Connection:
         raise
 
 
+def _migration_personal_notes(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_notes (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '',
+            body_md TEXT NOT NULL DEFAULT '',
+            revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_note_sources (
+            note_id TEXT NOT NULL REFERENCES personal_notes(id) ON DELETE CASCADE,
+            source_id TEXT NOT NULL,
+            source_type TEXT NOT NULL CHECK(source_type IN
+                ('article','note','annotation','research','topic','personal_note')),
+            title_snapshot TEXT NOT NULL,
+            url_snapshot TEXT,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(note_id, source_id)
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_notes_updated
+        ON personal_notes(updated_at DESC)
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_note_sources_source
+        ON personal_note_sources(source_id)
+    """)
+
+
+def _migration_reading_progress(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS reading_progress (
+            content_id TEXT PRIMARY KEY REFERENCES contents(id) ON DELETE CASCADE,
+            progress_ratio REAL NOT NULL DEFAULT 0 CHECK(progress_ratio >= 0 AND progress_ratio <= 1),
+            scroll_y REAL NOT NULL DEFAULT 0 CHECK(scroll_y >= 0),
+            block_id TEXT,
+            read_later INTEGER NOT NULL DEFAULT 0 CHECK(read_later IN (0,1)),
+            last_read_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_reading_progress_recent
+        ON reading_progress(last_read_at DESC)
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_reading_progress_later
+        ON reading_progress(read_later,updated_at DESC)
+    """)
+
+
+def _migration_personal_note_versions(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_note_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note_id TEXT NOT NULL REFERENCES personal_notes(id) ON DELETE CASCADE,
+            revision INTEGER NOT NULL CHECK(revision > 0),
+            title TEXT NOT NULL DEFAULT '',
+            body_md TEXT NOT NULL DEFAULT '',
+            sources_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            UNIQUE(note_id, revision)
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_note_versions_history
+        ON personal_note_versions(note_id, revision DESC)
+    """)
+    existing = connection.execute(
+        "SELECT id,revision,title,body_md,updated_at FROM personal_notes"
+    ).fetchall()
+    for note in existing:
+        sources = connection.execute(
+            """SELECT source_id,source_type,title_snapshot,url_snapshot,created_at
+               FROM personal_note_sources WHERE note_id=? ORDER BY created_at,source_id""",
+            (note[0],),
+        ).fetchall()
+        snapshot = [
+            {
+                "source_id": row[0],
+                "source_type": row[1],
+                "title_snapshot": row[2],
+                "url_snapshot": row[3],
+                "created_at": row[4],
+            }
+            for row in sources
+        ]
+        connection.execute(
+            """INSERT OR IGNORE INTO personal_note_versions
+               (note_id,revision,title,body_md,sources_json,created_at)
+               VALUES(?,?,?,?,?,?)""",
+            (note[0], note[1], note[2], note[3], json.dumps(snapshot, ensure_ascii=False), note[4]),
+        )
+
+
+def _migration_personal_note_tags(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_note_tags (
+            note_id TEXT NOT NULL REFERENCES personal_notes(id) ON DELETE CASCADE,
+            tag TEXT NOT NULL CHECK(length(tag) BETWEEN 1 AND 24),
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(note_id, tag)
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_note_tags_tag
+        ON personal_note_tags(tag, note_id)
+    """)
+
+
+def _migration_research_jobs(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS research_jobs (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+            question TEXT NOT NULL,
+            project_revision INTEGER NOT NULL,
+            research INTEGER NOT NULL CHECK(research IN (0,1)),
+            status TEXT NOT NULL CHECK(status IN ('pending','running','completed','failed','cancelled','interrupted')),
+            stage TEXT NOT NULL DEFAULT 'queued',
+            result_json TEXT,
+            error_code TEXT,
+            error_message TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_research_jobs_project_recent
+        ON research_jobs(project_id,created_at DESC)
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_research_jobs_active
+        ON research_jobs(status,updated_at)
+    """)
+
+
+_VERSIONED_MIGRATIONS = (
+    (2, "personal_notes", _migration_personal_notes),
+    (3, "reading_progress", _migration_reading_progress),
+    (4, "personal_note_versions", _migration_personal_note_versions),
+    (5, "personal_note_tags", _migration_personal_note_tags),
+    (6, "research_jobs", _migration_research_jobs),
+)
+
+
+def _apply_versioned_migrations(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL
+        )
+    """)
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations(version,name,applied_at) VALUES(1,'legacy_baseline',?)",
+        (datetime.now(UTC).isoformat(),),
+    )
+    for version, name, apply in _VERSIONED_MIGRATIONS:
+        if connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version=?", (version,)
+        ).fetchone():
+            continue
+        savepoint = f"schema_migration_{version}"
+        connection.execute(f"SAVEPOINT {savepoint}")
+        try:
+            apply(connection)
+            connection.execute(
+                "INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
+                (version, name, datetime.now(UTC).isoformat()),
+            )
+            connection.execute(
+                "UPDATE schema_version SET version=(SELECT MAX(version) FROM schema_migrations)"
+            )
+            connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+        except Exception:
+            connection.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+            raise
+
+
+def _backup_if_upgrade_required(
+    connection: sqlite3.Connection, library: Path, tables: set[str]
+) -> Path | None:
+    # A newly created database has nothing to protect. Existing user data must
+    # be backed up before both legacy ALTER statements and versioned migrations.
+    if not tables.intersection({"contents", "research_notes", "personal_notes", "annotations"}):
+        return None
+    target_version = _VERSIONED_MIGRATIONS[-1][0]
+    existing = set()
+    if "schema_migrations" in tables:
+        existing = {
+            row[0] for row in connection.execute("SELECT version FROM schema_migrations")
+        }
+    version_upgrade = any(version not in existing for version, _, _ in _VERSIONED_MIGRATIONS)
+    legacy_upgrade = "content_revisions" not in tables
+    if not version_upgrade and not legacy_upgrade:
+        return None
+
+    # executescript() below would commit any pending setup transaction anyway.
+    # The SQLite online backup API cannot advance while this same connection
+    # holds an uncommitted write transaction; commit before making the snapshot.
+    if connection.in_transaction:
+        connection.commit()
+
+    backup_dir = library / "app-data" / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        backup_dir.chmod(0o700)
+    except OSError:
+        pass
+    path = backup_dir / (
+        f"library-before-schema-v{target_version}-"
+        f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}.sqlite"
+    )
+    destination = sqlite3.connect(path)
+    try:
+        connection.backup(destination)
+        destination.commit()
+        if destination.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise ValueError("升级前数据库备份完整性检查失败")
+    except Exception:
+        destination.close()
+        path.unlink(missing_ok=True)
+        raise
+    finally:
+        try:
+            destination.close()
+        except Exception:
+            pass
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return path
+
+
 def _initialize_schema(connection: sqlite3.Connection, library: Path) -> None:
     connection.execute("PRAGMA journal_mode = WAL")
     tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    if "contents" in tables and "content_revisions" not in tables:
-        backup_dir = library / "app-data" / "backups"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            backup_dir.chmod(0o700)
-        except OSError:
-            pass
-        backup_path = backup_dir / f"library-before-reading-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}.sqlite"
-        backup = sqlite3.connect(backup_path)
-        try:
-            connection.backup(backup)
-        finally:
-            backup.close()
-        try:
-            backup_path.chmod(0o600)
-        except OSError:
-            pass
+    _backup_if_upgrade_required(connection, library, tables)
     connection.executescript(SCHEMA)
     research_columns = {row["name"] for row in connection.execute("PRAGMA table_info(research_notes)")}
     if "revision" not in research_columns:
@@ -394,6 +619,8 @@ def _initialize_schema(connection: sqlite3.Connection, library: Path) -> None:
                 seen = job[0] if job else seen
             connection.execute("UPDATE contents SET last_synced_at=?,collected_at=? WHERE id=?", (seen, collected, row["id"]))
         connection.commit()
+
+    _apply_versioned_migrations(connection)
 
 
 @contextmanager

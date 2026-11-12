@@ -17,11 +17,13 @@ from app.api.graph_routes import router as graph_router
 from app.api.workspace_routes import router as workspace_router
 from app.api.markdown_routes import router as markdown_router
 from app.api.reading_routes import router as reading_router
+from app.api.personal_note_routes import router as personal_note_router
 from app.api.routes import router
 from app.core.database import connect
 from app.services.classification import classification_manager
 from app.services.questions import backfill, question_classification_manager
 from app.services.reading_workspace import reading_ai_manager
+from app.services.research_jobs import research_job_manager
 from app.services.sync import sync_manager
 from app.services.semantic import semantic_manager
 from app.services.zhihu_browser import zhihu_browser
@@ -64,6 +66,7 @@ async def lifespan(_: FastAPI):
     classification_manager.recover_interrupted()
     question_classification_manager.recover_interrupted()
     reading_ai_manager.recover()
+    research_job_manager.recover()
     await asyncio.to_thread(backfill)
     async def maintain_semantic():
         from app.services.semantic import status
@@ -87,6 +90,7 @@ async def lifespan(_: FastAPI):
         pass
     await semantic_manager.shutdown()
     await reading_ai_manager.shutdown()
+    await research_job_manager.shutdown()
     if not restore_task.done():
         restore_task.cancel()
         try:
@@ -107,6 +111,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(reading_router)
+app.include_router(personal_note_router)
 app.include_router(knowledge_router)
 app.include_router(semantic_router)
 app.include_router(graph_router)

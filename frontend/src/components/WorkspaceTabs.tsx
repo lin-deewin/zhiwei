@@ -1,14 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDownToLine, BookOpen, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
+import { ArrowDownToLine, BookOpen, Clock3, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
 
 const pages = {
-  '/': { title: '文章库', icon: LayoutGrid },
+  '/': { title: '资料库', icon: LayoutGrid },
   '/questions': { title: '话题汇总', icon: CircleHelp },
   '/categories': { title: '主题分类', icon: Tags },
-  '/ask': { title: '知识问答', icon: Sparkles },
-  '/knowledge': { title: '知识空间', icon: BookOpen },
-  '/notes': { title: '我的笔记', icon: FileText },
+  '/ask': { title: 'AI 助手', icon: Sparkles },
+  '/knowledge': { title: '研究工作区', icon: BookOpen },
+  '/personal-notes': { title: '个人笔记', icon: FileText },
+  '/notes': { title: '阅读记录', icon: BookOpen },
+  '/reading': { title: '最近阅读', icon: Clock3 },
   '/sync': { title: '同步中心', icon: ArrowDownToLine },
   '/settings': { title: '设置', icon: Settings2 },
 }

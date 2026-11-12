@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from app.api.reading_routes import router
+from app.services import reading_progress
+from app.services.library import delete_content, import_markdown
+from app.core.database import session
+
+
+def test_reading_progress_recent_and_read_later_lifecycle(monkeypatch, tmp_path):
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(tmp_path / "library"))
+    item = import_markdown("reading.md", "# 阅读测试\n\n正文".encode())
+
+    initial = reading_progress.get_reading_progress(item["id"])
+    assert initial["progress_ratio"] == 0
+    assert initial["read_later"] is False
+
+    saved = reading_progress.save_reading_progress(item["id"], {
+        "progress_ratio": 0.42, "scroll_y": 320, "block_id": "paragraph-2",
+    })
+    assert saved["progress_ratio"] == pytest.approx(0.42)
+    assert saved["scroll_y"] == 320
+    assert saved["block_id"] == "paragraph-2"
+
+    later = reading_progress.set_read_later(item["id"], True)
+    assert later["read_later"] is True
+    assert reading_progress.recently_read()[0]["id"] == item["id"]
+    assert reading_progress.read_later()[0]["id"] == item["id"]
+
+    removed = reading_progress.set_read_later(item["id"], False)
+    assert removed["read_later"] is False
+    assert reading_progress.read_later() == []
+
+    assert delete_content(item["id"])
+    with session() as db:
+        assert db.execute("SELECT 1 FROM reading_progress WHERE content_id=?", (item["id"],)).fetchone() is None
+
+
+def test_reading_progress_rejects_invalid_values(monkeypatch, tmp_path):
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(tmp_path / "library"))
+    item = import_markdown("reading.md", "# 阅读测试\n\n正文".encode())
+
+    with pytest.raises(ValueError):
+        reading_progress.save_reading_progress(item["id"], {"progress_ratio": 1.2, "scroll_y": 0})
+    with pytest.raises(ValueError):
+        reading_progress.save_reading_progress(item["id"], {"progress_ratio": 0.5, "scroll_y": -1})
+    with pytest.raises(LookupError):
+        reading_progress.get_reading_progress("missing-content")
+
+
+def test_reading_progress_http_contract(monkeypatch, tmp_path):
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(tmp_path / "library"))
+    item = import_markdown("http-reading.md", "# HTTP 阅读测试\n\n正文".encode())
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app, base_url="http://127.0.0.1")
+
+    initial = client.get(f"/api/v1/contents/{item['id']}/reading-progress")
+    assert initial.status_code == 200
+    assert initial.json()["progress_ratio"] == 0
+
+    saved = client.patch(
+        f"/api/v1/contents/{item['id']}/reading-progress",
+        json={"progress_ratio": 0.75, "scroll_y": 520, "block_id": "paragraph-3"},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["progress_ratio"] == pytest.approx(0.75)
+
+    later = client.post(
+        f"/api/v1/contents/{item['id']}/read-later",
+        json={"enabled": True},
+    )
+    assert later.status_code == 200
+    assert later.json()["read_later"] is True
+    assert client.get("/api/v1/reading/recent").json()[0]["id"] == item["id"]
+    assert client.get("/api/v1/reading/later").json()[0]["id"] == item["id"]

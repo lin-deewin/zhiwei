@@ -1,5 +1,5 @@
 import { newRequestKey } from './utils/request_key'
-import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, ReadingContext, ReadingAIJob, ReadingAIResult } from './types'
+import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, PersonalNoteVersionSummary, PersonalNoteVersion, ReadingContext, ReadingAIJob, ReadingAIResult, ReadingProgress, ReadingListItem } from './types'
 
 export type AccountStatus = { status: string; message: string; profile?: { name: string } | null }
 export type LoginStatus = {
@@ -90,6 +90,11 @@ export const api = {
   },
   content: (id: string) => request<Content>(`/contents/${encodeURIComponent(id)}`),
   readingContext: (id: string) => request<ReadingContext>(`/contents/${encodeURIComponent(id)}/reading-context`),
+  readingProgress: (id: string) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`),
+  saveReadingProgress: (id: string, value: { progress_ratio: number; scroll_y: number; block_id?: string | null }, keepalive = false) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value), keepalive }),
+  setReadLater: (id: string, enabled: boolean) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/read-later`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }),
+  recentlyRead: (limit = 50) => request<ReadingListItem[]>(`/reading/recent?limit=${limit}`),
+  readLater: (limit = 50) => request<ReadingListItem[]>(`/reading/later?limit=${limit}`),
   annotations: (id: string) => request<Annotation[]>(`/contents/${encodeURIComponent(id)}/annotations`),
   createAnnotation: (id: string, value: { revision_id: string; anchor: object; color: string; comment_md: string; request_key: string }) => request<Annotation>(`/contents/${encodeURIComponent(id)}/annotations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
   patchAnnotation: (id: string, value: { revision: number; color?: string; comment_md?: string }) => request<Annotation>(`/annotations/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
@@ -149,6 +154,11 @@ export const api = {
   createProject: (title: string, question: string, ids: string[]) => request<import('./types').ResearchProject>('/knowledge/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, question, source_ids: ids }) }),
   projectEvidence: (id: string, revision: number, ids: string[], refresh = false) => request<import('./types').ResearchProject>(`/knowledge/projects/${encodeURIComponent(id)}/evidence`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision, source_ids: ids, refresh }) }),
   projectAsk: (id: string, revision: number, question: string, research = false) => request<{ project: import('./types').ResearchProject; note_id: string | null }>(`/knowledge/projects/${encodeURIComponent(id)}/${research ? 'research' : 'ask'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision, question }) }),
+  projectJobs: (id: string) => request<{ items: import('./types').ResearchJob[] }>(`/knowledge/projects/${encodeURIComponent(id)}/jobs`),
+  startProjectJob: (id: string, revision: number, question: string, research = false) => request<import('./types').ResearchJob>(`/knowledge/projects/${encodeURIComponent(id)}/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision, question, research }) }),
+  projectJob: (id: string, jobId: string) => request<import('./types').ResearchJob>(`/knowledge/projects/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}`),
+  cancelProjectJob: (id: string, jobId: string) => request<import('./types').ResearchJob>(`/knowledge/projects/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' }),
+  retryProjectJob: (id: string, jobId: string) => request<import('./types').ResearchJob>(`/knowledge/projects/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}/retry`, { method: 'POST' }),
   researchVersions: (id: string) => request<{ items: { id: string; title: string; reason: string; created_at: string }[] }>(`/knowledge/versions/${encodeURIComponent(id)}`),
   compareResearchVersion: (id: string, version: string) => request<{ version: { title: string; body_md: string }; diff: string; current_revision: number }>(`/knowledge/versions/${encodeURIComponent(id)}/${encodeURIComponent(version)}`),
   restoreResearchVersion: (id: string, version: string, revision: number) => request<import('./types').ResearchNote>(`/knowledge/versions/${encodeURIComponent(id)}/${encodeURIComponent(version)}/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision }) }),
@@ -159,7 +169,7 @@ export const api = {
   importMarkdownFiles: (paths: string[], hashes: Record<string, string>, merged?: Record<string, string>) => request<{ items: { path: string; status: string }[] }>('/knowledge/markdown/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paths, expected_hashes: hashes, merged_record_hashes: merged }) }),
   resolveWikiLinks: (targets: string[]) => request<{ items: Record<string, import('./utils/knowledge_links').KnowledgeNode> }>('/knowledge/resolve-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targets }) }),
   knowledgeNodes: (q = '') => request<{ items: import('./utils/knowledge_links').KnowledgeNode[] }>(`/knowledge/nodes?q=${encodeURIComponent(q)}`),
-  knowledgeLinks: (sourceId: string) => request<{ node: import('./utils/knowledge_links').KnowledgeNode; outgoing: (import('./utils/knowledge_links').KnowledgeNode & { relation: string })[]; incoming: (import('./utils/knowledge_links').KnowledgeNode & { relation: string })[]; unresolved: { target: string; reason: string }[] }>(`/knowledge/links?source_id=${encodeURIComponent(sourceId)}`),
+  knowledgeLinks: (sourceId: string) => request<{ node: import('./utils/knowledge_links').KnowledgeNode; outgoing: (import('./utils/knowledge_links').KnowledgeNode & { relation: string })[]; incoming: (import('./utils/knowledge_links').KnowledgeNode & { relation: string })[]; unresolved: { target: string; reason: string; candidates?: string[] }[] }>(`/knowledge/links?source_id=${encodeURIComponent(sourceId)}`),
   addKnowledgeLink: (fromId: string, toId: string) => request<{ node: import('./utils/knowledge_links').KnowledgeNode; outgoing: (import('./utils/knowledge_links').KnowledgeNode & { relation: string })[]; incoming: (import('./utils/knowledge_links').KnowledgeNode & { relation: string })[]; unresolved: { target: string; reason: string }[] }>('/knowledge/links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from_id: fromId, to_id: toId }) }),
   deleteKnowledgeLink: (fromId: string, toId: string) => request<void>(`/knowledge/links?from_id=${encodeURIComponent(fromId)}&to_id=${encodeURIComponent(toId)}`, { method: 'DELETE' }),
   knowledgeTopics: () => request<{ items: { id: string; title: string; revision: number }[] }>('/knowledge/topics'),
@@ -186,6 +196,23 @@ export const api = {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, body_md: body, revision }),
   }),
   deleteResearch: (id: string) => request<void>(`/research-notes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  personalNotes: (q = '', page = 1, pageSize = 20) => request<{ items: PersonalKnowledgeNoteListItem[]; total: number; page: number; page_size: number }>(`/personal-notes?q=${encodeURIComponent(q)}&page=${page}&page_size=${pageSize}`),
+  personalNote: (id: string) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`),
+  personalNoteVersions: (id: string) => request<PersonalNoteVersionSummary[]>(`/personal-notes/${encodeURIComponent(id)}/versions`),
+  personalNoteVersion: (id: string, revision: number) => request<PersonalNoteVersion>(`/personal-notes/${encodeURIComponent(id)}/versions/${revision}`),
+  createPersonalNote: (title = '', body = '', sourceIds: string[] = [], tags: string[] = []) => request<PersonalKnowledgeNote>('/personal-notes', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body_md: body, source_ids: sourceIds, tags }),
+  }),
+  savePersonalNote: (id: string, title: string, body: string, revision: number, sourceIds: string[], tags: string[] = []) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body_md: body, revision, source_ids: sourceIds, tags }),
+  }),
+  deletePersonalNote: (id: string, revision: number) => request<void>(`/personal-notes/${encodeURIComponent(id)}?revision=${revision}`, { method: 'DELETE' }),
+  bulkDeletePersonalNotes: (items: Array<{ id: string; revision: number }>) => request<{ deleted: number }>('/personal-notes/bulk-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }),
+  }),
   importMarkdown: async (file: File) => {
     const data = new FormData()
     data.append('file', file)

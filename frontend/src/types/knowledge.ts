@@ -1,0 +1,107 @@
+export type EvidenceKind = 'article' | 'note' | 'annotation' | 'research' | 'topic' | 'personal_note'
+export interface EvidenceSource {
+  citation_id?: string
+  chunk_id: string
+  source_id: string
+  source_type: EvidenceKind
+  match_methods?: string[]
+  url?: string | null
+  markdown_path?: string
+  record_id: string
+  content_id: string | null
+  title: string
+  article_title?: string
+  heading: string
+  text: string
+  score: number
+  content_hash: string
+  excerpted?: boolean
+  updated_at: string
+}
+export interface AskResult {
+  answer: string
+  retrieval: string
+  sources: EvidenceSource[]
+}
+export interface ResearchNote {
+  id: string
+  title: string
+  question: string
+  body_md: string
+  sources: EvidenceSource[]
+  revision: number
+  status: 'draft' | 'saved'
+  updated_at: string
+}
+export interface KnowledgeTopic { id: string; title: string; body_md: string; revision: number; sources: EvidenceSource[] }
+
+export interface ResearchProject {
+  id: string; title: string; question: string; revision: number; evidence: EvidenceSource[]
+  turns: { id: string; question: string; answer: string; sources: EvidenceSource[]; created_at: string }[]
+  notes: { id: string; title: string; status: string }[]
+}
+
+export interface PersonalNoteSource {
+  source_id: string
+  source_type: EvidenceKind
+  title_snapshot: string
+  url_snapshot?: string | null
+  created_at: string
+  available?: boolean
+}
+
+export interface PersonalKnowledgeNote {
+  id: string
+  title: string
+  body_md: string
+  revision: number
+  created_at: string
+  updated_at: string
+  sources: PersonalNoteSource[]
+  tags: string[]
+}
+
+export interface PersonalKnowledgeNoteListItem {
+  id: string
+  title: string
+  revision: number
+  created_at: string
+  updated_at: string
+  source_count: number
+  excerpt: string
+  tags: string[]
+}
+
+
+export interface PersonalNoteVersionSummary {
+  revision: number
+  title: string
+  created_at: string
+  body_length: number
+  source_count: number
+}
+
+export interface PersonalNoteVersion {
+  revision: number
+  title: string
+  body_md: string
+  created_at: string
+  sources: PersonalNoteSource[]
+}
+
+export type ResearchJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+
+export interface ResearchJob {
+  id: string
+  project_id: string
+  question: string
+  project_revision: number
+  research: boolean
+  status: ResearchJobStatus
+  stage: string
+  result: { project: ResearchProject; note_id: string | null } | null
+  error_code: string | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}

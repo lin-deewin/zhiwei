@@ -83,7 +83,7 @@ def _query_weights(question: str) -> dict[str, float]:
 
 def _records(category_id: int | None, folder_id: str | None,
              kinds: list[str] | None = None, library: Path | None = None) -> list[dict]:
-    kinds = kinds if kinds is not None else ["article", "note", "annotation", "research", "topic"]
+    kinds = kinds if kinds is not None else ["article", "note", "annotation", "research", "topic", "personal_note"]
     clauses, params = [], []
     if category_id is not None:
         clauses.append("c.category_id IN (SELECT id FROM categories WHERE id=? OR parent_id=?)")
@@ -135,6 +135,18 @@ def _records(category_id: int | None, folder_id: str | None,
                 records.append({"source_id": "research:" + row["id"], "record_id": row["id"],
                                 "content_id": None, "title": row["title"], "source_type": "research",
                                 "text": row["body_md"], "url": None, "updated_at": row["updated_at"]})
+        if "personal_note" in kinds and category_id is None and not folder_id:
+            for row in db.execute("SELECT * FROM personal_notes ORDER BY id"):
+                records.append({
+                    "source_id": "personal_note:" + row["id"],
+                    "record_id": row["id"],
+                    "content_id": None,
+                    "title": row["title"] or "未命名个人笔记",
+                    "source_type": "personal_note",
+                    "text": row["body_md"],
+                    "url": None,
+                    "updated_at": row["updated_at"],
+                })
         if "topic" in kinds and category_id is None and not folder_id:
             for row in db.execute("SELECT * FROM knowledge_topics ORDER BY id"):
                 records.append({"source_id": "topic:"+row["id"], "record_id": row["id"],

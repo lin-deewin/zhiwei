@@ -1,114 +1,22 @@
-import { WikiMarkdown } from './WikiMarkdown'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, Highlighter, LoaderCircle, Plus, RefreshCw, Save, Sparkles, Trash2 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
-import { Pagination } from './Pagination'
-import { ResearchNotesList } from './KnowledgePage'
-import { GraphPanel } from './KnowledgeHub'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
 import { api } from '../api'
+import { anchorFromSelection, rangeForAnchor } from '../utils/reading_anchors'
+import { useAnnotationHighlights } from '../hooks/useAnnotationHighlights'
+import { ReadingNotesPanel } from './ReadingNotesPanel'
+import { ReadingAIPanel } from './ReadingAIPanel'
+import { ReadingSelectionToolbar } from './ReadingSelectionToolbar'
 import { newRequestKey } from '../utils/request_key'
 import type { Annotation, PersonalNote, ReadingAIJob, ReadingAIResult, ReadingContext, TextAnchor } from '../types'
 
-function codePointOffset(node: Node, offset: number): number {
-  const root = node.parentElement?.closest<HTMLElement>('[data-reading-block-id]')
-  if (!root) return 0
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let result = 0
-  while (walker.nextNode()) {
-    const textNode = walker.currentNode as Text
-    if (textNode === node) return result + Array.from(textNode.data.slice(0, offset)).length
-    result += Array.from(textNode.data).length
-  }
-  return result
-}
-
-export function anchorFromSelection(context: ReadingContext): TextAnchor | null {
-  const selection = window.getSelection()
-  if (!selection || selection.isCollapsed || !selection.rangeCount) return null
-  const range = selection.getRangeAt(0)
-  const startElement = range.startContainer.parentElement?.closest<HTMLElement>('[data-reading-block-id]')
-  const endElement = range.endContainer.parentElement?.closest<HTMLElement>('[data-reading-block-id]')
-  if (!startElement || startElement !== endElement || !context.revision_id) return null
-  const blockId = startElement.dataset.readingBlockId
-  const block = context.blocks.find((item) => item.id === blockId)
-  if (!block?.markable) return null
-  const start = codePointOffset(range.startContainer, range.startOffset)
-  const end = codePointOffset(range.endContainer, range.endOffset)
-  const chars = Array.from(block.text)
-  if (end <= start || end > chars.length) return null
-  const exact = chars.slice(start, end).join('')
-  if (exact !== range.toString()) return null
-  return {
-    revision_id: context.revision_id,
-    normalization_version: context.normalization_version,
-    block_id: block.id,
-    start,
-    end,
-    exact,
-    prefix: chars.slice(Math.max(0, start - 32), start).join(''),
-    suffix: chars.slice(end, end + 32).join(''),
-    block_hash: block.text_hash,
-    heading_path: block.heading_path,
-  }
-}
-
-function rangeForAnchor(anchor: TextAnchor): Range | null {
-  const root = document.querySelector<HTMLElement>(`[data-reading-block-id="${CSS.escape(anchor.block_id)}"]`)
-  if (!root) return null
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let remainingStart = anchor.start
-  let remainingEnd = anchor.end
-  let startNode: Text | null = null
-  let startOffset = 0
-  let endNode: Text | null = null
-  let endOffset = 0
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text
-    const length = Array.from(node.data).length
-    if (!startNode && remainingStart <= length) {
-      startNode = node
-      startOffset = Array.from(node.data).slice(0, remainingStart).join('').length
-    }
-    if (remainingEnd <= length) {
-      endNode = node
-      endOffset = Array.from(node.data).slice(0, remainingEnd).join('').length
-      break
-    }
-    remainingStart -= length
-    remainingEnd -= length
-  }
-  if (!startNode || !endNode) return null
-  const range = document.createRange()
-  range.setStart(startNode, startOffset)
-  range.setEnd(endNode, endOffset)
-  return range
-}
-
-function useAnnotationHighlights(annotations: Annotation[]) {
-  useEffect(() => {
-    const css = (window as Window & { CSS?: { highlights?: { set: (name: string, value: unknown) => void; delete: (name: string) => void } } }).CSS
-    const HighlightCtor = (window as Window & { Highlight?: new (...ranges: Range[]) => unknown }).Highlight
-    if (!css?.highlights || !HighlightCtor) return
-    const names = ['reader-yellow', 'reader-green', 'reader-blue']
-    const colors: Record<string, string> = { yellow: names[0], green: names[1], blue: names[2] }
-    for (const name of names) css.highlights.delete(name)
-    for (const color of ['yellow', 'green', 'blue'] as const) {
-      const ranges = annotations.filter((a) => a.anchor_status === 'resolved' && a.current_anchor && a.color === color)
-        .map((a) => rangeForAnchor(a.current_anchor!)).filter((value): value is Range => value !== null)
-      if (ranges.length) css.highlights.set(colors[color], new HighlightCtor(...ranges))
-    }
-    return () => { for (const name of names) css.highlights?.delete(name) }
-  }, [annotations])
-}
 
 export function ReaderWorkspace({ context, setContext, onNotice }: {
   context: ReadingContext; setContext: (next: ReadingContext | ((current: ReadingContext) => ReadingContext)) => void
   onNotice: (message: string, error?: boolean) => void
 }) {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<'notes' | 'ai'>('notes')
   const [selection, setSelection] = useState<TextAnchor | null>(null)
   const [toolbarPosition, setToolbarPosition] = useState({ left: 24, top: 76 })
@@ -137,10 +45,6 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
   const latestDraft = useRef({ title: '', body_md: '' })
   const annotations = context.annotations
   useAnnotationHighlights(annotations)
-
-  useEffect(() => () => {
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
-  }, [])
 
   useEffect(() => {
     const noteId = searchParams.get('note')
@@ -403,11 +307,31 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
     } catch (error) { onNotice((error as Error).message, true) }
   }
 
-  const saveAIAsNote = async (result: ReadingAIResult) => {
+  const createPersonalNoteFromSelection = async () => {
+    if (!selection || busy) return
+    const quote = selection.exact.trim()
+    if (!quote) return
+    const excerpt = Array.from(quote.replace(/\s+/g, ' ')).slice(0, 48).join('')
+    const title = excerpt ? `摘录：${excerpt}` : '阅读摘录'
+    const body = quote.split(/\r?\n/).map((line) => `> ${line}`).join('\n') + '\n\n## 我的理解\n\n'
+    setBusy(true)
     try {
-      const note = await api.convertAIResultToNote(result.id, { request_key: newRequestKey(), title: `AI ${result.action === 'summary' ? '全文总结' : result.action === 'explain' ? '段落解释' : '文章要点'}` })
-      setContext((current) => ({ ...current, notes: [note, ...current.notes] }))
-      onNotice('已转存为个人笔记')
+      const note = await api.createPersonalNote(title, body, [`article:${context.content_id}`])
+      setSelection(null)
+      window.getSelection()?.removeAllRanges()
+      onNotice('已将选段保存为独立个人笔记，并保留文章来源。')
+      navigate(`/personal-notes?note=${encodeURIComponent(note.id)}`)
+    } catch (error) {
+      onNotice((error as Error).message, true)
+    } finally { setBusy(false) }
+  }
+
+  const saveAIAsNote = async (result: ReadingAIResult) => {
+    const title = `AI ${result.action === 'summary' ? '全文总结' : result.action === 'explain' ? '段落解释' : '文章要点'}`
+    try {
+      const note = await api.createPersonalNote(title, result.rendered_md, [`article:${context.content_id}`])
+      onNotice('AI 结果已保存为独立个人笔记，原文章已保留为引用来源。')
+      navigate(`/personal-notes?note=${encodeURIComponent(note.id)}`)
     } catch (error) { onNotice((error as Error).message, true) }
   }
 
@@ -427,71 +351,95 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
     block?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
+  const cancelAIJob = async () => {
+    if (!job) return
+    try { setJob(await api.cancelReadingAIJob(job.id)) }
+    catch (error) { onNotice((error as Error).message, true) }
+  }
+
+  const retryAIJob = async () => {
+    if (!job) return
+    try {
+      const retried = await api.retryReadingAIJob(job.id)
+      setJob({ ...job, id: retried.id, status: retried.status })
+    } catch (error) { onNotice((error as Error).message, true) }
+  }
+
+  const deleteAIResult = async () => {
+    if (!currentResult) return
+    try {
+      await api.deleteReadingAIResult(currentResult.id)
+      setCurrentResult(null)
+      await syncContext()
+    } catch (error) { onNotice((error as Error).message, true) }
+  }
+
   const actions = useMemo(() => [
     ['summary', '总结全文'], ['explain', '解释选段'], ['key_points', '提取要点'],
   ] as const, [])
 
   return <section className="reading-workspace">
-    <GraphPanel sourceId={editing ? `note:${editing.id}` : `article:${context.content_id}`} version={editing?.revision || context.revision_id || 0} />
-    {selection && <div className="selection-toolbar selection-toolbar-floating" style={{ left: toolbarPosition.left, top: toolbarPosition.top }} role="toolbar" aria-label="选中文字操作">
-      {reanchorTarget ? <><span>为这条高亮重新选择原文</span><button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={() => void createHighlight()}><Highlighter size={14} />确认重新绑定</button><button onClick={() => setReanchorTarget(null)}>取消</button></> : <><button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={() => { setPendingExplain(selection); void startAI('explain', selection) }}><Sparkles size={14} />解释这段</button>
-      <select aria-label="高亮颜色" value={color} onChange={(event) => setColor(event.target.value as typeof color)}><option value="yellow">黄色</option><option value="green">绿色</option><option value="blue">蓝色</option></select>
-      <input aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(event) => setComment(event.target.value)} />
-      <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={() => void createHighlight()}><Highlighter size={14} />保存高亮与批注</button></>}
-    </div>}
-    <div className="reading-workspace-tabs"><button className={tab === 'notes' ? 'selected' : ''} onClick={() => setTab('notes')}>高亮与笔记 <span>{annotations.length + context.notes.length}</span></button><button className={tab === 'ai' ? 'selected' : ''} onClick={() => setTab('ai')}><Sparkles size={14} /> AI 阅读助手</button></div>
-    {tab === 'notes' ? <div className="reading-notes-panel">
-      <div className="reading-panel-heading"><div><strong>留下自己的理解</strong><small>笔记会保存在本地资料库</small></div><div className="reading-data-actions"><button className="button button-soft" onClick={() => void exportReadingData()}>导出阅读记录</button><label className="button button-soft">恢复记录<input type="file" accept="application/json,.json" hidden onChange={(event) => { void importReadingData(event.target.files?.[0]); event.currentTarget.value = '' }} /></label><button className="button button-soft" disabled={busy} onClick={() => void newNote()}><Plus size={14} />新建笔记</button></div></div>
-      {editing && <div className="personal-note-editor">{staleDraft && <div className="stale-note-draft"><strong>旧版本草稿</strong><p>{staleDraft.title || ''}</p><pre>{staleDraft.body_md || ''}</pre><button className="button button-soft" onClick={() => { setStaleDraft(null); changeDraft(staleDraft.title || '', staleDraft.body_md || '') }}>恢复此草稿</button></div>}<input value={draftTitle} onChange={(event) => changeDraft(event.target.value, draftBody)} placeholder="笔记标题（可选）" /><textarea value={draftBody} onChange={(event) => changeDraft(draftTitle, event.target.value)} placeholder="写下你的理解、问题或行动计划…" rows={7} /><details><summary>预览 Markdown 与知识链接</summary><WikiMarkdown text={draftBody} /></details><div className="note-save-status"><span>{noteStatus}</span><div><button className="button button-soft" disabled={noteStatus === '保存中…'} onClick={() => void flushQueued()}><Save size={13} />立即保存</button><button className="button button-soft" onClick={() => void removeCurrentNote()}><Trash2 size={13} />删除</button></div></div></div>}
-      <div className="reading-record-list">
-        {annotations.map((item) => <article className="reading-record-card" key={item.id}>
-          <div className="record-quote" onClick={() => locate(item)}><span className={`annotation-swatch ${item.color}`} />“{item.current_anchor?.exact || item.original_anchor.exact}”</div>
-          {item.comment_md && <p>{item.comment_md}</p>}
-          {item.anchor_status !== 'resolved' && <small className="anchor-warning">原文位置{item.anchor_status === 'ambiguous' ? '不明确' : '已失效'}</small>}
-          <div className="record-actions"><button onClick={() => locate(item)}>定位原文</button>{item.anchor_status !== 'resolved' && <button onClick={() => { setReanchorTarget(item); onNotice('请在正文中重新选择对应文字') }}>重新绑定</button>}<button aria-label="删除高亮" onClick={() => void removeAnnotation(item)}><Trash2 size={13} /></button></div>
-        </article>)}
-        {context.notes.map((note) => <article className="reading-record-card" key={note.id}>
-          <button className="record-note-title" onClick={() => selectNote(note)}>{note.title || '未命名笔记'}</button>
-          <p className="record-note-preview">{note.body_md.slice(0, 260) || '空白笔记'}</p>
-          {note.origin_ai_result_id && <small>从 AI 结果转存</small>}
-        </article>)}
-        {!annotations.length && !context.notes.length && !editing && <p className="reading-empty">选中一段文字添加高亮，或新建一篇个人笔记。</p>}
-      </div>
-    </div> : <div className="reading-ai-panel">
-      <div className="reading-panel-heading"><div><strong>只分析当前文章</strong><small>提交后按当前正文版本调用已配置的模型，并保存结果</small></div></div>
-      <div className="reading-ai-actions">{actions.map(([key, label]) => <button className="button button-soft" key={key} disabled={!context.revision_id || Boolean(job && ['queued', 'running'].includes(job.status))} onClick={() => void startAI(key)}><Sparkles size={14} />{label}</button>)}</div>
-      {job && <div className="reading-ai-progress"><LoaderCircle size={15} className={['queued','running'].includes(job.status) ? 'spin' : ''} /><span>{job.status === 'running' ? `正在处理 ${job.completed_steps}/${job.total_steps}` : job.status === 'queued' ? '等待开始' : job.error_message || job.status}</span>{['queued','running'].includes(job.status) && <button onClick={() => void api.cancelReadingAIJob(job.id).then(setJob)}>取消</button>}{['failed','interrupted'].includes(job.status) && <button onClick={() => void api.retryReadingAIJob(job.id).then((result) => setJob({ ...job, id: result.id, status: result.status }))}>重试</button>}</div>}
-      {currentResult && <div className="reading-ai-result"><div className="reading-result-actions"><strong>已保存的 AI 结果 {currentResult.revision_id !== context.revision_id && <small>基于旧正文版本</small>}</strong><button className="button button-soft" onClick={() => void saveAIAsNote(currentResult)}>保存为个人笔记</button><button onClick={() => void api.deleteReadingAIResult(currentResult.id).then(() => { setCurrentResult(null); void syncContext() })} aria-label="删除结果"><Trash2 size={14} /></button><button className="button button-soft" onClick={() => action && void startAI(action, pendingExplain || undefined, true)}><RefreshCw size={13} />重新生成</button></div><div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{currentResult.rendered_md}</ReactMarkdown></div><details className="reading-ai-citations"><summary>查看原文依据</summary>{Object.entries(JSON.parse(currentResult.citations_json || '{}') as Record<string, { text?: string }>).map(([id, citation]) => <p key={id}><b>[{id}]</b> {citation.text || ''}</p>)}</details></div>}
-      {results.length > 0 && <div className="reading-ai-history"><strong>历史结果</strong>{results.map((result) => <button key={result.id} onClick={() => setCurrentResult(result)}>{result.action === 'summary' ? '全文总结' : result.action === 'explain' ? '段落解释' : '文章要点'} · {new Date(result.created_at).toLocaleString()} <ArrowRight size={13} /></button>)}</div>}
-      {!context.revision_id && <p className="reading-empty">正文文件暂时不可用。已有笔记仍可查看。</p>}
-    </div>}
+    <ReadingSelectionToolbar
+      selection={selection}
+      position={toolbarPosition}
+      reanchorTarget={reanchorTarget}
+      busy={busy}
+      color={color}
+      comment={comment}
+      onColorChange={setColor}
+      onCommentChange={setComment}
+      onExplain={() => { if (selection) { setPendingExplain(selection); void startAI('explain', selection) } }}
+      onCreateNote={() => void createPersonalNoteFromSelection()}
+      onSave={() => void createHighlight()}
+      onCancelReanchor={() => setReanchorTarget(null)}
+    />
+    <div className="reading-workspace-tabs" role="group" aria-label="阅读工作区">
+      <button type="button" aria-pressed={tab === 'notes'} className={tab === 'notes' ? 'selected' : ''} onClick={() => setTab('notes')}>高亮与笔记 <span>{annotations.length + context.notes.length}</span></button>
+      <button type="button" aria-pressed={tab === 'ai'} className={tab === 'ai' ? 'selected' : ''} onClick={() => setTab('ai')}><Sparkles size={14} /> AI 阅读助手</button>
+    </div>
+    <div className="reading-workspace-panel" role="region" aria-label={tab === 'notes' ? '高亮与笔记' : 'AI 阅读助手'}>
+    {tab === 'notes'
+      ? <ReadingNotesPanel
+          context={context}
+          annotations={annotations}
+          editing={editing}
+          staleDraft={staleDraft}
+          draftTitle={draftTitle}
+          draftBody={draftBody}
+          noteStatus={noteStatus}
+          busy={busy}
+          onExport={() => void exportReadingData()}
+          onImport={(file) => void importReadingData(file)}
+          onNewNote={() => void newNote()}
+          onDraftChange={changeDraft}
+          onRestoreDraft={() => {
+            if (!staleDraft) return
+            setStaleDraft(null)
+            changeDraft(staleDraft.title || '', staleDraft.body_md || '')
+          }}
+          onFlush={() => void flushQueued()}
+          onDeleteCurrent={() => void removeCurrentNote()}
+          onLocate={locate}
+          onReanchor={(item) => { setReanchorTarget(item); onNotice('请在正文中重新选择对应文字') }}
+          onRemoveAnnotation={(item) => void removeAnnotation(item)}
+          onSelectNote={selectNote}
+        />
+      : <ReadingAIPanel
+          context={context}
+          actions={actions}
+          action={action}
+          job={job}
+          results={results}
+          currentResult={currentResult}
+          onStart={(key) => void startAI(key)}
+          onCancel={() => void cancelAIJob()}
+          onRetry={() => void retryAIJob()}
+          onDeleteResult={() => void deleteAIResult()}
+          onRegenerate={() => { if (action) void startAI(action, pendingExplain || undefined, true) }}
+          onSaveAsNote={(result) => void saveAIAsNote(result)}
+          onSelectResult={setCurrentResult}
+        />
+    }
+    </div>
   </section>
-}
-
-export function NotesPage({ onNotice }: { onNotice: (message: string, error?: boolean) => void }) {
-  const [query, setQuery] = useState('')
-  const [items, setItems] = useState<Awaited<ReturnType<typeof api.searchNotes>>['items']>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [includeQuotes, setIncludeQuotes] = useState(false)
-  const [loading, setLoading] = useState(false)
-  useEffect(() => {
-    let active = true
-    const timer = window.setTimeout(() => {
-      setLoading(true)
-      api.searchNotes(query, page, pageSize, includeQuotes).then((result) => { if (active) { setItems(result.items); setTotal(result.total) } })
-        .catch((error) => { if (active) onNotice((error as Error).message, true) })
-        .finally(() => { if (active) setLoading(false) })
-    }, query ? 250 : 0)
-    return () => { active = false; window.clearTimeout(timer) }
-  }, [query, includeQuotes, page, pageSize, onNotice])
-  return <div className="notes-page"><div className="page-title-row"><div><div className="eyebrow">PERSONAL NOTES</div><h1>我的笔记</h1><p>搜索自己的理解、批注和原文引用。</p></div><span className="article-total">{total} 条个人笔记与批注</span></div>
-    <div className="notes-search"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="搜索笔记内容…" /><label><input type="checkbox" checked={includeQuotes} onChange={(event) => { setIncludeQuotes(event.target.checked); setPage(1) }} />包含原文引用</label></div>
-    {loading && <p>正在搜索…</p>}
-    <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={`${item.type}:${item.id}`} to={`/read/${encodeURIComponent(item.content_id)}${item.type === 'note' ? `?note=${encodeURIComponent(item.id)}` : `?annotation=${encodeURIComponent(item.id)}`}`}>
-      <small>{item.type === 'note' ? '个人笔记' : '高亮批注'} · {new Date(item.updated_at).toLocaleDateString()}</small><h2>{item.title || item.quote || '未命名笔记'}</h2><p>{item.body_md || (includeQuotes ? item.quote : '')}</p><strong>{item.article_title}<ArrowRight size={14} /></strong>
-    </Link>)}</div><Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1) }} />
-    <ResearchNotesList query={query} />
-  </div>
 }

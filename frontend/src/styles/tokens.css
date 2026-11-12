@@ -1,0 +1,57 @@
+:root {
+  font-family: 'DM Sans', 'Noto Sans SC', sans-serif;
+  color: #282d31;
+  background: #f5f6f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  font-weight: 400;
+  font-size: 14px;
+
+  /* Existing compatibility tokens. Keep these stable during the V3 migration. */
+  --ink: #282d31;
+  --muted: #8b9196;
+  --line: #e9ebec;
+  --green: #527c67;
+  --green-dark: #3e6652;
+  --green-pale: #eef4ef;
+  --serif: 'Noto Serif SC', serif;
+
+  /* Semantic color tokens. */
+  --color-canvas: #f5f6f7;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #fafbfa;
+  --color-text-primary: var(--ink);
+  --color-text-secondary: var(--muted);
+  --color-border: var(--line);
+  --color-accent: var(--green);
+  --color-accent-strong: var(--green-dark);
+  --color-accent-soft: var(--green-pale);
+  --color-danger: #b64b4b;
+  --color-focus: rgba(82, 124, 103, 0.24);
+
+  /* Consistent spacing scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape, elevation and motion. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --shadow-soft: 0 8px 24px rgba(31, 43, 35, 0.06);
+  --shadow-popover: 0 16px 40px rgba(31, 43, 35, 0.12);
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --focus-ring: 0 0 0 3px var(--color-focus);
+
+  /* Reading layout constraints. */
+  --reading-content-width: 820px;
+  --workspace-max-width: 1440px;
+}

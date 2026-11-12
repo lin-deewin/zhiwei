@@ -1,7 +1,7 @@
 import { useWorkspaceActive } from './WorkspaceTabs'
 import { useWikiLinks, wikiPlugin } from '../utils/wiki_markdown'
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -9,11 +9,11 @@ import { ArrowRight, LoaderCircle, Save, Search, Sparkles, Trash2 } from 'lucide
 import { api } from '../api'
 import { SemanticPanel } from './SemanticPanel'
 import { ResearchHistory } from './ResearchWorkspacePanel'
-import { GraphPanel } from './KnowledgeHub'
+import { GraphPanel } from './KnowledgeGraphPanel'
 import { nodePath } from '../utils/knowledge_links'
 import type { AskResult, Category, EvidenceKind, EvidenceSource, ResearchNote } from '../types'
 
-const labels: Record<EvidenceKind, string> = { article: '文章原文', note: '个人笔记', annotation: '高亮批注', research: 'AI 研究笔记', topic: '主题知识页' }
+const labels: Record<EvidenceKind, string> = { article: '文章原文', note: '阅读笔记', annotation: '高亮批注', research: 'AI 研究笔记', topic: '主题知识页', personal_note: '个人笔记' }
 function sourcePath(source: EvidenceSource) {
   return nodePath(source)
 }
@@ -46,15 +46,16 @@ export function ResearchNotesList({ query = '', version = 0 }: { query?: string;
     return () => { active = false; window.clearTimeout(timer) }
   }, [query, version, workspaceActive])
   return <section className="research-library"><h2>研究笔记</h2>{error && <p role="alert">{error}</p>}
-    {items.length ? <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={item.id} to={`/ask?research=${encodeURIComponent(item.id)}`}><small>{item.status === 'draft' ? '待审阅草稿' : '已保存'} · {new Date(item.updated_at).toLocaleDateString()}</small><h3>{item.title}</h3><p>{item.question}</p><span>查看笔记和出处 <ArrowRight size={14} /></span></Link>)}</div> : !error && <p className="muted-text">暂无匹配的研究笔记。可在知识空间或知识问答中生成；草稿也会显示在这里。</p>}
+    {items.length ? <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={item.id} to={`/knowledge?tab=assistant&research=${encodeURIComponent(item.id)}`}><small>{item.status === 'draft' ? '待审阅草稿' : '已保存'} · {new Date(item.updated_at).toLocaleDateString()}</small><h3>{item.title}</h3><p>{item.question}</p><span>查看笔记和出处 <ArrowRight size={14} /></span></Link>)}</div> : !error && <p className="muted-text">暂无匹配的研究笔记。可在知识空间或知识问答中生成；草稿也会显示在这里。</p>}
   </section>
 }
 
-export function KnowledgePage({ categories }: { categories: Category[] }) {
+export function KnowledgePage({ categories, embedded = false, onDirtyChange }: { categories: Category[]; embedded?: boolean; onDirtyChange?: (dirty: boolean) => void }) {
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const [question, setQuestion] = useState('')
   const [categoryId, setCategoryId] = useState<number | undefined>()
-  const [kinds, setKinds] = useState<EvidenceKind[]>(['article', 'note', 'annotation', 'research', 'topic'])
+  const [kinds, setKinds] = useState<EvidenceKind[]>(['article', 'note', 'personal_note', 'annotation', 'research', 'topic'])
   const [sources, setSources] = useState<EvidenceSource[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [answer, setAnswer] = useState<AskResult | null>(null)
@@ -66,6 +67,12 @@ export function KnowledgePage({ categories }: { categories: Category[] }) {
   const [searched, setSearched] = useState(false)
   const [version, setVersion] = useState(0)
   const dirty = Boolean(draft && (title !== draft.title || body !== draft.body_md))
+  const setResearchId = (id?: string) => {
+    const next = new URLSearchParams(params)
+    if (id) next.set('research', id)
+    else next.delete('research')
+    setParams(next)
+  }
   const researchId = params.get('research')
   const acceptNote = (note: ResearchNote) => { setDraft(note); setTitle(note.title); setBody(note.body_md) }
   useEffect(() => {
@@ -75,6 +82,10 @@ export function KnowledgePage({ categories }: { categories: Category[] }) {
       .catch((e) => { if (active) setError((e as Error).message) })
     return () => { active = false }
   }, [researchId])
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+    return () => { onDirtyChange?.(false) }
+  }, [dirty, onDirtyChange])
   useEffect(() => {
     if (!dirty) return
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
@@ -106,25 +117,40 @@ export function KnowledgePage({ categories }: { categories: Category[] }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url; a.download = `${title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80) || '研究笔记'}.md`; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
-  return <div className="subpage knowledge-page">
-    <div className="page-title-row"><div><div className="eyebrow">ASK YOUR LIBRARY</div><h1>让资料，开始回答。</h1><p>文章、笔记与批注一起检索；用多份证据形成可追溯的研究笔记。</p></div></div>
+
+  const saveAsPersonalNote = () => {
+    if (!draft) return
+    void run('转存个人笔记', async () => {
+      const saved = draft.status !== 'saved' || dirty
+        ? await api.saveResearch(draft.id, title, body, draft.revision)
+        : draft
+      if (saved !== draft) {
+        acceptNote(saved)
+        setVersion((value) => value + 1)
+      }
+      const note = await api.createPersonalNote(saved.title, saved.body_md, [`research:${saved.id}`])
+      navigate(`/personal-notes?note=${encodeURIComponent(note.id)}`)
+    })
+  }
+  return <div className={embedded ? 'knowledge-page knowledge-page-embedded' : 'subpage knowledge-page'}>
+    {!embedded && <div className="page-title-row"><div><div className="eyebrow">ASK YOUR LIBRARY</div><h1>让资料，开始回答。</h1><p>文章、阅读笔记、独立个人笔记与批注一起检索；用多份证据形成可追溯的研究笔记。</p></div></div>}
     <SemanticPanel question={question} expected={[...new Set(sources.filter((s) => selected.includes(s.chunk_id)).map((s) => s.source_id))]} />
     <section className="panel knowledge-controls">
       <label>检索范围<select disabled={Boolean(busy)} value={categoryId ?? ''} onChange={(e) => { clearSearch(); setCategoryId(e.target.value ? Number(e.target.value) : undefined) }}><option value="">全部资料</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.parent_id ? '　↳ ' : ''}{c.name}</option>)}</select></label>
       <fieldset disabled={Boolean(busy)}><legend>资料类型</legend>{(Object.keys(labels) as EvidenceKind[]).map((kind) => <label key={kind}><input type="checkbox" checked={kinds.includes(kind)} onChange={() => { clearSearch(); setKinds(kinds.includes(kind) ? kinds.filter((k) => k !== kind) : [...kinds, kind]) }} />{labels[kind]}</label>)}</fieldset>
       <label className="knowledge-question">问题或研究主题<textarea disabled={Boolean(busy)} value={question} maxLength={2000} onChange={(e) => { setQuestion(e.target.value); clearSearch() }} placeholder="例如：结合收藏文章和我的笔记，比较提升专注力的方法与局限。" /></label>
       <div className="knowledge-actions"><button className="button button-soft" disabled={Boolean(busy) || question.trim().length < 2 || !kinds.length} onClick={() => void search()}><Search size={16} />查找资料</button><button className="button button-primary" disabled={Boolean(busy) || question.trim().length < 2 || !kinds.length} onClick={() => void run('生成回答', async () => { setAnswer(await api.ask(question.trim(), categoryId, kinds)) })}><Sparkles size={16} />根据资料回答</button></div>
-      <small>检索在本地执行。生成回答或研究笔记时，候选片段会发送给已配置的模型。按分类筛选时，仅包含该分类下的文章及其笔记、批注。</small>
+      <small>检索在本地执行。生成回答或研究笔记时，候选片段会发送给已配置的模型。按分类筛选时，仅包含该分类下的文章及其阅读笔记、批注；独立个人笔记和主题页不属于文章分类。</small>
     </section>
     {busy && <p role="status"><LoaderCircle className="spin" size={16} /> 正在{busy}…</p>}{error && <div className="ask-error" role="alert">{error}</div>}
     {answer && <section className="panel knowledge-result"><h2>知识库回答</h2><CitedMarkdown text={answer.answer} prefix="answer-evidence" /><small>{answer.retrieval.includes('model-rerank') ? '已使用模型重排证据' : answer.retrieval.includes('semantic') ? '关键词与语义融合检索' : '基于统一关键词检索'}</small><EvidenceList sources={answer.sources} prefix="answer-evidence" /></section>}
     {searched && <section className="panel knowledge-results"><div className="panel-title"><h2>选择研究资料</h2><span>已选 {selected.length} 个片段 · {uniqueSelected} 份资料</span></div>
       {sources.length ? sources.map((source) => <div className="knowledge-source" key={source.chunk_id}><input aria-label={`选择${labels[source.source_type]}：${source.title}，${source.heading}`} type="checkbox" disabled={Boolean(busy) || (!selected.includes(source.chunk_id) && selected.length >= 16)} checked={selected.includes(source.chunk_id)} onChange={() => setSelected(selected.includes(source.chunk_id) ? selected.filter((id) => id !== source.chunk_id) : [...selected, source.chunk_id])} /><div><strong>{labels[source.source_type]} · {source.title}</strong><small>{source.match_methods?.includes('semantic') ? '语义匹配' : '关键词匹配'}</small><p>{source.text.slice(0, 180)}{source.text.length > 180 ? '…' : ''}</p>{source.text.length > 180 && <details><summary>展开完整片段</summary><p>{source.text}</p></details>}<Link to={sourcePath(source)}>查看资料</Link></div></div>) : <p>未找到相关资料。请调整关键词或范围。</p>}
-      <button className="button button-primary" disabled={Boolean(busy) || uniqueSelected < 2} onClick={() => { if (!dirty || window.confirm('生成新研究笔记将替换当前编辑内容，继续？')) void run('生成研究笔记', async () => { const note = await api.generateResearch(question.trim(), selected, categoryId, kinds); acceptNote(note); setParams({ research: note.id }); setVersion((v) => v + 1) }) }}><Sparkles size={16} />生成带出处的研究笔记</button><small>至少两份不同资料，最多 16 个片段。生成后可核对、编辑并保存。</small>
+      <button className="button button-primary" disabled={Boolean(busy) || uniqueSelected < 2} onClick={() => { if (!dirty || window.confirm('生成新研究笔记将替换当前编辑内容，继续？')) void run('生成研究笔记', async () => { const note = await api.generateResearch(question.trim(), selected, categoryId, kinds); acceptNote(note); setResearchId(note.id); setVersion((v) => v + 1) }) }}><Sparkles size={16} />生成带出处的研究笔记</button><small>至少两份不同资料，最多 16 个片段。生成后可核对、编辑并保存。</small>
     </section>}
     {draft && <section className="panel research-editor"><div className="panel-title"><h2>{draft.status === 'saved' ? '研究笔记' : '研究笔记草稿'}</h2><span>研究问题：{draft.question}</span></div>
       <label>标题<input disabled={Boolean(busy)} value={title} maxLength={1000} onChange={(e) => setTitle(e.target.value)} /></label><label>正文（Markdown）<textarea disabled={Boolean(busy)} value={body} maxLength={100000} onChange={(e) => setBody(e.target.value)} /></label>
-      <div className="knowledge-actions"><button className="button button-primary" disabled={Boolean(busy) || !title.trim() || !body.trim()} onClick={() => void run('保存研究笔记', async () => { acceptNote(await api.saveResearch(draft.id, title, body, draft.revision)); setVersion((v) => v + 1) })}><Save size={16} />{draft.status === 'saved' ? '保存修改' : '保存到我的笔记'}</button><button className="button button-soft" onClick={download}>导出 Markdown</button><button className="button button-soft" disabled={Boolean(busy)} onClick={() => { if (window.confirm('删除这篇研究笔记？')) void run('删除笔记', async () => { await api.deleteResearch(draft.id); setDraft(null); setParams({}); setVersion((v) => v + 1) }) }}><Trash2 size={16} />删除</button></div>
+      <div className="knowledge-actions"><button className="button button-primary" disabled={Boolean(busy) || !title.trim() || !body.trim()} onClick={() => void run('保存研究笔记', async () => { acceptNote(await api.saveResearch(draft.id, title, body, draft.revision)); setVersion((v) => v + 1) })}><Save size={16} />{draft.status === 'saved' ? '保存修改' : '保存研究笔记'}</button><button className="button button-soft" onClick={download}>导出 Markdown</button><button className="button button-soft" disabled={Boolean(busy) || !title.trim() || !body.trim()} onClick={saveAsPersonalNote}>转存为独立个人笔记</button><button className="button button-soft" disabled={Boolean(busy)} onClick={() => { if (window.confirm('删除这篇研究笔记？')) void run('删除笔记', async () => { await api.deleteResearch(draft.id); setDraft(null); setResearchId(); setVersion((v) => v + 1) }) }}><Trash2 size={16} />删除</button></div>
       {draft.status === 'saved' && <GraphPanel sourceId={'research:' + draft.id} version={version} />}<ResearchHistory note={draft} onRestore={(note) => { acceptNote(note); setVersion((v) => v + 1) }} /><CitedMarkdown text={body} prefix="research-evidence" /><EvidenceList sources={draft.sources} prefix="research-evidence" /><small>出处快照保留生成时的片段；当前原文可能已修改。引用编号有效不代表模型结论一定正确，请核对。</small>
     </section>}
     <ResearchNotesList version={version} />

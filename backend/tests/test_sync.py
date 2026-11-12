@@ -161,3 +161,36 @@ def test_answer_question_link_uses_verified_question_id() -> None:
         "id": "999", "title": "错误的问题标题",
     }}) == expected
     assert _question_ref({**content, "remote_id": "123"}, {}) is None
+
+
+def test_sync_cancel_stops_before_scanning_selected_folder(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(tmp_path / "library"))
+
+    class Account:
+        def status(self):
+            return {"status": "connected", "profile": {"url_token": "owner"}}
+
+        async def get_json(self, path):
+            if "/favlists?" in path:
+                return {
+                    "data": [{"id": 101, "title": "阅读"}],
+                    "paging": {"is_end": True},
+                }
+            raise AssertionError("cancelled sync must not request collection items")
+
+    monkeypatch.setattr(sync_module, "active_account", lambda: Account())
+
+    async def run():
+        manager = sync_module.SyncManager()
+        job = await manager.start("incremental", ["101"])
+        cancelled = manager.cancel(job["id"])
+        assert cancelled is not None
+        assert "取消" in cancelled["message"]
+        assert manager._task is not None
+        await manager._task
+        return sync_module._job(job["id"])
+
+    result = asyncio.run(run())
+    assert result is not None
+    assert result["status"] == "cancelled"
+    assert result["scanned"] == 0

@@ -17,6 +17,7 @@ from app.core.config import get_library_dir, library_scope
 from app.core.database import session
 from app.services import knowledge_graph
 from app.services.knowledge import save_research
+from app.services.personal_notes import update_personal_note
 from app.services.library import import_markdown, now
 from app.services.rag import _records
 from app.services.reading_workspace import patch_annotation, patch_note
@@ -180,6 +181,33 @@ def _record(source_id: str) -> dict:
             "url": row["url"],
             "author": row["author"],
         }
+    if kind == "personal_note":
+        with session() as db:
+            note = db.execute("SELECT * FROM personal_notes WHERE id=?", (record_id,)).fetchone()
+            if note is None:
+                raise LookupError("个人笔记不存在")
+            tags = [
+                row[0] for row in db.execute(
+                    "SELECT tag FROM personal_note_tags WHERE note_id=? ORDER BY tag COLLATE NOCASE",
+                    (record_id,),
+                )
+            ]
+            sources = [
+                dict(row) for row in db.execute(
+                    "SELECT source_id,source_type,title_snapshot,url_snapshot,created_at "
+                    "FROM personal_note_sources WHERE note_id=? ORDER BY created_at,source_id",
+                    (record_id,),
+                )
+            ]
+        return {
+            "title": note["title"],
+            "body": note["body_md"],
+            "kind": kind,
+            "id": record_id,
+            "revision": note["revision"],
+            "tags": tags,
+            "sources": sources,
+        }
     table = {
         "note": "notes",
         "annotation": "annotations",
@@ -207,6 +235,13 @@ def _record(source_id: str) -> dict:
 
 def _record_hash(record: dict) -> str:
     parts = [record["title"], record["body"]]
+    if record["kind"] == "personal_note":
+        parts.append(json.dumps(record.get("tags", []), ensure_ascii=False))
+        source_fields = [
+            {key: source.get(key) for key in ("source_id", "source_type", "title_snapshot", "url_snapshot")}
+            for source in record.get("sources", [])
+        ]
+        parts.append(json.dumps(source_fields, ensure_ascii=False))
     if record["kind"] == "article":
         path = get_library_dir() / record["path"]
         parts.append(_file_hash(path, get_library_dir().resolve()))
@@ -257,20 +292,51 @@ def preview() -> dict:
                 ]
                 if len(renamed) == 1:
                     baseline = renamed[0]
-            source_id = meta.get("zhilib_source") or (baseline["source_id"] if baseline else None)
-            if source_id and not isinstance(source_id, str):
+            declared_source_id = meta.get("zhilib_source")
+            if declared_source_id is not None and not isinstance(declared_source_id, str):
                 raise ValueError("资料 ID 无效")
-            if source_id and meta.get("zhilib_library", cfg["library_id"]) != cfg["library_id"]:
+            is_personal_note = (
+                isinstance(declared_source_id, str)
+                and declared_source_id.startswith("personal_note:")
+                and meta.get("zhilib_kind") == "personal_note"
+            )
+            # Imported notes acquire a new local ID. The external frontmatter retains
+            # the original library ID until our next export. Trust the local manifest
+            # for an already-imported personal note so rescans are idempotent.
+            restored_baseline = bool(
+                is_personal_note and baseline
+                and baseline["source_id"].startswith("personal_note:")
+            )
+            source_id = (
+                baseline["source_id"] if restored_baseline else
+                declared_source_id or (baseline["source_id"] if baseline else None)
+            )
+            personal_note_restore = bool(is_personal_note and not restored_baseline)
+            foreign_library = bool(
+                declared_source_id
+                and meta.get("zhilib_library", cfg["library_id"]) != cfg["library_id"]
+            )
+            record = None
+            current_hash = None
+            if foreign_library and not (personal_note_restore or restored_baseline):
                 items.append(
                     {
                         "path": relative,
                         "status": "foreign",
-                        "message": "来自其他资料库，请移除 zhilib_source 后作为新文章导入",
+                        "message": "来自其他资料库；只有带完整来源快照的独立个人笔记支持恢复",
                     }
                 )
                 continue
-            if source_id:
-                record = _record(source_id)
+            if source_id and (not foreign_library or restored_baseline):
+                try:
+                    record = _record(source_id)
+                except LookupError:
+                    if not personal_note_restore:
+                        raise
+            if personal_note_restore and (foreign_library or record is None):
+                state = "restore"
+                ids.setdefault(source_id, []).append(len(items))
+            elif source_id:
                 current_hash = _record_hash(record)
                 if baseline:
                     file_changed = file_hash != baseline["file_hash"]
@@ -294,8 +360,9 @@ def preview() -> dict:
                     "path": relative,
                     "status": state,
                     "source_id": source_id,
+                    "kind": "personal_note" if personal_note_restore else (record or {}).get("kind"),
                     "file_hash": file_hash,
-                    "record_hash": current_hash if source_id else None,
+                    "record_hash": current_hash,
                     "title": str(meta.get("title") or path.stem)[:1000],
                 }
             )
@@ -427,6 +494,11 @@ def export_all() -> dict:
                     "source_url": record.get("url"),
                     "author": record.get("author"),
                     "question": record.get("question"),
+                    **({
+                        "zhilib_kind": "personal_note",
+                        "tags": record.get("tags", []),
+                        "sources": record.get("sources", []),
+                    } if record["kind"] == "personal_note" else {}),
                 }
                 output = (
                     "---\n"
@@ -502,7 +574,7 @@ def apply(
                 and expected
                 and expected.get(relative) == item.get("file_hash")
             )
-            if not item or (item["status"] not in {"new", "update", "adopt"} and not resolve):
+            if not item or (item["status"] not in {"new", "update", "adopt", "restore"} and not resolve):
                 results.append(
                     {"path": relative, "status": "skipped", "message": "冲突或不需要导入"}
                 )
@@ -540,7 +612,20 @@ def apply(
                     or next(iter(re.findall(r"^#\s+(.+)$", body, re.MULTILINE)), path.stem)
                 )[:1000]
                 sid = item.get("source_id")
-                if not sid:
+                if item["status"] == "restore":
+                    if meta.get("zhilib_kind") != "personal_note" or not isinstance(meta.get("sources"), list):
+                        raise ValueError("恢复个人笔记需要完整的来源快照列表")
+                    if not isinstance(meta.get("zhilib_source"), str) or not meta["zhilib_source"].startswith("personal_note:"):
+                        raise ValueError("个人笔记来源 ID 无效")
+                    from app.services.personal_notes import create_personal_note
+                    recovered = create_personal_note({
+                        "title": title,
+                        "body_md": body,
+                        "tags": meta.get("tags", []),
+                        "source_snapshots": meta["sources"],
+                    })
+                    sid = "personal_note:" + recovered["id"]
+                elif not sid:
                     prepared = (
                         body
                         if re.search(r"^#\s+", body, re.MULTILINE)
@@ -600,6 +685,13 @@ def apply(
                         patch_annotation(rid, {"comment_md": body, "revision": record["revision"]})
                     elif kind == "research":
                         save_research(rid, title, body, record["revision"])
+                    elif kind == "personal_note":
+                        update_personal_note(rid, {
+                            "title": title,
+                            "body_md": body,
+                            "revision": record["revision"],
+                            "tags": meta.get("tags", record.get("tags", [])),
+                        })
                     else:
                         knowledge_graph.save_topic(title, body, rid, record["revision"])
                 if sid.startswith("article:"):
