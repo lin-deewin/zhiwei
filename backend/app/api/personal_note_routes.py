@@ -12,6 +12,7 @@ class PersonalNoteCreate(BaseModel):
     title: str = Field(default="", max_length=1000)
     body_md: str = Field(default="", max_length=100000)
     source_ids: list[str] = Field(default_factory=list, max_length=32)
+    tags: list[str] = Field(default_factory=list, max_length=12)
 
 
 class PersonalNotePatch(BaseModel):
@@ -19,6 +20,16 @@ class PersonalNotePatch(BaseModel):
     body_md: str = Field(default="", max_length=100000)
     revision: int = Field(ge=1)
     source_ids: list[str] | None = Field(default=None, max_length=32)
+    tags: list[str] | None = Field(default=None, max_length=12)
+
+
+class PersonalNoteDeleteItem(BaseModel):
+    id: str = Field(min_length=1, max_length=128)
+    revision: int = Field(ge=1)
+
+
+class PersonalNoteBulkDelete(BaseModel):
+    items: list[PersonalNoteDeleteItem] = Field(min_length=1, max_length=50)
 
 
 def _translate(call, *args, **kwargs):
@@ -40,6 +51,11 @@ def list_personal_notes(q: str = "", page: int = 1, page_size: int = 20):
 @router.post("/personal-notes", status_code=201)
 def create_personal_note(payload: PersonalNoteCreate):
     return _translate(service.create_personal_note, payload.model_dump())
+
+
+@router.post("/personal-notes/bulk-delete")
+def bulk_delete_personal_notes(payload: PersonalNoteBulkDelete):
+    return _translate(service.delete_personal_notes, [item.model_dump() for item in payload.items])
 
 
 @router.get("/personal-notes/{note_id}")
