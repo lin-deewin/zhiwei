@@ -60,7 +60,7 @@ def test_release_check_detects_deleted_personal_note(monkeypatch, tmp_path):
     connection.close()
     report = compare(source, restored)
     assert report["passed"] is False
-    assert "personal_notes: 稳定 ID 或数量发生变化" in report["issues"]
+    assert any(issue.startswith("personal_notes: 记录数量变化") for issue in report["issues"])
 
 
 def test_snapshot_is_read_only_and_reports_schema_version(monkeypatch, tmp_path):
