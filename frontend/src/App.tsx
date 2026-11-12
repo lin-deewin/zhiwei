@@ -86,29 +86,37 @@ function App() {
         <span><strong>知微</strong><small>个人知识库</small></span>
       </Link>
       <div className="sidebar-scroll">
-      <div className="side-caption">工作区</div>
+      <div className="side-caption">核心工作区</div>
       <nav className="primary-nav">
         <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <LayoutGrid size={17} /> <span>文章库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
+          <LayoutGrid size={17} /> <span>资料库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
         </NavLink>
+        <NavLink to="/notes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <FileText size={17} /><span>个人笔记</span>
+        </NavLink>
+        <NavLink to="/ask" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <Sparkles size={17} /><span>AI 助手</span>
+        </NavLink>
+        <NavLink to="/knowledge" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <BookOpen size={17} /><span>研究工作区</span>
+        </NavLink>
+      </nav>
+      <div className="side-caption">资料管理</div>
+      <nav className="primary-nav">
         <NavLink to="/questions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
           <CircleHelp size={17} /><span>话题汇总</span>
         </NavLink>
         <NavLink to="/categories" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
           <Tags size={17} /><span>主题分类</span>
         </NavLink>
-        <NavLink to="/ask" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <Sparkles size={17} /><span>知识问答</span><span className="soon-dot" />
-        </NavLink>
-        <NavLink to="/knowledge" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}><BookOpen size={17} /><span>知识空间</span></NavLink>
-        <NavLink to="/notes" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <FileText size={17} /><span>我的笔记</span>
-        </NavLink>
+      </nav>
+      <div className="side-caption">系统</div>
+      <nav className="primary-nav">
         <NavLink to="/sync" aria-label="同步中心" title="同步中心" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <ArrowDownToLine size={17} /><span>同步中心</span>
+          <ArrowDownToLine size={17} /><span>设置与同步</span>
         </NavLink>
       </nav>
-      <div className="side-caption side-caption-row"><span>我的主题</span><button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button></div>
+      <div className="side-caption side-caption-row"><span>常用主题</span><button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button></div>
       <nav className="category-nav">
         {categories.filter((item) => !item.parent_id).slice(0, 7).map((item, index) => {
           const colors = ['#db8f62', '#6d9e8b', '#8c82bc', '#c39b4e', '#6484aa', '#bd7181', '#728c62']
