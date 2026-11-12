@@ -5,6 +5,10 @@ import os
 from playwright.async_api import async_playwright, expect
 
 
+UI_BASE = os.environ.get("ZHILIB_UI_TEST_URL", "http://127.0.0.1:5173").rstrip("/")
+API_BASE = os.environ.get("ZHILIB_UI_TEST_API_URL", "http://127.0.0.1:8010").rstrip("/")
+
+
 async def main():
     if os.environ.get("ZHILIB_UI_TEST_ALLOW_MUTATION") != "1":
         raise SystemExit(
@@ -16,9 +20,9 @@ async def main():
         page.set_default_timeout(15000)
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        await page.goto("http://127.0.0.1:5173/")
+        await page.goto(UI_BASE + "/")
         data = await page.request.post(
-            "http://127.0.0.1:8010/api/v1/imports/markdown",
+            API_BASE + "/api/v1/imports/markdown",
             multipart={
                 "file": {
                     "name": "astryx-qa.md",
@@ -36,11 +40,22 @@ async def main():
         assert data.ok, await data.text()
         article = await data.json()
         print("import", article["id"])
-        await page.goto("http://127.0.0.1:5173/read/" + article["id"])
+        await page.goto(UI_BASE + "/read/" + article["id"])
         await page.wait_for_timeout(500)
         await expect(
             page.get_by_role("heading", name="Astryx 验证文章").first
         ).to_be_visible()
+        info_toggle = page.get_by_role("button", name="收起文章信息", exact=True)
+        assert not (await info_toggle.inner_text()).strip()
+        await info_toggle.click()
+        await expect(page.locator("#reader-article-info")).to_be_hidden()
+        await page.get_by_role("button", name="展开文章信息", exact=True).click()
+        await expect(page.locator("#reader-article-info")).to_be_visible()
+        size = await page.locator(".reader-main > .markdown-body").evaluate("e => parseFloat(getComputedStyle(e).fontSize)")
+        assert size >= 20, size
+        async with page.expect_file_chooser():
+            await page.get_by_role("button", name="恢复记录", exact=True).click()
+        await page.evaluate("window.scrollTo(0, 0)")
         await page.locator("p.reader-markable").first.evaluate("""element => {
             const range = document.createRange(); range.setStart(element.firstChild, 0); range.setEnd(element.firstChild, Math.min(20, element.firstChild.textContent.length));
             const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
@@ -52,7 +67,7 @@ async def main():
         await page.get_by_role("button", name="保存高亮与批注", exact=True).click()
         await page.wait_for_timeout(300)
         annotations = await page.request.get(
-            f"http://127.0.0.1:8010/api/v1/contents/{article['id']}/annotations"
+            f"{API_BASE}/api/v1/contents/{article['id']}/annotations"
         )
         assert any(
             item["comment_md"] == "Astryx 锚点验证" for item in await annotations.json()
@@ -106,8 +121,14 @@ async def main():
                     "/knowledge?tab=projects",
                     "/knowledge?tab=markdown",
                 ):
-                    await page.goto("http://127.0.0.1:5173" + route)
+                    await page.goto(UI_BASE + route)
                     await page.wait_for_timeout(200)
+                    if route == "/overview":
+                        row = page.locator(".overview-page .article-row").first
+                        assert await row.evaluate("e => parseFloat(getComputedStyle(e).columnGap)") >= 8
+                        assert await row.locator(".article-row-title").evaluate("e => parseFloat(getComputedStyle(e).fontSize)") >= 18
+                    if route == "/settings":
+                        assert await page.locator(".astryx-text-input input").first.evaluate("e => getComputedStyle(e).borderTopWidth") == "0px"
                     assert not await page.evaluate(
                         "document.documentElement.scrollWidth > innerWidth + 2"
                     ), (route, width)

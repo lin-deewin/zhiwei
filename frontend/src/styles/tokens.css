@@ -1,8 +1,8 @@
 @layer reset, legacy, astryx-base, astryx-theme, zhiwei;
 @layer zhiwei {
-:root { font-synthesis:none; text-rendering:optimizeLegibility; }
+:root { font-size:16px; font-synthesis:none; text-rendering:optimizeLegibility; }
 [data-astryx-theme] {
-  font-family:var(--font-family-body); font-size:14px; line-height:1.5;
+  font-family:var(--font-family-body); font-size:var(--text-body-size); line-height:1.5;
   color:var(--color-text-primary); background:var(--color-background-body);
   --ink:var(--color-text-primary); --muted:var(--color-text-secondary);
   --line:var(--color-border); --green:var(--color-text-accent);

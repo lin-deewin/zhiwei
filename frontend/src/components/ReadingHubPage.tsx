@@ -1,3 +1,4 @@
+import {articleExcerpt} from '../utils/format'
 import {TabList, Tab} from '@astryxdesign/core/TabList'
 import {ProgressBar} from '@astryxdesign/core/ProgressBar'
 import {Heading} from '@astryxdesign/core/Heading'
@@ -37,7 +38,7 @@ function ReadingItems({ items, later, onRemove }: {
             <time>{readTime(item.last_read_at)}</time>
           </div>
           <Heading level={2}>{item.title || '未命名资料'}</Heading>
-          <p>{item.excerpt || '暂无摘要，打开资料继续阅读。'}</p>
+          <p>{articleExcerpt(item.title, item.excerpt) || '暂无摘要，打开资料继续阅读。'}</p>
           <div className="reading-hub-progress">
             <ProgressBar label="阅读进度" value={percent} isLabelHidden />
             <small>{percent}% 已读</small>

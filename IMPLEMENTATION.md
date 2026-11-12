@@ -188,7 +188,7 @@ for unique item:
 
 当前文章库卡片已采用内容优先的紧凑布局：去除占高的纯色封面，保留细色标，展示标题、摘要及完整分类路径；网格和列表视图都需在窄屏下保持可读。
 
-文章阅读区桌面正文为 15px、窄屏正文为 14px，代码块独立设为 14px；标题和表格保持上一档字号。
+Reading typography uses 22px body text on desktop and 20px on narrow screens. The global body/supporting scale is 16/14px; code and tables retain their own readable scale.
 
 文章正文代码块在安全清理后使用 rehype-highlight 本地语法高亮，支持常见语言及未标注语言的自动识别；未知语言和 text/txt/plaintext 保留纯文本，行内代码保持原样。关键字、字符串、注释等使用适配阅读页浅色背景的配色，不依赖在线服务。
 

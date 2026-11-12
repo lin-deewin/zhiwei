@@ -1,3 +1,4 @@
+import {IconButton} from '@astryxdesign/core/IconButton'
 import {Heading} from '@astryxdesign/core/Heading'
 import {HStack} from '@astryxdesign/core/HStack'
 import {Selector} from '@astryxdesign/core/Selector'
@@ -13,7 +14,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api'
 import type { Category, Content } from '../types'
-import { formatDate } from '../utils/format'
+import { articleExcerpt, formatDate } from '../utils/format'
 import { DeleteArticleDialog } from './DeleteArticleDialog'
 import { Pagination } from './Pagination'
 import './LibraryPage.css'
@@ -116,12 +117,12 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
     <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} />
 
     <PageHeader title={title} description={description} actions={<><span className="article-total">{total} 篇资料</span><Button label="导入 Markdown" variant="primary" icon={<Upload />} onClick={triggerImport} /></>} />
-    <HStack gap={3} wrap="wrap" vAlign="end" paddingBlockEnd={6}>
+    <HStack className="library-toolbar" hAlign="start" gap={3} wrap="wrap" vAlign="end" paddingBlockEnd={6}>
       <TextInput label="搜索文章库" type="search" placeholder="搜索标题或正文…" value={search} onChange={updateSearch} hasClear startIcon={Search} width="min(100%, 32rem)" />
-      <Selector label="文章来源" value={source} onChange={value => { setSource(value); setPage(1) }} options={[{value:'all',label:'全部来源'},{value:'answer',label:'知乎回答'},{value:'article',label:'知乎文章'},{value:'local',label:'本地导入'}]} />
+      <Selector label="文章来源" value={source} onChange={setSource} options={[{value:'all',label:'全部来源'},{value:'answer',label:'知乎回答'},{value:'article',label:'知乎文章'},{value:'local',label:'本地导入'}]} />
       <Selector label="资料排序" value={sort} onChange={setSort} options={[{value:'synced',label:'最近同步'},{value:'title',label:'标题 A–Z'}]} />
-      <Button label="卡片视图" variant={view === 'grid' ? 'primary' : 'secondary'} icon={<LayoutGrid />} isIconOnly aria-pressed={view === 'grid'} onClick={() => setView('grid')} />
-      <Button label="列表视图" variant={view === 'list' ? 'primary' : 'secondary'} icon={<FileText />} isIconOnly aria-pressed={view === 'list'} onClick={() => setView('list')} />
+      <IconButton tooltip="卡片视图" label="卡片视图" variant={view === 'grid' ? 'primary' : 'secondary'} icon={<LayoutGrid />} aria-pressed={view === 'grid'} onClick={() => setView('grid')} />
+      <IconButton tooltip="列表视图" label="列表视图" variant={view === 'list' ? 'primary' : 'secondary'} icon={<FileText />} aria-pressed={view === 'list'} onClick={() => setView('list')} />
     </HStack>
 
     {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search || pendingOnly || category)} onImport={triggerImport} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
@@ -134,8 +135,8 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
 
 function ArticleCard({ item, view, onDelete, deleting, deleteDisabled }: { item: Content; view: 'grid' | 'list'; onDelete: (item: Content) => void; deleting: boolean; deleteDisabled: boolean }) {
   return <div className="article-card-container"><Link to={`/read/${encodeURIComponent(item.id)}`} className={'article-card' + (view === 'list' ? ' as-list' : '')}>
-    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><Heading level={3}>{item.title}</Heading><p>{item.excerpt || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
-  </Link><Button label={`删除文章：${item.title}`} variant="destructive" className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} tooltip="删除本地文章" isDisabled={deleteDisabled} onClick={() => onDelete(item)}>{deleting ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}</Button></div>
+    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><Heading level={3}>{item.title}</Heading><p>{articleExcerpt(item.title, item.excerpt) || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
+  </Link><IconButton icon={deleting ? <LoaderCircle className="spin" /> : <Trash2 />} label={`删除文章：${item.title}`} variant="destructive" className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} tooltip="删除本地文章" isDisabled={deleteDisabled} onClick={() => onDelete(item)} /></div>
 }
 
 export function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {

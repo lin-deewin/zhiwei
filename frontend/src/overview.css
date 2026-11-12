@@ -42,23 +42,23 @@
 }
 
 @layer zhiwei {
-.overview-page { font-size:1.15rem; line-height:1.65; }
-.overview-page :is(.metric-label,.subtle-link,.full-action) { font-size:1.05rem; }
-.overview-page :is(.stat small,.topic-item small,.mini-sync small) { font-size:1rem; line-height:1.6; }
-.overview-page h2 { font-size:var(--font-size-2xl); line-height:1.4; }
+.overview-page { font-size:var(--text-body-size); line-height:1.65; }
+.overview-page :is(.metric-label,.subtle-link,.full-action) { font-size:var(--text-supporting-size); }
+.overview-page :is(.stat small,.topic-item small,.mini-sync small) { font-size:var(--text-supporting-size); line-height:1.6; }
+.overview-page h2 { font-size:var(--text-heading-2-size); line-height:1.4; }
 .overview-page .list-panel { padding:0; overflow:hidden; }
 .overview-page .article-row { align-items:flex-start; gap:var(--spacing-5); padding:var(--spacing-6); }
 .overview-page .article-glyph { padding:var(--spacing-3); margin-top:var(--spacing-1); }
-.overview-page .article-row-title { font-size:1.4rem; line-height:1.6; overflow-wrap:anywhere; }
-.overview-page .article-row-body p { font-size:1.15rem; line-height:1.75; margin:var(--spacing-2) 0 var(--spacing-3); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
-.overview-page .article-row-meta { font-size:1rem; line-height:1.6; gap:var(--spacing-2); }
+.overview-page .article-row-title { font-size:var(--text-heading-3-size); line-height:1.6; overflow-wrap:anywhere; }
+.overview-page .article-row-body p { font-size:var(--text-body-size); line-height:1.75; margin:var(--spacing-2) 0 var(--spacing-3); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+.overview-page .article-row-meta { font-size:var(--text-supporting-size); line-height:1.6; gap:var(--spacing-2); }
 .overview-page .zv-row-arrow { flex-shrink:0; margin-top:var(--spacing-3); color:var(--color-text-secondary); }
 .overview-page .subtle-link { flex-shrink:0; }
 .overview-page .metric-label svg { flex-shrink:0; }
 .overview-page .zv-explore p { margin-top:var(--spacing-2); }
 @media(max-width:760px) {
   .overview-page .article-row { padding:var(--spacing-4); gap:var(--spacing-3); }
-  .overview-page .article-row-title { font-size:1.3rem; }
+  .overview-page .article-row-title { font-size:var(--text-heading-3-size); }
   .overview-page .article-glyph { padding:var(--spacing-2); }
   .overview-page .zv-row-arrow { display:none; }
   .overview-page .stat { padding:var(--spacing-4); }

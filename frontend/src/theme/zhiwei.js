@@ -20,59 +20,59 @@ export const zhiweiTheme = {
   __built: true,
   tokens: {
     "--font-size-4xs": "0.375rem",
-    "--font-size-3xs": "0.4375rem",
-    "--font-size-2xs": "0.5rem",
-    "--font-size-xs": "0.625rem",
-    "--font-size-sm": "0.75rem",
-    "--font-size-base": "0.875rem",
-    "--font-size-lg": "1.0625rem",
-    "--font-size-xl": "1.25rem",
-    "--font-size-2xl": "1.5rem",
-    "--font-size-3xl": "1.8125rem",
-    "--font-size-4xl": "2.1875rem",
-    "--font-size-5xl": "2.625rem",
-    "--text-heading-1-size": "var(--font-size-2xl)",
+    "--font-size-3xs": "0.5rem",
+    "--font-size-2xs": "0.5625rem",
+    "--font-size-xs": "0.6875rem",
+    "--font-size-sm": "0.8125rem",
+    "--font-size-base": "1rem",
+    "--font-size-lg": "1.1875rem",
+    "--font-size-xl": "1.4375rem",
+    "--font-size-2xl": "1.75rem",
+    "--font-size-3xl": "2.0625rem",
+    "--font-size-4xl": "2.5rem",
+    "--font-size-5xl": "3rem",
+    "--text-heading-1-size": "1.75rem",
     "--text-heading-1-weight": "var(--font-weight-semibold)",
-    "--text-heading-1-leading": "1.3333",
-    "--text-heading-2-size": "var(--font-size-xl)",
+    "--text-heading-1-leading": "1.4286",
+    "--text-heading-2-size": "1.25rem",
     "--text-heading-2-weight": "var(--font-weight-semibold)",
-    "--text-heading-2-leading": "1.4",
-    "--text-heading-3-size": "var(--font-size-lg)",
-    "--text-heading-3-weight": "var(--font-weight-bold)",
-    "--text-heading-3-leading": "1.4118",
+    "--text-heading-2-leading": "1.3913",
+    "--text-heading-3-size": "1.125rem",
+    "--text-heading-3-weight": "var(--font-weight-semibold)",
+    "--text-heading-3-leading": "1.4737",
     "--text-heading-4-size": "var(--font-size-base)",
-    "--text-heading-4-weight": "var(--font-weight-bold)",
-    "--text-heading-4-leading": "1.4286",
+    "--text-heading-4-weight": "var(--font-weight-semibold)",
+    "--text-heading-4-leading": "1.5",
     "--text-heading-5-size": "var(--font-size-sm)",
     "--text-heading-5-weight": "var(--font-weight-semibold)",
-    "--text-heading-5-leading": "1.6667",
+    "--text-heading-5-leading": "1.5385",
     "--text-heading-6-size": "var(--font-size-xs)",
     "--text-heading-6-weight": "var(--font-weight-semibold)",
-    "--text-heading-6-leading": "1.6",
+    "--text-heading-6-leading": "1.4545",
     "--text-body-size": "var(--font-size-base)",
     "--text-body-weight": "var(--font-weight-normal)",
-    "--text-body-leading": "1.4286",
+    "--text-body-leading": "1.65",
     "--text-large-size": "var(--font-size-lg)",
     "--text-large-weight": "var(--font-weight-semibold)",
-    "--text-large-leading": "1.4118",
+    "--text-large-leading": "1.4737",
     "--text-label-size": "var(--font-size-base)",
     "--text-label-weight": "var(--font-weight-medium)",
-    "--text-label-leading": "1.4286",
+    "--text-label-leading": "1.5",
     "--text-code-size": "var(--font-size-base)",
     "--text-code-weight": "var(--font-weight-normal)",
-    "--text-code-leading": "1.4286",
-    "--text-supporting-size": "var(--font-size-sm)",
+    "--text-code-leading": "1.5",
+    "--text-supporting-size": "0.875rem",
     "--text-supporting-weight": "var(--font-weight-normal)",
-    "--text-supporting-leading": "1.6667",
+    "--text-supporting-leading": "1.5385",
     "--text-display-1-size": "var(--font-size-5xl)",
     "--text-display-1-weight": "var(--font-weight-normal)",
-    "--text-display-1-leading": "1.2381",
+    "--text-display-1-leading": "1.25",
     "--text-display-2-size": "var(--font-size-4xl)",
     "--text-display-2-weight": "var(--font-weight-normal)",
-    "--text-display-2-leading": "1.2571",
+    "--text-display-2-leading": "1.3",
     "--text-display-3-size": "var(--font-size-3xl)",
     "--text-display-3-weight": "var(--font-weight-normal)",
-    "--text-display-3-leading": "1.3793",
+    "--text-display-3-leading": "1.2121",
     "--duration-fast-min": "95ms",
     "--duration-fast": "125ms",
     "--duration-fast-max": "165ms",
@@ -114,11 +114,11 @@ export const zhiweiTheme = {
     "--color-syntax-diff-header": "transparent",
     "--color-syntax-added-marker": "var(--color-syntax-punctuation)",
     "--color-syntax-removed-marker": "var(--color-syntax-punctuation)",
-    "--color-background-surface": "light-dark(#ffffff, #303132)",
-    "--color-background-body": "light-dark(#f5f6f7, #242526)",
-    "--color-background-card": "light-dark(#ffffff, #303132)",
-    "--color-background-popover": "light-dark(#ffffff, #303132)",
-    "--color-background-muted": "light-dark(#f1f1f1, #1b1b1b)",
+    "--color-background-surface": "light-dark(#ffffff, #262d29)",
+    "--color-background-body": "light-dark(#f6f7f5, #1d2220)",
+    "--color-background-card": "light-dark(#ffffff, #262d29)",
+    "--color-background-popover": "light-dark(#ffffff, #262d29)",
+    "--color-background-muted": "light-dark(#f0f3ef, #303a33)",
     "--color-accent": "light-dark(#3e6652, #8fc6a8)",
     "--color-accent-muted": "light-dark(#e8f1eb, #293f33)",
     "--color-neutral": "light-dark(#0000000F, #ffffff1A)",
@@ -126,7 +126,7 @@ export const zhiweiTheme = {
     "--color-overlay-hover": "light-dark(#0000000D, #ffffff0D)",
     "--color-overlay-pressed": "light-dark(#0000001A, #ffffff1A)",
     "--color-text-primary": "light-dark(#282d31, #f4f4f2)",
-    "--color-text-secondary": "light-dark(#626c66, #c5cbc6)",
+    "--color-text-secondary": "light-dark(#66716b, #b4c0b8)",
     "--color-text-disabled": "light-dark(#919191, #525252)",
     "--color-text-accent": "light-dark(#365e49, #a6d8bc)",
     "--color-on-dark": "#ffffff",
@@ -156,7 +156,7 @@ export const zhiweiTheme = {
     "--color-success-muted": "light-dark(#bce0bb, #90ca903D)",
     "--color-error-muted": "light-dark(#ffc4be, #ff98903D)",
     "--color-warning-muted": "light-dark(#fae19e, #e2b6233D)",
-    "--color-border": "light-dark(#00000014, #ffffff1A)",
+    "--color-border": "light-dark(#e2e7e2, #3a453e)",
     "--color-border-emphasized": "light-dark(#d4d4d4, #525252)",
     "--color-skeleton": "light-dark(#f1f1f1, #525252)",
     "--color-shadow": "light-dark(#0000001A, #0000004D)",
@@ -214,7 +214,10 @@ export const zhiweiTheme = {
     "--shadow-inset-selected": "inset 0px 0px 0px 2px #0074e280",
     "--shadow-inset-success": "inset 0px 0px 0px 2px #2f7d334D",
     "--shadow-inset-warning": "inset 0px 0px 0px 2px #f8d36a4D",
-    "--shadow-inset-error": "inset 0px 0px 0px 2px #de47454D"
+    "--shadow-inset-error": "inset 0px 0px 0px 2px #de47454D",
+    "--size-element-sm": "2rem",
+    "--size-element-md": "2.5rem",
+    "--size-element-lg": "3rem"
   },
   localTokens: {
     "--astryx-theme-neutral-color-status-fill-accent": "light-dark(#0074e2, #6d9cfe)"
@@ -343,6 +346,9 @@ export const zhiweiTheme = {
       "variant:destructive": {
         "backgroundColor": "var(--color-error-muted)",
         "color": "var(--color-on-error-muted)"
+      },
+      "base": {
+        "fontWeight": "500"
       }
     },
     "badge": {
@@ -432,6 +438,21 @@ export const zhiweiTheme = {
       "base": {
         "padding": "var(--spacing-3)"
       }
+    },
+    "side-nav-item": {
+      "base": {
+        "minHeight": "var(--spacing-10)",
+        "fontSize": "var(--text-supporting-size)"
+      },
+      "selected": {
+        "backgroundColor": "var(--color-accent-muted)",
+        "color": "var(--color-text-accent)"
+      }
+    },
+    "side-nav-heading": {
+      "base": {
+        "paddingBlock": "var(--spacing-5)"
+      }
     }
   },
   __onDark: {
@@ -480,7 +501,7 @@ export const zhiweiTheme = {
   __axes: {
     "typography": {
       "scale": {
-        "base": 14,
+        "base": 16,
         "ratio": 1.2
       },
       "body": {
@@ -489,11 +510,7 @@ export const zhiweiTheme = {
       },
       "heading": {
         "family": "Figtree",
-        "fallbacks": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif",
-        "weights": {
-          "3": "bold",
-          "4": "bold"
-        }
+        "fallbacks": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif"
       },
       "code": {
         "family": "ui-monospace",

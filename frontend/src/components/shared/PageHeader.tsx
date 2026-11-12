@@ -5,7 +5,7 @@ import {Heading} from '@astryxdesign/core/Heading'
 import {Text} from '@astryxdesign/core/Text'
 
 export function PageHeader({title, description, actions}: {title: string; description?: string; actions?: ReactNode}) {
-  return <HStack gap={4} hAlign="between" vAlign="center" wrap="wrap" paddingBlockEnd={6}>
+  return <HStack className="page-title-row" gap={4} hAlign="between" vAlign="center" wrap="wrap" paddingBlockEnd={6}>
     <VStack gap={2}><Heading level={1}>{title}</Heading>{description && <Text color="secondary">{description}</Text>}</VStack>
     {actions && <HStack gap={3} wrap="wrap">{actions}</HStack>}
   </HStack>

@@ -1,3 +1,4 @@
+import {articleExcerpt} from '../utils/format'
 import {PageState} from './shared/PageState'
 import {Heading} from '@astryxdesign/core/Heading'
 import {HStack} from '@astryxdesign/core/HStack'
@@ -51,7 +52,7 @@ export function OverviewPage({ categories, settings, pendingCount, refresh }: Pr
         <div className="section-title"><Heading level={2}>最近收录</Heading><Link className="subtle-link" to="/">查看全部 <ArrowRight size={14} /></Link></div>
         <section className="panel list-panel">{loading ? <PageState loading /> : articles.length ? articles.map((item) => <Link className="article-row" to={'/read/' + encodeURIComponent(item.id)} key={item.id}>
           <div className="article-glyph glyph-green"><BookOpen size={18} /></div>
-          <div className="article-row-body"><div className="article-row-title">{item.title}</div><p>{item.excerpt || '打开文章，开始阅读。'}</p>
+          <div className="article-row-body"><div className="article-row-title">{item.title}</div><p>{articleExcerpt(item.title, item.excerpt) || '打开文章，开始阅读。'}</p>
             <div className="article-row-meta"><span>{item.category_name || '待整理'}</span><span>·</span><span>{contentType(item)}</span><span>·</span><span>{fmt(item.last_synced_at || item.updated_at)}</span></div>
           </div><ArrowRight size={15} className="zv-row-arrow" />
         </Link>) : <div className="zv-empty">还没有文章，前往同步中心或导入 Markdown 开始收藏。</div>}</section>

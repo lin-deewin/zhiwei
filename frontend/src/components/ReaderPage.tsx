@@ -189,9 +189,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
         {readingProgress?.read_later ? '已加入稍后阅读' : '稍后阅读'}
       </Button>
       <IconButton icon={<ChevronDown size={18} className={infoVisible ? 'is-expanded' : ''} />} label={infoVisible ? '收起文章信息' : '展开文章信息'} tooltip={infoVisible ? '收起文章信息' : '展开文章信息'} variant="ghost" className="reader-info-toggle" aria-expanded={infoVisible} aria-controls="reader-article-info" onClick={() => setInfoVisible((visible) => !visible)} />
-      <Button label="删除文章" variant="destructive" className="reader-delete-button" type="button" isDisabled={deleting} onClick={() => { setDeleteError(''); setDeleteDialogOpen(true) }}>
-        {deleting ? <LoaderCircle size={14} className="spin" /> : <Trash2 size={14} />}{deleting ? '删除中…' : '删除文章'}
-      </Button>
+      <IconButton label="删除文章" tooltip="删除本地文章" icon={<Trash2 />} variant="ghost" className="reader-delete-button" isLoading={deleting} onClick={() => { setDeleteError(''); setDeleteDialogOpen(true) }} />
       </div>
     </div>
     <div className={`reader-layout${infoVisible ? '' : ' reader-info-collapsed'}`}><div className="reader-main"><div className="reader-kicker"><span className="reader-kicker-dot" /> {item.kind === 'answer' ? '知乎回答' : '收藏文章'} <span className="reader-kicker-sep">·</span> {formatDate(item.updated_at)}</div><h1>{item.title}</h1><div className="reader-byline"><span className="reader-author-avatar" aria-hidden="true">{(item.author || '佚').slice(0, 1)}</span><span className="reader-author">{item.author || '作者信息未知'}</span><span className="reader-byline-dot" /><span>离线阅读</span>{item.markdown && <span className="reader-duration"><Clock3 size={13} />约 {Math.max(1, Math.ceil(item.markdown.replace(/\s/g, '').length / 400))} 分钟</span>}</div>

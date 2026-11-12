@@ -22,7 +22,6 @@ export function AppSidebar({categories, settings, pendingCount, readingTheme, on
     footer={<VStack gap={3} padding={4}>
       <Button label={readingTheme ? '切换到浅色主题' : '切换到护眼主题'} icon={readingTheme ? <Sun /> : <Moon />} variant="ghost" onClick={onThemeToggle} />
       <Text color="secondary" size="sm">本地资料库 · {settings?.content_count ?? '—'} 篇</Text>
-      <Text color="secondary" size="sm" maxLines={2}>{settings?.library_dir || '正在读取目录…'}</Text>
     </VStack>}>
     <SideNavSection title="工作空间">
       <SideNavItem label="概览" icon={Home} href="/overview" isSelected={selected('/overview')} />
@@ -36,7 +35,7 @@ export function AppSidebar({categories, settings, pendingCount, readingTheme, on
       <SideNavItem label="知识工作台" icon={Sparkles} href="/knowledge?tab=assistant" isSelected={selected('/knowledge') || selected('/ask')} />
     </SideNavSection>
     <SideNavSection title="常用分类">
-      {categories.filter(item => !item.parent_id).slice(0, 7).map(item => <SideNavItem key={item.id} label={item.name} href={`/?category=${item.id}`} isSelected={selected('/') && new URLSearchParams(search).get('category') === String(item.id)} endContent={String(item.article_count)} />)}
+      {categories.filter(item => !item.parent_id).slice(0, 5).map(item => <SideNavItem key={item.id} label={item.name} href={`/?category=${item.id}`} isSelected={selected('/') && new URLSearchParams(search).get('category') === String(item.id)} endContent={String(item.article_count)} />)}
       <SideNavItem label="待整理" href="/?pending=1" endContent={pendingCount === null ? '—' : String(pendingCount)} isSelected={selected('/') && new URLSearchParams(search).get('pending') === '1'} />
     </SideNavSection>
     <SideNavSection title="管理">
