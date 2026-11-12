@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight, BookOpen, ChevronDown, FileText, Hash, LayoutGrid,
@@ -13,33 +13,63 @@ import './LibraryPage.css'
 
 type Notice = { message: string; error?: boolean } | null
 
+function positiveInt(value: string | null, fallback: number) {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
 export function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onLibraryChanged }: {
   search: string; categories: Category[]; refresh: number; onSearchChange: (search: string) => void; onImport: (file?: File) => void;
   onNotice: (notice: Notice) => void; onLibraryChanged: () => void
 }) {
-  const [items, setItems] = useState<Content[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [category, setCategory] = useState<number | undefined>()
-  const [categoryFromUrl, setCategoryFromUrl] = useState(false)
-  const [view, setView] = useState<'grid' | 'list'>('grid')
-  const [source, setSource] = useState('all')
-  const [sort, setSort] = useState('synced')
-  const [pageSize, setPageSize] = useState(24)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Content | null>(null)
-  const [deleteError, setDeleteError] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
   const params = new URLSearchParams(location.search)
+  const urlSearch = params.get('q') || ''
+  const categoryValue = positiveInt(params.get('category'), 0)
+  const category = categoryValue || undefined
+  const categoryFromUrl = Boolean(category)
   const pendingOnly = params.get('pending') === '1'
+  const page = positiveInt(params.get('page'), 1)
+  const requestedPageSize = positiveInt(params.get('page_size'), 24)
+  const pageSize = [12, 24, 48, 100].includes(requestedPageSize) ? requestedPageSize : 24
+  const sourceValue = params.get('source') || 'all'
+  const source = ['all', 'answer', 'article', 'local'].includes(sourceValue) ? sourceValue : 'all'
+  const sortValue = params.get('sort') || 'synced'
+  const sort = ['synced', 'title'].includes(sortValue) ? sortValue : 'synced'
+  const view = params.get('view') === 'list' ? 'list' : 'grid'
+  const [items, setItems] = useState<Content[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Content | null>(null)
+  const [deleteError, setDeleteError] = useState('')
+  const lastSearchLocation = useRef<string | null>(null)
+
+  const updateParams = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(location.search)
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || value === '') next.delete(key)
+      else next.set(key, value)
+    }
+    const query = next.toString()
+    navigate({ pathname: location.pathname, search: query ? '?' + query : '', hash: location.hash }, { replace: true })
+  }
+  const setPage = (next: number) => updateParams({ page: next > 1 ? String(next) : null })
+  const setSource = (next: string) => updateParams({ source: next === 'all' ? null : next, page: null })
+  const setSort = (next: string) => updateParams({ sort: next === 'synced' ? null : next, page: null })
+  const setPageSize = (next: number) => updateParams({ page_size: next === 24 ? null : String(next), page: null })
+  const setView = (next: 'grid' | 'list') => updateParams({ view: next === 'grid' ? null : next })
+  const updateSearch = (next: string) => {
+    onSearchChange(next)
+    updateParams({ q: next.trim() ? next : null, page: null })
+  }
 
   useEffect(() => {
-    const next = Number(new URLSearchParams(location.search).get('category'))
-    setCategory(next || undefined)
-    setCategoryFromUrl(Boolean(next))
-  }, [location.search])
+    if (lastSearchLocation.current === location.search) return
+    lastSearchLocation.current = location.search
+    if (search !== urlSearch) onSearchChange(urlSearch)
+  }, [location.search, search, urlSearch, onSearchChange])
   useEffect(() => {
     setLoading(true)
     let active = true
@@ -51,8 +81,6 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
     }, search ? 250 : 0)
     return () => { active = false; window.clearTimeout(timer); controller.abort() }
   }, [search, category, pendingOnly, page, pageSize, sort, source, refresh])
-  useEffect(() => { setPage(1) }, [search, category, pendingOnly, sort, pageSize, source])
-
   const currentCategory = categories.find((item) => item.id === category)
   const title = search ? '搜索结果' : pendingOnly ? '待整理' : currentCategory?.name || '全部文章'
   const removeArticle = async (item: Content) => {
@@ -95,8 +123,8 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
     <div className="library-controls">
       <label className="library-search">
         <Search size={17} />
-        <input aria-label="搜索文章库" placeholder="搜索标题或正文…" value={search} onChange={(event) => { onSearchChange(event.target.value); setPage(1) }} />
-        {search && <button aria-label="清空搜索" onClick={() => onSearchChange('')}><X size={15} /></button>}
+        <input aria-label="搜索文章库" placeholder="搜索标题或正文…" value={search} onChange={(event) => { updateSearch(event.target.value) }} />
+        {search && <button aria-label="清空搜索" onClick={() => updateSearch('')}><X size={15} /></button>}
       </label>
       <div className="library-control-group">
         <label className="library-source-filter"><span>来源</span><select aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}><option value="all">全部</option><option value="answer">知乎回答</option><option value="article">知乎文章</option><option value="local">本地导入</option></select></label>
