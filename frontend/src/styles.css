@@ -620,3 +620,10 @@
 .reader-progress-track span{display:block;height:100%;border-radius:inherit;background:var(--green)}
 .reader-progress-summary small{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 @media(max-width:640px){.reading-hub-heading{align-items:flex-start;flex-direction:column}.reading-hub-heading .button{align-self:flex-end}.reading-hub-item{padding:14px;align-items:flex-start}.reading-hub-remove{flex:none;margin-top:3px}.reading-hub-item h2{font-size:14px}}
+
+@media(max-width:640px){
+  .reader-toolbar{align-items:flex-start;gap:10px}
+  .reader-toolbar-actions{flex-wrap:wrap;justify-content:flex-end;gap:6px}
+  .reader-toolbar-actions .button{font-size:10px;padding:7px 9px}
+  .reader-progress-summary{max-width:100%}
+}
