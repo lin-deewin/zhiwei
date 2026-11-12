@@ -9,7 +9,7 @@ import { ArrowRight, LoaderCircle, Save, Search, Sparkles, Trash2 } from 'lucide
 import { api } from '../api'
 import { SemanticPanel } from './SemanticPanel'
 import { ResearchHistory } from './ResearchWorkspacePanel'
-import { GraphPanel } from './KnowledgeHub'
+import { GraphPanel } from './KnowledgeGraphPanel'
 import { nodePath } from '../utils/knowledge_links'
 import type { AskResult, Category, EvidenceKind, EvidenceSource, ResearchNote } from '../types'
 
