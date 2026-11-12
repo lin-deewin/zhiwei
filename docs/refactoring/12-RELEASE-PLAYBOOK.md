@@ -66,7 +66,23 @@ python -m app.release_check compare \
 4. 在用户明确批准后，由运维修改配置指向恢复后的目录，再启动原版本。
 5. 确认 API 健康、文章阅读、同步状态和关键记录一致，最后处理失败原因。
 
-## 5. PR 门槛
+## 5. 性能基线（隔离执行）
+
+性能基准工具：`backend/app/performance_check.py`。它不连接生产库；传入 `--library` 时，会先使用 SQLite backup API 和文件校验创建临时副本，然后只在副本上执行查询。未传入资料库时，默认生成 1,000 篇合成 Markdown 文章。
+
+从仓库的 `backend/` 目录运行：
+
+```bash
+# 合成 1,000 篇文章，重复测量 10 次
+python -m app.performance_check --iterations 10
+
+# 对脱敏资料库副本测量（原始资料库不会被应用服务打开）
+python -m app.performance_check --library "/path/to/deidentified-library" --iterations 20
+```
+
+输出仅包含数据规模、命中数量、正文字符数、P50/P95/最大延迟和备份校验摘要，不输出文章标题、ID 或正文。至少记录首屏列表、全文搜索、文章读取和关键词知识检索四项指标；对比优化前后时应使用相同机器、Python/SQLite 版本、资料库副本和查询词。当前自动化仅验证合成数据上的工具行为，不能替代 1,000 篇以上真实脱敏副本的实测。
+
+## 6. PR 门槛
 
 - [ ] 前后端完整 CI 成功且无未解释的高危生产依赖公告
 - [ ] Playwright 浏览器测试成功并复核截图
