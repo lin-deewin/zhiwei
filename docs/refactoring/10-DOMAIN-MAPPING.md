@@ -10,7 +10,7 @@
 | Library | `contents`, `deleted_contents`, `categories`, `folders`, `folder_contents` | 外部文章/回答、同步排除、分类、收藏夹及收藏关系 | 外部来源只读内容模型；本地元数据和来源关系独立 |
 | Library / Sync | `sync_jobs`, `classification_jobs`, `classification_job_items` | 同步与分类任务状态、逐项处理结果 | 后台任务不依赖前端页面生命周期 |
 | Library / Questions | `questions`, `question_contents`, `question_classification_jobs`, `question_classification_job_items` | 知乎问题与收藏回答/关联文章、问题分类任务 | 问题是来源聚合视图，不与文章/笔记混为同一实体 |
-| Reading | `reading_library_meta`, `content_revisions`, `reading_content_state` | 资料库稳定 ID、正文版本快照、当前版本与 generation | 阅读行为绑定来源内容和正文版本 |
+| Reading | `reading_library_meta`, `content_revisions`, `reading_content_state`, `reading_progress` | 资料库稳定 ID、正文版本快照、当前版本与 generation | 阅读行为绑定来源内容和正文版本 |
 | Reading | `annotations` | 高亮、批注、锚点状态与版本重定位 | 标注独立于正文文件，必须保留原始锚点和版本 |
 | Reading | `notes` | **当前是单篇文章下的阅读笔记**，带 content_id、revision 和可选 AI 来源 | 不等于独立的个人知识笔记；不可直接作为 V3 PersonalNote 目标模型 |
 | Reading / AI | `reading_ai_jobs`, `reading_ai_job_steps`, `reading_ai_results` | 单篇阅读 AI 任务、步骤、结果和正文版本约束 | AI 任务和结果保留输入版本、提示词/配置指纹、证据快照 |
@@ -19,7 +19,7 @@
 | Research | `research_notes`, `research_versions`, `research_projects`, `research_turns`, `project_notes` | 研究成果、版本、项目、对话轮次和成果关联 | 研究证据集应可追溯、不可被当前资料静默改写 |
 | AI Retrieval | `semantic_vectors`, `semantic_jobs`, `retrieval_cases` | 向量、索引任务和检索评测案例 | 检索索引是可重建投影，不是原始资料事实源 |
 | Markdown Interop | `markdown_sync_files` | 外部 Markdown 文件与内部 source ID / hash 映射 | 文件同步必须使用 hash、冲突预览和原子写入 |
-| Platform | `schema_version`, `schema_migrations` | 当前 schema 版本和有序迁移登记 | registry 已落地 v2；后续迁移需补充自动备份和回滚演练 |
+| Platform | `schema_version`, `schema_migrations` | 当前 schema 版本和有序迁移登记 | registry 已落地 v3；后续迁移需补充自动备份和回滚演练 |
 
 ## 2. 当前实现中必须明确的概念差异
 
@@ -100,11 +100,11 @@ V3 规则：
 
 ## 6. 当前落地状态
 
-- [x] 39 张表完成领域归类（包含 `schema_migrations`、`personal_notes`、`personal_note_sources`）。
+- [x] 40 张表完成领域归类（包含 `schema_migrations`、`personal_notes`、`personal_note_sources`、`reading_progress`）。
 - [x] 确认 `notes` 是文章级阅读笔记，而非独立个人笔记。
 - [x] 独立 `PersonalNote` 实体、CRUD API 和基础页面。
 - [x] 多来源引用快照与来源删除后的保留语义。
 - [x] V3 阅读器中移除知识图谱编辑器，避免对外部文章和文章级阅读记录强推双向链接。
-- [x] migration registry v2 和旧库数据保留测试。
+- [x] migration registry v2/v3 和旧库数据保留测试。
 - [x] 个人笔记链接边界测试：个人笔记可链接到资料；外部文章不能发起知识图谱链接。
-- [ ] 数据副本上的完整备份恢复、失败回滚和生产升级演练。
+- [x] 阅读进度、最近阅读、稍后阅读数据模型与 API。\n- [ ] 数据副本上的完整备份恢复、失败回滚和生产升级演练。
