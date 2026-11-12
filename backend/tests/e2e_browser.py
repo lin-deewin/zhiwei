@@ -51,12 +51,20 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
         await page.locator("textarea.personal-note-body").fill(
             "浏览器验收的正文：通过独立个人笔记保存自己的理解。"
         )
-        # Note editor saves in the background; wait for the server to complete.
+        # Wait for the debounced auto-save to reach the backend before reload.
         await page.wait_for_function(
-            "() => !document.querySelector('.personal-note-editor button:disabled') || true",
-            timeout=2000,
+            """async (expectedTitle) => {
+                const id = new URL(location.href).searchParams.get('note');
+                if (!id) return false;
+                const response = await fetch('/api/v1/personal-notes/' + encodeURIComponent(id));
+                if (!response.ok) return false;
+                const note = await response.json();
+                return note.title === expectedTitle
+                    && note.body_md.includes('浏览器验收的正文');
+            }""",
+            arg=note_title,
+            timeout=15000,
         )
-        await page.wait_for_timeout(1600)
         await page.reload(wait_until="domcontentloaded")
         await page.get_by_placeholder("给这条笔记起个标题…").wait_for(timeout=15000)
         assert await page.get_by_placeholder("给这条笔记起个标题…").input_value() == note_title
