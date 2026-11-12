@@ -1,4 +1,4 @@
-import { ArrowDownToLine, BookOpen, Bookmark, Clock3, CircleHelp, FileText, FolderOpen, LayoutGrid, MoreHorizontal, Plus, Settings2, Sparkles, Tags } from 'lucide-react'
+import { ArrowDownToLine, BookOpen, Bookmark, Clock3, CircleHelp, FileText, FolderOpen, LayoutGrid, MoreHorizontal, Plus, Settings2, Sparkles } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import type { Category, LibrarySettings } from '../types'
 
@@ -36,7 +36,6 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
         <NavLink to="/reading" className={navClass}><Clock3 size={17} /><span>最近阅读</span></NavLink>
         <NavLink to="/notes" className={navClass}><BookOpen size={17} /><span>阅读记录</span></NavLink>
         <NavLink to="/questions" className={navClass}><CircleHelp size={17} /><span>话题汇总</span></NavLink>
-        <NavLink to="/categories" className={navClass}><Tags size={17} /><span>主题分类</span></NavLink>
       </nav>
       <div className="side-caption">系统管理</div>
       <nav className="primary-nav" aria-label="系统管理">
@@ -44,7 +43,7 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
       </nav>
       <div className="side-caption side-caption-row">
         <span>常用主题</span>
-        <button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button>
+        <button className="icon-button tiny" aria-label="管理主题分类" title="管理主题分类" onClick={() => navigate('/categories')}><Plus size={15} /></button>
       </div>
       <nav className="category-nav" aria-label="常用主题">
         {categories.filter((item) => !item.parent_id).slice(0, 7).map((item, index) => {
