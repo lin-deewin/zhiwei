@@ -70,6 +70,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
   useWorkspaceTitle(item?.title)
   const [reading, setReading] = useState<ReadingContext | null>(null)
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null)
+  const [progressContentId, setProgressContentId] = useState<string | null>(null)
   const progressRestored = useRef(false)
   const [loading, setLoading] = useState(true)
   const [infoVisible, setInfoVisible] = useState(true)
@@ -80,11 +81,13 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
     let active = true
     setLoading(true)
     progressRestored.current = false
+    setProgressContentId(null)
     Promise.all([api.content(id), api.readingContext(id), api.readingProgress(id)]).then(([content, context, progress]) => {
       if (!active) return
       setItem({ ...content, markdown: context.markdown, file_missing: context.file_missing })
       setReading(context)
       setReadingProgress(progress)
+      setProgressContentId(id)
       setLoading(false)
     }).catch((error) => {
       if (active) onNotice({ message: (error as Error).message, error: true })
@@ -92,17 +95,17 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
     return () => { active = false }
   }, [id])
   useEffect(() => {
-    if (loading || !readingProgress || progressRestored.current) return
+    if (loading || progressContentId !== id || !readingProgress || progressRestored.current) return
     progressRestored.current = true
     const frame = window.requestAnimationFrame(() => {
       const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
       window.scrollTo({ top: maxScroll * readingProgress.progress_ratio, behavior: 'instant' })
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [loading, readingProgress])
+  }, [id, loading, progressContentId, readingProgress])
 
   useEffect(() => {
-    if (loading || !item || !reading || !progressRestored.current) return
+    if (loading || progressContentId !== id || !item || !reading || !progressRestored.current) return
     let timer: number | null = null
     const persist = () => {
       if (timer !== null) window.clearTimeout(timer)
@@ -123,7 +126,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
       window.removeEventListener('scroll', persist)
       if (timer !== null) window.clearTimeout(timer)
     }
-  }, [id, loading, item?.id, reading?.revision_id])
+  }, [id, loading, progressContentId, item?.id, reading?.revision_id])
 
   if (loading) return <div className="loading-state"><LoaderCircle className="spin" /> 正在打开文章…</div>
   if (!item) return <EmptyLibrary searched onImport={() => navigate('/')} />
