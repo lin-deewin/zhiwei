@@ -69,3 +69,20 @@ export interface PersonalKnowledgeNoteListItem {
   source_count: number
   excerpt: string
 }
+
+
+export interface PersonalNoteVersionSummary {
+  revision: number
+  title: string
+  created_at: string
+  body_length: number
+  source_count: number
+}
+
+export interface PersonalNoteVersion {
+  revision: number
+  title: string
+  body_md: string
+  created_at: string
+  sources: PersonalNoteSource[]
+}
