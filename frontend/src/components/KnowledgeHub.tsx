@@ -9,11 +9,14 @@ import { ResearchWorkspacePanel } from './ResearchWorkspacePanel'
 import { MarkdownPanel } from './MarkdownPanel'
 import { UnsavedTopicDialog } from './UnsavedTopicDialog'
 import { nodePath, type KnowledgeNode } from '../utils/knowledge_links'
+import type { Category } from '../types'
 import { GraphPanel } from './KnowledgeGraphPanel'
+import { KnowledgePage } from './KnowledgePage'
 
 
-export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: string; error?: boolean }) => void }) {
+export function KnowledgeHub({ categories, onNotice }: { categories: Category[]; onNotice: (notice: { message: string; error?: boolean }) => void }) {
   const [params, setParams] = useSearchParams()
+  const requestedTab = params.get('tab')
   const [topics, setTopics] = useState<Awaited<ReturnType<typeof api.knowledgeTopics>>['items']>([])
   const [topic, setTopic] = useState<Awaited<ReturnType<typeof api.knowledgeTopic>> | null>(null)
   const [title, setTitle] = useState('')
@@ -29,12 +32,21 @@ export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: strin
   const [draftId, setDraftId] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState<'topics' | 'markdown' | 'projects'>(params.get('project') ? 'projects' : 'topics')
+  const [tab, setTab] = useState<'assistant' | 'topics' | 'markdown' | 'projects'>(
+    requestedTab === 'assistant' || requestedTab === 'topics' || requestedTab === 'markdown' || requestedTab === 'projects'
+      ? requestedTab : params.get('project') ? 'projects' : 'topics',
+  )
+  const [assistantDirty, setAssistantDirty] = useState(false)
   const links = useWikiLinks(body)
   const topicId = params.get('topic')
   const projectId = params.get('project')
   const hasUnsavedChanges = Boolean(topic && (body !== topic.body_md || title !== topic.title))
-  useEffect(() => { if (topicId) setTab('topics'); else if (projectId) setTab('projects') }, [topicId, projectId])
+  useEffect(() => {
+    if (requestedTab === 'assistant' || requestedTab === 'topics' || requestedTab === 'markdown' || requestedTab === 'projects') setTab(requestedTab)
+    else if (topicId) setTab('topics')
+    else if (projectId) setTab('projects')
+    else setTab('topics')
+  }, [topicId, projectId, requestedTab])
 
   useEffect(() => {
     if (!hasUnsavedChanges) return
@@ -56,9 +68,13 @@ export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: strin
     }
   }, [hasUnsavedChanges])
 
-  const switchTab = (next: 'topics' | 'markdown' | 'projects') => {
+  const switchTab = (next: 'assistant' | 'topics' | 'markdown' | 'projects') => {
     if (next === tab) return
-    if (next !== 'topics' && hasUnsavedChanges && !window.confirm('主题页有未保存的修改，切换工作区后仍会保留在当前页面状态中。确定切换？')) return
+    if (next !== 'topics' && hasUnsavedChanges && !window.confirm('主题页有未保存的修改，离开主题编辑区后这些修改仍只保留在当前页面状态中。确定切换？')) return
+    if (next !== 'assistant' && assistantDirty && !window.confirm('AI 研究笔记有未保存的修改，离开 AI 助手后这些修改将丢失。确定切换？')) return
+    const nextParams = new URLSearchParams(params)
+    nextParams.set('tab', next)
+    setParams(nextParams, { replace: true })
     setTab(next)
   }
 
@@ -95,9 +111,15 @@ export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: strin
       setNewTitle('')
     })
   }
-  return <div className="subpage knowledge-page"><div className="page-title-row"><div><div className="eyebrow">KNOWLEDGE SPACE</div><h1>知识空间</h1><p>维护主题知识页，让文章、笔记与研究成果相互连接。</p></div></div>
-    <div className="knowledge-actions" role="group" aria-label="知识空间工作区"><button type="button" className="button button-soft" aria-pressed={tab === 'topics'} onClick={() => switchTab('topics')}>主题与链接</button><button type="button" className="button button-soft" aria-pressed={tab === 'markdown'} onClick={() => switchTab('markdown')}>Markdown 互通</button><button type="button" className="button button-soft" aria-pressed={tab === 'projects'} onClick={() => switchTab('projects')}>持续研究</button></div>
+  return <div className="subpage knowledge-page"><div className="page-title-row"><div><div className="eyebrow">AI & KNOWLEDGE WORKSPACE</div><h1>知识工作台</h1><p>从资料问答、跨资料研究，到主题知识沉淀与 Markdown 互通。</p></div></div>
+    <div className="knowledge-workspace-tabs" role="group" aria-label="知识工作台功能">
+      <button type="button" aria-pressed={tab === 'assistant'} onClick={() => switchTab('assistant')}> <Sparkles size={15} />AI 助手</button>
+      <button type="button" aria-pressed={tab === 'topics'} onClick={() => switchTab('topics')}>主题与链接</button>
+      <button type="button" aria-pressed={tab === 'projects'} onClick={() => switchTab('projects')}>持续研究</button>
+      <button type="button" aria-pressed={tab === 'markdown'} onClick={() => switchTab('markdown')}>Markdown 互通</button>
+    </div>
     {pendingTopicId && topic && <UnsavedTopicDialog title={title || topic.title} onCancel={() => setPendingTopicId(null)} onConfirm={() => { setParams({ topic: pendingTopicId }); setPendingTopicId(null) }} />}
+    {tab === 'assistant' && <KnowledgePage categories={categories} embedded onDirtyChange={setAssistantDirty} />}
     {tab === 'markdown' && <MarkdownPanel />}
     {tab === 'projects' && <ResearchWorkspacePanel />}
     {tab === 'topics' && <>
