@@ -1,3 +1,4 @@
+import {IconButton} from '@astryxdesign/core/IconButton'
 import {ProgressBar} from '@astryxdesign/core/ProgressBar'
 import {CategorySelector} from './shared/CategorySelector'
 import {Button} from '@astryxdesign/core/Button'
@@ -187,9 +188,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
       <Button icon={<Bookmark size={14} fill={readingProgress?.read_later ? 'currentColor' : 'none'} />} label={readingProgress?.read_later ? '已加入稍后阅读' : '稍后阅读'} variant="secondary"  aria-pressed={Boolean(readingProgress?.read_later)} isDisabled={!readingProgress} onClick={() => void toggleReadLater()}>
         {readingProgress?.read_later ? '已加入稍后阅读' : '稍后阅读'}
       </Button>
-      <Button icon={<Bookmark size={14} />} label={infoVisible ? '收起文章信息' : '展开文章信息'} variant="secondary" className="reader-info-toggle" aria-expanded={infoVisible} aria-controls="reader-article-info" onClick={() => setInfoVisible((visible) => !visible)}>
-        {infoVisible ? '收起文章信息' : '展开文章信息'}<ChevronDown size={14} className={infoVisible ? 'is-expanded' : ''} />
-      </Button>
+      <IconButton icon={<ChevronDown size={18} className={infoVisible ? 'is-expanded' : ''} />} label={infoVisible ? '收起文章信息' : '展开文章信息'} tooltip={infoVisible ? '收起文章信息' : '展开文章信息'} variant="ghost" className="reader-info-toggle" aria-expanded={infoVisible} aria-controls="reader-article-info" onClick={() => setInfoVisible((visible) => !visible)} />
       <Button label="删除文章" variant="destructive" className="reader-delete-button" type="button" isDisabled={deleting} onClick={() => { setDeleteError(''); setDeleteDialogOpen(true) }}>
         {deleting ? <LoaderCircle size={14} className="spin" /> : <Trash2 size={14} />}{deleting ? '删除中…' : '删除文章'}
       </Button>

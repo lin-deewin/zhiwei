@@ -1,3 +1,4 @@
+import {useRef} from 'react'
 import {TextArea} from '@astryxdesign/core/TextArea'
 import {TextInput} from '@astryxdesign/core/TextInput'
 import {Button} from '@astryxdesign/core/Button'
@@ -34,12 +35,14 @@ export function ReadingNotesPanel({
   onExport, onImport, onNewNote, onDraftChange, onRestoreDraft, onFlush,
   onDeleteCurrent, onLocate, onReanchor, onRemoveAnnotation, onSelectNote,
 }: ReadingNotesPanelProps) {
+  const importInput = useRef<HTMLInputElement>(null)
   return <div className="reading-notes-panel">
     <div className="reading-panel-heading">
       <div><strong>留下自己的理解</strong><small>笔记会保存在本地资料库</small></div>
       <div className="reading-data-actions">
         <Button label="导出阅读记录" variant="secondary"  onClick={onExport}>导出阅读记录</Button>
-        <label className="button button-soft">恢复记录<input type="file" accept="application/json,.json" hidden onChange={(event) => { onImport(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
+        <Button label="恢复记录" variant="secondary" onClick={() => importInput.current?.click()} />
+        <input ref={importInput} type="file" aria-label="选择阅读记录备份" accept="application/json,.json" hidden onChange={(event) => { onImport(event.target.files?.[0]); event.currentTarget.value = '' }} />
         <Button icon={<Plus size={14} />} label="新建笔记" variant="secondary"  isDisabled={busy} onClick={onNewNote}>新建笔记</Button>
       </div>
     </div>
