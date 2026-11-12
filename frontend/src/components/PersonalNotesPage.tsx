@@ -96,11 +96,15 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const chooseNote = (id: string) => {
     if (busy) return
     if (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并切换吗？')) return
+    setDirty(false)
+    setHistoryPreview(null)
     setParams({ note: id })
   }
 
   const createNote = async () => {
-    if (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并新建吗？')) return
+    if (busy || (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并新建吗？'))) return
+    setDirty(false)
+    setHistoryPreview(null)
     setBusy(true)
     try {
       const created = await api.createPersonalNote()
@@ -120,7 +124,6 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
       setNote(updated); setTitle(updated.title); setBody(updated.body_md)
       setSources(updated.sources); setDirty(false); setAutoSavePaused(false)
       setReloadKey((value) => value + 1)
-      onNotice({ message: '个人笔记已自动保存' })
     } catch (error) {
       setAutoSavePaused(true)
       onNotice({ message: (error as Error).message, error: true })
@@ -155,6 +158,8 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
 
   const deleteNote = async () => {
     if (!note || busy || !window.confirm('删除这条个人笔记？引用记录和知识链接也会一并删除。')) return
+    setDirty(false)
+    setHistoryPreview(null)
     setBusy(true)
     try {
       await api.deletePersonalNote(note.id, note.revision)
