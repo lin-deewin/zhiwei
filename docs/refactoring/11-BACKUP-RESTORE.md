@@ -74,3 +74,19 @@ python -m app.backup_cli restore \
 - 不支持资料库内部符号链接；如果现有资料库依赖符号链接，必须先人工评估。
 - 备份期间若普通资料文件被修改，工具会中止；推荐在同步任务停止、没有批量导入时执行。
 - 外键检查结果目前作为报告计数返回，不会自动修复旧库中的孤儿记录。
+
+
+## 6. 升级前后数据核对（只读）
+
+恢复到新目录并启动 V3 完成 schema upgrade 后，运行：
+
+```bash
+python -m app.release_check snapshot --library "/path/to/library-before"
+python -m app.release_check compare \
+  --baseline "/path/to/library-before" \
+  --candidate "/path/to/library-after"
+```
+
+检查器以只读模式打开 SQLite，执行 `PRAGMA integrity_check` 与 `foreign_key_check`，对关键领域表的稳定 ID 集合计算 SHA-256，并对文章目录文件内容计算 SHA-256。缺失原表、ID/数量变化、文章文件变化、正文文件缺失或数据库外键错误会返回非零退出码。
+
+迁移版本：当前 V3 schema registry 为 v6（包含持久化 `research_jobs`）。升级前自动 SQLite 快照仅保护数据库文件；生产演练仍必须使用完整 `backup_cli` 备份，以覆盖文章 Markdown、图片附件、数据库及 manifest。
