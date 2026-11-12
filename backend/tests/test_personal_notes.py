@@ -78,6 +78,7 @@ def test_personal_note_sources_survive_source_article_deletion(client):
     assert retained["title"] == "长期笔记"
     assert retained["sources"][0]["title_snapshot"] == "来源"
     assert retained["sources"][0]["source_id"] == "article:" + article["id"]
+    assert retained["sources"][0]["available"] is False
 
 
 def test_only_personal_knowledge_sources_can_create_links(client):
