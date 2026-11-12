@@ -192,6 +192,13 @@ def _record(source_id: str) -> dict:
                     (record_id,),
                 )
             ]
+            sources = [
+                dict(row) for row in db.execute(
+                    "SELECT source_id,source_type,title_snapshot,url_snapshot,created_at "
+                    "FROM personal_note_sources WHERE note_id=? ORDER BY created_at,source_id",
+                    (record_id,),
+                )
+            ]
         return {
             "title": note["title"],
             "body": note["body_md"],
@@ -199,6 +206,7 @@ def _record(source_id: str) -> dict:
             "id": record_id,
             "revision": note["revision"],
             "tags": tags,
+            "sources": sources,
         }
     table = {
         "note": "notes",
@@ -229,6 +237,11 @@ def _record_hash(record: dict) -> str:
     parts = [record["title"], record["body"]]
     if record["kind"] == "personal_note":
         parts.append(json.dumps(record.get("tags", []), ensure_ascii=False))
+        source_fields = [
+            {key: source.get(key) for key in ("source_id", "source_type", "title_snapshot", "url_snapshot")}
+            for source in record.get("sources", [])
+        ]
+        parts.append(json.dumps(source_fields, ensure_ascii=False))
     if record["kind"] == "article":
         path = get_library_dir() / record["path"]
         parts.append(_file_hash(path, get_library_dir().resolve()))
@@ -449,7 +462,11 @@ def export_all() -> dict:
                     "source_url": record.get("url"),
                     "author": record.get("author"),
                     "question": record.get("question"),
-                    **({"tags": record.get("tags", [])} if record["kind"] == "personal_note" else {}),
+                    **({
+                        "zhilib_kind": "personal_note",
+                        "tags": record.get("tags", []),
+                        "sources": record.get("sources", []),
+                    } if record["kind"] == "personal_note" else {}),
                 }
                 output = (
                     "---\n"
