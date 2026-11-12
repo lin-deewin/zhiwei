@@ -10,7 +10,7 @@ import { api } from '../api'
 import type { PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, PersonalNoteSource, PersonalNoteVersion, PersonalNoteVersionSummary } from '../types'
 import type { Notice } from '../types/ui'
 import { useWikiLinks, wikiPlugin } from '../utils/wiki_markdown'
-import { GraphPanel } from './KnowledgeHub'
+import { GraphPanel } from './KnowledgeGraphPanel'
 
 type PersonalNotesPageProps = { onNotice: (notice: Notice) => void }
 
