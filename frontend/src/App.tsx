@@ -113,7 +113,7 @@ function App() {
       <div className="side-caption">系统</div>
       <nav className="primary-nav">
         <NavLink to="/sync" aria-label="同步中心" title="同步中心" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-          <ArrowDownToLine size={17} /><span>设置与同步</span>
+          <ArrowDownToLine size={17} /><span>同步中心</span>
         </NavLink>
       </nav>
       <div className="side-caption side-caption-row"><span>常用主题</span><button className="icon-button tiny" aria-label="新增分类" onClick={() => navigate('/categories')}><Plus size={15} /></button></div>
