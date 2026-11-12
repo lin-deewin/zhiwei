@@ -71,8 +71,13 @@ def _copy_library_files(source: Path, target: Path) -> None:
             before_hash = _sha256(candidate)
             before_size = candidate.stat().st_size
             shutil.copy2(candidate, destination)
-            if _sha256(candidate) != before_hash or candidate.stat().st_size != before_size:
-                raise RuntimeError(f"Library file changed while backing up: {candidate}")
+            if (
+                _sha256(candidate) != before_hash
+                or candidate.stat().st_size != before_size
+                or _sha256(destination) != before_hash
+                or destination.stat().st_size != before_size
+            ):
+                raise RuntimeError(f"Library file changed or copied inconsistently: {candidate}")
 
 
 def _backup_database(source: Path, target: Path) -> dict[str, Any]:
