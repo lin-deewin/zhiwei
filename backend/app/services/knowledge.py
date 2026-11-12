@@ -20,6 +20,7 @@ LABELS = {
     "annotation": "原文引用与个人批注",
     "research": "AI 研究笔记（需核对）",
     "topic": "主题页整理（需核对）",
+    "personal_note": "个人笔记",
 }
 
 

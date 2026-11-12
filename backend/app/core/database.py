@@ -335,6 +335,77 @@ def connect(library: Path | None = None) -> sqlite3.Connection:
         raise
 
 
+def _migration_personal_notes(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_notes (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL DEFAULT '',
+            body_md TEXT NOT NULL DEFAULT '',
+            revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_note_sources (
+            note_id TEXT NOT NULL REFERENCES personal_notes(id) ON DELETE CASCADE,
+            source_id TEXT NOT NULL,
+            source_type TEXT NOT NULL CHECK(source_type IN
+                ('article','note','annotation','research','topic','personal_note')),
+            title_snapshot TEXT NOT NULL,
+            url_snapshot TEXT,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(note_id, source_id)
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_notes_updated
+        ON personal_notes(updated_at DESC)
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_note_sources_source
+        ON personal_note_sources(source_id)
+    """)
+
+
+_VERSIONED_MIGRATIONS = (
+    (2, "personal_notes", _migration_personal_notes),
+)
+
+
+def _apply_versioned_migrations(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL
+        )
+    """)
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations(version,name,applied_at) VALUES(1,'legacy_baseline',?)",
+        (datetime.now(UTC).isoformat(),),
+    )
+    for version, name, apply in _VERSIONED_MIGRATIONS:
+        if connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE version=?", (version,)
+        ).fetchone():
+            continue
+        savepoint = f"schema_migration_{version}"
+        connection.execute(f"SAVEPOINT {savepoint}")
+        try:
+            apply(connection)
+            connection.execute(
+                "INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
+                (version, name, datetime.now(UTC).isoformat()),
+            )
+            connection.execute("UPDATE schema_version SET version=?", (version,))
+            connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+        except Exception:
+            connection.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+            raise
+
+
 def _initialize_schema(connection: sqlite3.Connection, library: Path) -> None:
     connection.execute("PRAGMA journal_mode = WAL")
     tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -394,6 +465,8 @@ def _initialize_schema(connection: sqlite3.Connection, library: Path) -> None:
                 seen = job[0] if job else seen
             connection.execute("UPDATE contents SET last_synced_at=?,collected_at=? WHERE id=?", (seen, collected, row["id"]))
         connection.commit()
+
+    _apply_versioned_migrations(connection)
 
 
 @contextmanager

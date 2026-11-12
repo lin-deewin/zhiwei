@@ -15,7 +15,7 @@ WIKI = re.compile(r"\[\[([^\]\n]+)\]\]")
 
 
 def nodes(query: str = "") -> list[dict]:
-    records = _records(None, None, ["article", "note", "annotation", "research"])
+    records = _records(None, None, ["article", "note", "annotation", "research", "personal_note"])
     with session() as db:
         records.extend(
             {
@@ -49,6 +49,9 @@ def graph(source_id: str) -> dict:
         titles.setdefault(r["title"], []).append(r["source_id"])
     edges, unresolved = {}, []
     for r in records:
+        # Only user-authored knowledge records produce wiki links.
+        if r["source_type"] not in {"personal_note", "topic", "research"}:
+            continue
         # Ignore wiki-like text inside fenced code and inline code.
         text = re.sub(r"```[\s\S]*?```|`[^`]*`", "", r["text"])
         for match in WIKI.findall(text):
@@ -88,9 +91,15 @@ def graph(source_id: str) -> dict:
 
 
 def link(from_id: str, to_id: str, label: str = "") -> dict:
-    valid = {r["source_id"] for r in nodes()}
-    if from_id not in valid or to_id not in valid or from_id == to_id:
-        raise ValueError("链接目标不存在或与当前资料相同")
+    by_id = {r["source_id"]: r for r in nodes()}
+    source = by_id.get(from_id)
+    if (
+        source is None
+        or source["source_type"] not in {"personal_note", "topic", "research"}
+        or to_id not in by_id
+        or from_id == to_id
+    ):
+        raise ValueError("只能从个人笔记、主题页或研究成果发起知识链接，且目标必须存在")
     with session() as db:
         db.execute(
             "INSERT OR REPLACE INTO knowledge_links VALUES (?,?,?,?)",

@@ -17,6 +17,7 @@ from app.api.graph_routes import router as graph_router
 from app.api.workspace_routes import router as workspace_router
 from app.api.markdown_routes import router as markdown_router
 from app.api.reading_routes import router as reading_router
+from app.api.personal_note_routes import router as personal_note_router
 from app.api.routes import router
 from app.core.database import connect
 from app.services.classification import classification_manager
@@ -107,6 +108,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(reading_router)
+app.include_router(personal_note_router)
 app.include_router(knowledge_router)
 app.include_router(semantic_router)
 app.include_router(graph_router)
