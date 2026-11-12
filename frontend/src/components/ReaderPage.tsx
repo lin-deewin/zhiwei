@@ -98,6 +98,14 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
     if (loading || progressContentId !== id || !readingProgress || progressRestored.current) return
     progressRestored.current = true
     const frame = window.requestAnimationFrame(() => {
+      const block = readingProgress.block_id
+        ? document.querySelector<HTMLElement>(`[data-reading-block-id="${CSS.escape(readingProgress.block_id)}"]`)
+        : null
+      if (block) {
+        const blockTop = block.getBoundingClientRect().top + window.scrollY
+        window.scrollTo({ top: Math.max(0, blockTop - 96), behavior: 'instant' })
+        return
+      }
       const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
       window.scrollTo({ top: maxScroll * readingProgress.progress_ratio, behavior: 'instant' })
     })
@@ -107,7 +115,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
   useEffect(() => {
     if (loading || progressContentId !== id || !item || !reading || !progressRestored.current) return
     let timer: number | null = null
-    const save = (updateState = true) => {
+    const save = (updateState = true, keepalive = false) => {
       if (timer !== null) {
         window.clearTimeout(timer)
         timer = null
@@ -115,12 +123,15 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight
       const ratio = maxScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / maxScroll)) : 0
       const visibleBlock = Array.from(document.querySelectorAll<HTMLElement>('[data-reading-block-id]'))
-        .find((block) => block.getBoundingClientRect().bottom > 0)
+        .find((block) => {
+          const rect = block.getBoundingClientRect()
+          return rect.bottom > 0 && rect.top < window.innerHeight
+        })
       const pending = api.saveReadingProgress(id, {
         progress_ratio: ratio,
         scroll_y: window.scrollY,
         block_id: visibleBlock?.dataset.readingBlockId || null,
-      })
+      }, keepalive)
       if (updateState) void pending.then(setReadingProgress).catch(() => undefined)
       else void pending.catch(() => undefined)
     }
@@ -128,13 +139,13 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
       if (timer !== null) window.clearTimeout(timer)
       timer = window.setTimeout(() => save(true), 800)
     }
-    const pageHide = () => save(false)
+    const pageHide = () => save(false, true)
     window.addEventListener('scroll', persist, { passive: true })
     window.addEventListener('pagehide', pageHide)
     return () => {
       window.removeEventListener('scroll', persist)
       window.removeEventListener('pagehide', pageHide)
-      if (timer !== null) save(false)
+      if (timer !== null) save(false, true)
     }
   }, [id, loading, progressContentId, item?.id, reading?.revision_id])
 
