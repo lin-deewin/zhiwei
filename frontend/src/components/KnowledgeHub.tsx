@@ -167,16 +167,6 @@ export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: strin
     setTab(next)
   }
 
-  const createTopic = () => {
-    if (busy || !newTitle.trim()) return
-    if (hasUnsavedChanges && !window.confirm('当前主题页有未保存修改，创建新主题会放弃这些修改。继续？')) return
-    void run(async () => {
-      const created = await api.createKnowledgeTopic(newTitle.trim())
-      await refresh()
-      setParams({ topic: created.id })
-      setNewTitle('')
-    })
-  }
   const refresh = async () => setTopics((await api.knowledgeTopics()).items)
   useEffect(() => { void refresh().catch((e) => setError((e as Error).message)) }, [])
   useEffect(() => {
@@ -199,6 +189,17 @@ export function KnowledgeHub({ onNotice }: { onNotice: (notice: { message: strin
     })
   }
   const run = async (action: () => Promise<void>) => { setBusy(true); setError(''); try { await action() } catch (e) { setError((e as Error).message) } finally { setBusy(false) } }
+
+  const createTopic = () => {
+    if (busy || !newTitle.trim()) return
+    if (hasUnsavedChanges && !window.confirm('当前主题页有未保存修改，创建新主题会放弃这些修改。继续？')) return
+    void run(async () => {
+      const created = await api.createKnowledgeTopic(newTitle.trim())
+      await refresh()
+      setParams({ topic: created.id })
+      setNewTitle('')
+    })
+  }
   return <div className="subpage knowledge-page"><div className="page-title-row"><div><div className="eyebrow">KNOWLEDGE SPACE</div><h1>知识空间</h1><p>维护主题知识页，让文章、笔记与研究成果相互连接。</p></div></div>
     <div className="knowledge-actions" role="group" aria-label="知识空间工作区"><button type="button" className="button button-soft" aria-pressed={tab === 'topics'} onClick={() => switchTab('topics')}>主题与链接</button><button type="button" className="button button-soft" aria-pressed={tab === 'markdown'} onClick={() => switchTab('markdown')}>Markdown 互通</button><button type="button" className="button button-soft" aria-pressed={tab === 'projects'} onClick={() => switchTab('projects')}>持续研究</button></div>
     {pendingTopicId && topic && <UnsavedTopicDialog title={title || topic.title} onCancel={() => setPendingTopicId(null)} onConfirm={() => { setParams({ topic: pendingTopicId }); setPendingTopicId(null) }} />}
