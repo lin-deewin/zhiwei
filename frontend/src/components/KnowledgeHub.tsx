@@ -99,7 +99,7 @@ export function GraphPanel({ sourceId, version = 0 }: { sourceId: string; versio
       {data.unresolved.map((item) => <div className="knowledge-graph-unresolved" key={item.target}>
         <code>[[{item.target}]]</code>
         <small>{item.reason === 'ambiguous' ? '同名资料有多个，请改用稳定 ID' : '目标不存在或已删除'}</small>
-        {item.candidates?.length > 0 && <small>候选：{item.candidates.length} 项</small>}
+        {item.candidates && item.candidates.length > 0 && <small>候选：{item.candidates.length} 项</small>}
       </div>)}
     </section>}
     <section className="knowledge-graph-linker">
