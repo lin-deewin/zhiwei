@@ -583,3 +583,5 @@
 .button-danger-quiet{color:#b64b4b}
 @media(max-width:900px){.personal-notes-page{grid-template-columns:minmax(0,1fr)}.personal-notes-index{position:static;max-height:340px;min-height:0}.personal-note-editor{padding:18px}}
 @media(max-width:560px){.personal-note-editor-head{align-items:flex-start;flex-direction:column}.personal-note-actions{width:100%;flex-wrap:wrap}.personal-note-welcome{padding:28px 20px}.personal-note-title{font-size:20px}}
+
+.personal-note-source-missing{font-size:10px;color:#b64b4b;white-space:nowrap}
