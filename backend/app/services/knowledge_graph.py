@@ -69,7 +69,12 @@ def graph(source_id: str) -> dict:
                 )
     with session() as db:
         for row in db.execute("SELECT * FROM knowledge_links"):
-            if row["from_id"] in by_id and row["to_id"] in by_id:
+            source = by_id.get(row["from_id"])
+            if (
+                source
+                and source["source_type"] in {"personal_note", "topic", "research"}
+                and row["to_id"] in by_id
+            ):
                 edges[(row["from_id"], row["to_id"])] = "explicit"
         for table, prefix in [("research_notes", "research"), ("knowledge_topics", "topic")]:
             for row in db.execute(f"SELECT id,sources_json FROM {table}"):

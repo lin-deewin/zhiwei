@@ -22,8 +22,10 @@ def test_wikilinks_backlinks_ambiguity_and_explicit_links(monkeypatch, tmp_path)
         graph.graph("article:" + article["id"])["incoming"][0]["source_id"]
         == "topic:" + topic["id"]
     )
-    graph.link("article:" + duplicate["id"], "topic:" + topic["id"])
-    assert any(x["relation"] == "explicit" for x in graph.graph("topic:" + topic["id"])["incoming"])
+    with pytest.raises(ValueError):
+        graph.link("article:" + duplicate["id"], "topic:" + topic["id"])
+    graph.link("topic:" + topic["id"], "article:" + duplicate["id"])
+    assert any(x["relation"] == "explicit" for x in graph.graph("topic:" + topic["id"])["outgoing"])
     with pytest.raises(RuntimeError):
         graph.save_topic("changed", "body", topic["id"], revision=999)
 
