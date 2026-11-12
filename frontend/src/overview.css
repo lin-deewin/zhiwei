@@ -1,3 +1,4 @@
+@layer legacy {
 .overview-page { color: var(--ink); }
 .overview-page .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin: var(--space-6) 0; }
 .overview-page .panel { background: var(--color-surface); border: 1px solid var(--line); border-radius: var(--radius-md); }
@@ -37,3 +38,5 @@
 @media(max-width: 760px) { .theme-toggle span { display: none; } .overview-page .stat { padding: var(--space-3); } .overview-page .page-title-row { align-items: flex-start; flex-wrap: wrap; } }
 .overview-page .overview-grid > div { min-width: 0; }
 @media(max-width: 1000px) { .overview-page .overview-grid { grid-template-columns: minmax(0, 1fr); } }
+
+}

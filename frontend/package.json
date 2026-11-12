@@ -9,6 +9,9 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@astryxdesign/core": "0.7.14",
+    "@astryxdesign/theme-neutral": "0.7.14",
+    "@stylexjs/stylex": "0.19.2",
     "@vitejs/plugin-react": "^4.3.4",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
@@ -20,6 +23,7 @@
     "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "0.7.14",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.0",

@@ -1,3 +1,4 @@
+@layer legacy {
 .library-page{max-width:1320px;margin:0 auto;padding-bottom:24px}
 .library-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin:8px 0 22px}
 .library-heading-copy{min-width:0}
@@ -68,4 +69,6 @@
   .library-page .as-list .article-card h3{margin:5px 0}
   .library-page .as-list .article-card-body>p{display:-webkit-box}
   .library-page .as-list .article-card-footer{margin-top:3px;padding-top:9px;border-top:1px solid var(--line)}
+}
+
 }
