@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDownToLine, BookOpen, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
+import { ArrowDownToLine, BookOpen, Clock3, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
 
 const pages = {
   '/': { title: '资料库', icon: LayoutGrid },
@@ -10,6 +10,7 @@ const pages = {
   '/knowledge': { title: '研究工作区', icon: BookOpen },
   '/personal-notes': { title: '个人笔记', icon: FileText },
   '/notes': { title: '阅读记录', icon: BookOpen },
+  '/reading': { title: '最近阅读', icon: Clock3 },
   '/sync': { title: '同步中心', icon: ArrowDownToLine },
   '/settings': { title: '设置', icon: Settings2 },
 }
