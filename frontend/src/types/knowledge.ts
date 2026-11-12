@@ -47,6 +47,7 @@ export interface PersonalNoteSource {
   title_snapshot: string
   url_snapshot?: string | null
   created_at: string
+  available?: boolean
 }
 
 export interface PersonalKnowledgeNote {
