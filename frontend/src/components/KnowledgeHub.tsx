@@ -101,7 +101,7 @@ export function GraphPanel({ sourceId, version = 0 }: { sourceId: string; versio
         <small>{item.reason === 'ambiguous' ? '同名资料有多个，请改用稳定 ID' : '目标不存在或已删除'}</small>
         {item.candidates?.length > 0 && <small>候选：{item.candidates.length} 项</small>}
       </div>)}
-    </section>
+    </section>}
     <section className="knowledge-graph-linker">
       <h4>建立关联</h4>
       <input aria-label="搜索链接目标" placeholder="搜索文章、个人笔记或主题页…" value={query} onChange={(event) => setQuery(event.target.value)} />
