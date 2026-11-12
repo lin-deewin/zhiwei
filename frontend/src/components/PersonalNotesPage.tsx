@@ -4,10 +4,10 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import {
-  BookOpen, Eye, FilePlus2, FileText, Link2, LoaderCircle, Plus, Save, Search, Trash2, X,
+  BookOpen, Eye, FilePlus2, FileText, History, Link2, LoaderCircle, Plus, RotateCcw, Save, Search, Trash2, X,
 } from 'lucide-react'
 import { api } from '../api'
-import type { PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, PersonalNoteSource } from '../types'
+import type { PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, PersonalNoteSource, PersonalNoteVersion, PersonalNoteVersionSummary } from '../types'
 import type { Notice } from '../types/ui'
 import { useWikiLinks, wikiPlugin } from '../utils/wiki_markdown'
 import { GraphPanel } from './KnowledgeHub'
@@ -35,6 +35,11 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const [preview, setPreview] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [autoSavePaused, setAutoSavePaused] = useState(false)
+  const [versions, setVersions] = useState<PersonalNoteVersionSummary[]>([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyPreview, setHistoryPreview] = useState<PersonalNoteVersion | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const links = useWikiLinks(body)
 
   useEffect(() => {
@@ -47,6 +52,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   useEffect(() => {
     if (!selectedId) {
       setNote(null); setTitle(''); setBody(''); setSources([]); setDirty(false)
+      setVersions([]); setHistoryPreview(null); setHistoryOpen(false); setAutoSavePaused(false)
       return
     }
     let active = true
@@ -54,7 +60,8 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     api.personalNote(selectedId).then((result) => {
       if (!active) return
       setNote(result); setTitle(result.title); setBody(result.body_md)
-      setSources(result.sources); setDirty(false)
+      setSources(result.sources); setDirty(false); setAutoSavePaused(false)
+      setHistoryPreview(null); setHistoryOpen(false)
     }).catch((error) => {
       if (active) {
         onNotice({ message: (error as Error).message, error: true })
@@ -63,6 +70,14 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [selectedId, reloadKey, onNotice, setParams])
+
+  useEffect(() => {
+    if (!selectedId) return
+    let active = true
+    api.personalNoteVersions(selectedId).then((result) => { if (active) setVersions(result) })
+      .catch((error) => { if (active) onNotice({ message: (error as Error).message, error: true }) })
+    return () => { active = false }
+  }, [selectedId, reloadKey, onNotice])
 
   useEffect(() => {
     if (!sourceQuery.trim()) { setSourceCandidates([]); return }
@@ -102,12 +117,39 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     try {
       const updated = await api.savePersonalNote(note.id, title, body, note.revision, sources.map((source) => source.source_id))
       setNote(updated); setTitle(updated.title); setBody(updated.body_md)
-      setSources(updated.sources); setDirty(false)
+      setSources(updated.sources); setDirty(false); setAutoSavePaused(false)
       setReloadKey((value) => value + 1)
-      onNotice({ message: '个人笔记已保存' })
+      onNotice({ message: '个人笔记已自动保存' })
     } catch (error) {
+      setAutoSavePaused(true)
       onNotice({ message: (error as Error).message, error: true })
     } finally { setBusy(false) }
+  }
+
+  useEffect(() => {
+    if (!note || !dirty || busy || autoSavePaused) return
+    const timer = window.setTimeout(() => { void saveNote() }, 1200)
+    return () => window.clearTimeout(timer)
+  }, [note?.id, note?.revision, title, body, sources, dirty, busy, autoSavePaused])
+
+  const openVersion = async (revision: number) => {
+    if (!note) return
+    setHistoryLoading(true)
+    try { setHistoryPreview(await api.personalNoteVersion(note.id, revision)) }
+    catch (error) { onNotice({ message: (error as Error).message, error: true }) }
+    finally { setHistoryLoading(false) }
+  }
+
+  const restoreVersion = () => {
+    if (!historyPreview || !note || historyPreview.revision === note.revision) return
+    if (!window.confirm('恢复这个版本的标题和正文？当前引用资料保持不变。')) return
+    setTitle(historyPreview.title)
+    setBody(historyPreview.body_md)
+    setDirty(true)
+    setAutoSavePaused(false)
+    setPreview(false)
+    setHistoryPreview(null)
+    onNotice({ message: '历史内容已载入，稍后将自动保存为新版本' })
   }
 
   const deleteNote = async () => {
@@ -129,12 +171,12 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
       ...current,
       { source_id: item.source_id, source_type: item.source_type, title_snapshot: item.title, url_snapshot: null, created_at: new Date().toISOString() },
     ])
-    setSourceQuery(''); setSourceCandidates([]); setDirty(true)
+    setSourceQuery(''); setSourceCandidates([]); setDirty(true); setAutoSavePaused(false)
   }
 
   const removeSource = (sourceId: string) => {
     setSources((current) => current.filter((source) => source.source_id !== sourceId))
-    setDirty(true)
+    setDirty(true); setAutoSavePaused(false)
   }
 
   return <section className="personal-notes-page">
@@ -167,15 +209,32 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
           <div className="personal-note-editor-head">
             <div><span className="eyebrow">PERSONAL KNOWLEDGE</span><span className="personal-note-revision">版本 {note.revision}</span></div>
             <div className="personal-note-actions">
+              <span className="personal-note-save-state" aria-live="polite">{busy ? '保存中…' : dirty ? autoSavePaused ? '自动保存已暂停' : '修改将自动保存' : '已保存'}</span>
+              <button className="button button-soft" onClick={() => setHistoryOpen((value) => !value)}><History size={15} />版本历史</button>
               <button className="button button-soft" onClick={() => setPreview((value) => !value)}><Eye size={15} />{preview ? '继续编辑' : '预览'}</button>
-              <button className="button button-primary" onClick={() => void saveNote()} disabled={!dirty || busy}><Save size={15} />{busy ? '保存中…' : '保存'}</button>
+              <button className="button button-primary" onClick={() => void saveNote()} disabled={!dirty || busy}><Save size={15} />{busy ? '保存中…' : '立即保存'}</button>
               <button className="button button-danger-quiet" onClick={() => void deleteNote()} disabled={busy} aria-label="删除笔记"><Trash2 size={15} /></button>
             </div>
           </div>
-          <input className="personal-note-title" value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true) }} placeholder="给这条笔记起个标题…" />
+          {historyOpen && <section className="personal-note-history">
+            <div className="personal-note-history-heading"><div><strong>版本历史</strong><small>每次保存都会保留一个可恢复版本</small></div><button aria-label="关闭版本历史" onClick={() => { setHistoryOpen(false); setHistoryPreview(null) }}><X size={14} /></button></div>
+            <div className="personal-note-history-list">
+              {versions.map((version) => <button key={version.revision} className={historyPreview?.revision === version.revision ? 'active' : ''} onClick={() => void openVersion(version.revision)}>
+                <span>v{version.revision}</span><strong>{version.title || '未命名笔记'}</strong><small>{new Date(version.created_at).toLocaleString('zh-CN')} · {version.body_length} 字 · {version.source_count} 个引用</small>
+              </button>)}
+              {!versions.length && !historyLoading && <small>还没有历史版本。</small>}
+            </div>
+            {historyLoading && <div className="personal-note-loading"><LoaderCircle size={15} />正在读取版本…</div>}
+            {historyPreview && <div className="personal-note-history-preview">
+              <div><strong>v{historyPreview.revision} · {historyPreview.title || '未命名笔记'}</strong><small>{new Date(historyPreview.created_at).toLocaleString('zh-CN')} · {historyPreview.sources.length} 个引用</small></div>
+              <article><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{historyPreview.body_md || '（空白正文）'}</ReactMarkdown></article>
+              <div><button className="button button-soft" onClick={() => setHistoryPreview(null)}>关闭预览</button><button className="button button-primary" disabled={historyPreview.revision === note.revision} onClick={restoreVersion}><RotateCcw size={14} />恢复标题和正文</button></div>
+            </div>}
+          </section>}
+          <input className="personal-note-title" value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="给这条笔记起个标题…" />
           {preview
             ? <article className="personal-note-preview"><ReactMarkdown remarkPlugins={[remarkGfm, [wikiPlugin, { links }]]} rehypePlugins={[rehypeSanitize]}>{body || '（暂无正文）'}</ReactMarkdown></article>
-            : <textarea className="personal-note-body" value={body} onChange={(event) => { setBody(event.target.value); setDirty(true) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" spellCheck />}
+            : <textarea className="personal-note-body" value={body} onChange={(event) => { setBody(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" spellCheck />}
           <section className="personal-note-sources">
             <div className="personal-note-section-title"><div><Link2 size={16} /><strong>引用资料</strong><small>{sources.length} 份</small></div></div>
             <label className="personal-note-source-search"><Search size={15} /><input value={sourceQuery} onChange={(event) => setSourceQuery(event.target.value)} placeholder="搜索文章、阅读笔记、研究成果或其他个人笔记…" /></label>
