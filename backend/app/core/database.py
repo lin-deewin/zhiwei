@@ -510,7 +510,9 @@ def _apply_versioned_migrations(connection: sqlite3.Connection) -> None:
                 "INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
                 (version, name, datetime.now(UTC).isoformat()),
             )
-            connection.execute("UPDATE schema_version SET version=?", (version,))
+            connection.execute(
+                "UPDATE schema_version SET version=(SELECT MAX(version) FROM schema_migrations)"
+            )
             connection.execute(f"RELEASE SAVEPOINT {savepoint}")
         except Exception:
             connection.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
