@@ -82,7 +82,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
     setLoading(true)
     progressRestored.current = false
     setProgressContentId(null)
-    Promise.all([api.content(id), api.readingContext(id), api.readingProgress(id)]).then(([content, context, progress]) => {
+    Promise.all([api.content(id), api.readingContext(id), api.readingProgress(id).catch(() => null)]).then(([content, context, progress]) => {
       if (!active) return
       setItem({ ...content, markdown: context.markdown, file_missing: context.file_missing })
       setReading(context)
