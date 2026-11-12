@@ -250,13 +250,13 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
       </div>
       <label className="personal-notes-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索个人笔记…" /></label>
       {selectedNoteIds.size > 0 && <div className="personal-note-bulk-bar">
-        <span>{selectedNoteIds.size} 条已选</span>
+        <span>{selectedNoteIds.size} / 50 条已选</span>
         <button className="button button-danger-quiet" disabled={busy} onClick={() => void bulkDeleteNotes()}><Trash2 size={13} />批量删除</button>
         <button className="button button-soft" disabled={busy} onClick={() => setSelectedNoteIds(new Set())}>取消选择</button>
       </div>}
       <div className="personal-notes-items">
         {items.map((item) => <div key={item.id} className="personal-note-list-row">
-          <input type="checkbox" aria-label={`选择 ${item.title || '未命名笔记'}`} checked={selectedNoteIds.has(item.id)} disabled={busy} onChange={(event) => toggleSelectedNote(item.id, event.target.checked)} />
+          <input type="checkbox" aria-label={`选择 ${item.title || '未命名笔记'}`} checked={selectedNoteIds.has(item.id)} disabled={busy || (!selectedNoteIds.has(item.id) && selectedNoteIds.size >= 50)} onChange={(event) => toggleSelectedNote(item.id, event.target.checked)} />
           <button className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
             <strong>{item.title || '未命名笔记'}</strong>
             <span>{item.excerpt || '尚未添加正文'}</span>
@@ -309,7 +309,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
               {!tags.length && <small>添加标签，方便整理和检索</small>}
             </div>
             <form onSubmit={(event) => { event.preventDefault(); addTag() }}>
-              <input value={tagInput} maxLength={24} disabled={busy} placeholder="输入标签，按回车添加" onChange={(event) => setTagInput(event.target.value)} />
+              <input aria-label="新标签" value={tagInput} maxLength={24} disabled={busy} placeholder="输入标签，按回车添加" onChange={(event) => setTagInput(event.target.value)} />
               <button type="submit" disabled={busy || !tagInput.trim() || tags.length >= 12} aria-label="添加标签"><Plus size={14} /></button>
             </form>
           </div>
