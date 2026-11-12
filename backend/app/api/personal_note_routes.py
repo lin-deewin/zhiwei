@@ -14,8 +14,11 @@ class PersonalNoteCreate(BaseModel):
     source_ids: list[str] = Field(default_factory=list, max_length=32)
 
 
-class PersonalNotePatch(PersonalNoteCreate):
+class PersonalNotePatch(BaseModel):
+    title: str = Field(default="", max_length=1000)
+    body_md: str = Field(default="", max_length=100000)
     revision: int = Field(ge=1)
+    source_ids: list[str] | None = Field(default=None, max_length=32)
 
 
 def _translate(call, *args, **kwargs):
