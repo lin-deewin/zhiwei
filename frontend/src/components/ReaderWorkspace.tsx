@@ -1,12 +1,10 @@
 import { WikiMarkdown } from './WikiMarkdown'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowRight, Highlighter, LoaderCircle, Plus, RefreshCw, Save, Sparkles, Trash2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { Pagination } from './Pagination'
-import { ResearchNotesList } from './KnowledgePage'
 import { GraphPanel } from './KnowledgeHub'
 import { api } from '../api'
 import { newRequestKey } from '../utils/request_key'
@@ -432,7 +430,7 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
   ] as const, [])
 
   return <section className="reading-workspace">
-    <GraphPanel sourceId={editing ? `note:${editing.id}` : `article:${context.content_id}`} version={editing?.revision || context.revision_id || 0} />
+    {editing && <GraphPanel sourceId={`note:${editing.id}`} version={editing.revision} />}
     {selection && <div className="selection-toolbar selection-toolbar-floating" style={{ left: toolbarPosition.left, top: toolbarPosition.top }} role="toolbar" aria-label="选中文字操作">
       {reanchorTarget ? <><span>为这条高亮重新选择原文</span><button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={() => void createHighlight()}><Highlighter size={14} />确认重新绑定</button><button onClick={() => setReanchorTarget(null)}>取消</button></> : <><button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={() => { setPendingExplain(selection); void startAI('explain', selection) }}><Sparkles size={14} />解释这段</button>
       <select aria-label="高亮颜色" value={color} onChange={(event) => setColor(event.target.value as typeof color)}><option value="yellow">黄色</option><option value="green">绿色</option><option value="blue">蓝色</option></select>
@@ -466,32 +464,4 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
       {!context.revision_id && <p className="reading-empty">正文文件暂时不可用。已有笔记仍可查看。</p>}
     </div>}
   </section>
-}
-
-export function NotesPage({ onNotice }: { onNotice: (message: string, error?: boolean) => void }) {
-  const [query, setQuery] = useState('')
-  const [items, setItems] = useState<Awaited<ReturnType<typeof api.searchNotes>>['items']>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
-  const [includeQuotes, setIncludeQuotes] = useState(false)
-  const [loading, setLoading] = useState(false)
-  useEffect(() => {
-    let active = true
-    const timer = window.setTimeout(() => {
-      setLoading(true)
-      api.searchNotes(query, page, pageSize, includeQuotes).then((result) => { if (active) { setItems(result.items); setTotal(result.total) } })
-        .catch((error) => { if (active) onNotice((error as Error).message, true) })
-        .finally(() => { if (active) setLoading(false) })
-    }, query ? 250 : 0)
-    return () => { active = false; window.clearTimeout(timer) }
-  }, [query, includeQuotes, page, pageSize, onNotice])
-  return <div className="notes-page"><div className="page-title-row"><div><div className="eyebrow">PERSONAL NOTES</div><h1>我的笔记</h1><p>搜索自己的理解、批注和原文引用。</p></div><span className="article-total">{total} 条个人笔记与批注</span></div>
-    <div className="notes-search"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="搜索笔记内容…" /><label><input type="checkbox" checked={includeQuotes} onChange={(event) => { setIncludeQuotes(event.target.checked); setPage(1) }} />包含原文引用</label></div>
-    {loading && <p>正在搜索…</p>}
-    <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={`${item.type}:${item.id}`} to={`/read/${encodeURIComponent(item.content_id)}${item.type === 'note' ? `?note=${encodeURIComponent(item.id)}` : `?annotation=${encodeURIComponent(item.id)}`}`}>
-      <small>{item.type === 'note' ? '个人笔记' : '高亮批注'} · {new Date(item.updated_at).toLocaleDateString()}</small><h2>{item.title || item.quote || '未命名笔记'}</h2><p>{item.body_md || (includeQuotes ? item.quote : '')}</p><strong>{item.article_title}<ArrowRight size={14} /></strong>
-    </Link>)}</div><Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1) }} />
-    <ResearchNotesList query={query} />
-  </div>
 }
