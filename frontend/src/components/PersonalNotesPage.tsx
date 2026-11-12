@@ -35,7 +35,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const [preview, setPreview] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const wiki = useWikiLinks()
+  const links = useWikiLinks(body)
 
   useEffect(() => {
     let active = true
@@ -174,7 +174,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
           </div>
           <input className="personal-note-title" value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true) }} placeholder="给这条笔记起个标题…" />
           {preview
-            ? <article className="personal-note-preview"><ReactMarkdown remarkPlugins={[remarkGfm, wikiPlugin]} rehypePlugins={[rehypeSanitize]} components={wiki.components}>{body || '（暂无正文）'}</ReactMarkdown></article>
+            ? <article className="personal-note-preview"><ReactMarkdown remarkPlugins={[remarkGfm, [wikiPlugin, { links }]]} rehypePlugins={[rehypeSanitize]}>{body || '（暂无正文）'}</ReactMarkdown></article>
             : <textarea className="personal-note-body" value={body} onChange={(event) => { setBody(event.target.value); setDirty(true) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" spellCheck />}
           <section className="personal-note-sources">
             <div className="personal-note-section-title"><div><Link2 size={16} /><strong>引用资料</strong><small>{sources.length} 份</small></div></div>
