@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 
 from app.core.database import connect, session, _initialize_schema
+from app.services import personal_notes
 from app.services.library import import_markdown
 
 
@@ -59,3 +60,30 @@ def test_legacy_migrations_preserve_existing_library_rows(monkeypatch, tmp_path)
         assert db.execute("SELECT name FROM schema_migrations WHERE version=2").fetchone()[0] == "personal_notes"
         assert db.execute("SELECT name FROM schema_migrations WHERE version=3").fetchone()[0] == "reading_progress"
         assert db.execute("SELECT name FROM schema_migrations WHERE version=4").fetchone()[0] == "personal_note_versions"
+
+
+
+def test_personal_note_history_migration_backfills_existing_notes(monkeypatch, tmp_path):
+    library = tmp_path / "library"
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(library))
+    article = import_markdown("source.md", "# 来源资料\n\n正文".encode())
+    note = personal_notes.create_personal_note({
+        "title": "迁移前的笔记",
+        "body_md": "已经存在的内容。",
+        "source_ids": ["article:" + article["id"]],
+    })
+
+    connection = sqlite3.connect(library / "app-data" / "library.sqlite")
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("DROP TABLE personal_note_versions")
+    connection.execute("DELETE FROM schema_migrations WHERE version=4")
+    connection.execute("UPDATE schema_version SET version=3")
+    _initialize_schema(connection, library)
+    connection.commit()
+    connection.close()
+
+    version = personal_notes.get_personal_note_version(note["id"], 1)
+    assert version["title"] == "迁移前的笔记"
+    assert version["body_md"] == "已经存在的内容。"
+    assert version["sources"][0]["source_id"] == "article:" + article["id"]
