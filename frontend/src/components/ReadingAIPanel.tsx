@@ -32,9 +32,11 @@ export function ReadingAIPanel({
     catch { citations = {} }
   }
 
+  const activeActionLabel = actions.find(([key]) => key === action)?.[1]
+
   return <div className="reading-ai-panel">
     <div className="reading-panel-heading">
-      <div><strong>只分析当前文章</strong><small>提交后按当前正文版本调用已配置的模型，并保存结果</small></div>
+      <div><strong>只分析当前文章</strong><small>{activeActionLabel ? `当前任务：${activeActionLabel} · ` : ''}提交后按当前正文版本调用已配置的模型，并保存结果</small></div>
     </div>
     <div className="reading-ai-actions">
       {actions.map(([key, label]) => <button className="button button-soft" key={key} disabled={!context.revision_id || Boolean(job && ['queued', 'running'].includes(job.status))} onClick={() => onStart(key)}><Sparkles size={14} />{label}</button>)}
