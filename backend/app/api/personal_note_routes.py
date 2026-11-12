@@ -47,6 +47,16 @@ def get_personal_note(note_id: str):
     return _translate(service.get_personal_note, note_id)
 
 
+@router.get("/personal-notes/{note_id}/versions")
+def list_personal_note_versions(note_id: str):
+    return _translate(service.list_personal_note_versions, note_id)
+
+
+@router.get("/personal-notes/{note_id}/versions/{revision}")
+def get_personal_note_version(note_id: str, revision: int):
+    return _translate(service.get_personal_note_version, note_id, revision)
+
+
 @router.patch("/personal-notes/{note_id}")
 def update_personal_note(note_id: str, payload: PersonalNotePatch):
     return _translate(service.update_personal_note, note_id, payload.model_dump())
