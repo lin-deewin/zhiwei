@@ -58,6 +58,7 @@ export interface PersonalKnowledgeNote {
   created_at: string
   updated_at: string
   sources: PersonalNoteSource[]
+  tags: string[]
 }
 
 export interface PersonalKnowledgeNoteListItem {
@@ -68,6 +69,7 @@ export interface PersonalKnowledgeNoteListItem {
   updated_at: string
   source_count: number
   excerpt: string
+  tags: string[]
 }
 
 
