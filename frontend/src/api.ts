@@ -91,7 +91,7 @@ export const api = {
   content: (id: string) => request<Content>(`/contents/${encodeURIComponent(id)}`),
   readingContext: (id: string) => request<ReadingContext>(`/contents/${encodeURIComponent(id)}/reading-context`),
   readingProgress: (id: string) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`),
-  saveReadingProgress: (id: string, value: { progress_ratio: number; scroll_y: number; block_id?: string | null }) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
+  saveReadingProgress: (id: string, value: { progress_ratio: number; scroll_y: number; block_id?: string | null }, keepalive = false) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value), keepalive }),
   setReadLater: (id: string, enabled: boolean) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/read-later`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }),
   recentlyRead: (limit = 50) => request<ReadingListItem[]>(`/reading/recent?limit=${limit}`),
   readLater: (limit = 50) => request<ReadingListItem[]>(`/reading/later?limit=${limit}`),
