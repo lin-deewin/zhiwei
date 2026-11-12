@@ -1,0 +1,39 @@
+import { Highlighter, Sparkles } from 'lucide-react'
+import type { Annotation, TextAnchor } from '../types'
+
+type ReadingSelectionToolbarProps = {
+  selection: TextAnchor | null
+  position: { left: number; top: number }
+  reanchorTarget: Annotation | null
+  busy: boolean
+  color: 'yellow' | 'green' | 'blue'
+  comment: string
+  onColorChange: (color: 'yellow' | 'green' | 'blue') => void
+  onCommentChange: (comment: string) => void
+  onExplain: () => void
+  onSave: () => void
+  onCancelReanchor: () => void
+}
+
+export function ReadingSelectionToolbar({
+  selection, position, reanchorTarget, busy, color, comment, onColorChange,
+  onCommentChange, onExplain, onSave, onCancelReanchor,
+}: ReadingSelectionToolbarProps) {
+  if (!selection) return null
+  return <div className="selection-toolbar selection-toolbar-floating" style={{ left: position.left, top: position.top }} role="toolbar" aria-label="选中文字操作">
+    {reanchorTarget
+      ? <>
+        <span>为这条高亮重新选择原文</span>
+        <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave}><Highlighter size={14} />确认重新绑定</button>
+        <button onClick={onCancelReanchor}>取消</button>
+      </>
+      : <>
+        <button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={onExplain}><Sparkles size={14} />解释这段</button>
+        <select aria-label="高亮颜色" value={color} onChange={(event) => onColorChange(event.target.value as typeof color)}>
+          <option value="yellow">黄色</option><option value="green">绿色</option><option value="blue">蓝色</option>
+        </select>
+        <input aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(event) => onCommentChange(event.target.value)} />
+        <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave}><Highlighter size={14} />保存高亮与批注</button>
+      </>}
+  </div>
+}
