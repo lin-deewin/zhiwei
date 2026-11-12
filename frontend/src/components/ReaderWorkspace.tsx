@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
 import { api } from '../api'
 import { anchorFromSelection, rangeForAnchor } from '../utils/reading_anchors'
@@ -16,6 +16,7 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
   onNotice: (message: string, error?: boolean) => void
 }) {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<'notes' | 'ai'>('notes')
   const [selection, setSelection] = useState<TextAnchor | null>(null)
   const [toolbarPosition, setToolbarPosition] = useState({ left: 24, top: 76 })
@@ -306,11 +307,31 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
     } catch (error) { onNotice((error as Error).message, true) }
   }
 
-  const saveAIAsNote = async (result: ReadingAIResult) => {
+  const createPersonalNoteFromSelection = async () => {
+    if (!selection || busy) return
+    const quote = selection.exact.trim()
+    if (!quote) return
+    const excerpt = Array.from(quote.replace(/\\s+/g, ' ')).slice(0, 48).join('')
+    const title = excerpt ? `摘录：${excerpt}` : '阅读摘录'
+    const body = quote.split(/\\r?\\n/).map((line) => `> ${line}`).join('\\n') + '\\n\\n## 我的理解\\n\\n'
+    setBusy(true)
     try {
-      const note = await api.convertAIResultToNote(result.id, { request_key: newRequestKey(), title: `AI ${result.action === 'summary' ? '全文总结' : result.action === 'explain' ? '段落解释' : '文章要点'}` })
-      setContext((current) => ({ ...current, notes: [note, ...current.notes] }))
-      onNotice('已转存为个人笔记')
+      const note = await api.createPersonalNote(title, body, [`article:${context.content_id}`])
+      setSelection(null)
+      window.getSelection()?.removeAllRanges()
+      onNotice('已将选段保存为独立个人笔记，并保留文章来源。')
+      navigate(`/personal-notes?note=${encodeURIComponent(note.id)}`)
+    } catch (error) {
+      onNotice((error as Error).message, true)
+    } finally { setBusy(false) }
+  }
+
+  const saveAIAsNote = async (result: ReadingAIResult) => {
+    const title = `AI ${result.action === 'summary' ? '全文总结' : result.action === 'explain' ? '段落解释' : '文章要点'}`
+    try {
+      const note = await api.createPersonalNote(title, result.rendered_md, [`article:${context.content_id}`])
+      onNotice('AI 结果已保存为独立个人笔记，原文章已保留为引用来源。')
+      navigate(`/personal-notes?note=${encodeURIComponent(note.id)}`)
     } catch (error) { onNotice((error as Error).message, true) }
   }
 
@@ -368,6 +389,7 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
       onColorChange={setColor}
       onCommentChange={setComment}
       onExplain={() => { if (selection) { setPendingExplain(selection); void startAI('explain', selection) } }}
+      onCreateNote={() => void createPersonalNoteFromSelection()}
       onSave={() => void createHighlight()}
       onCancelReanchor={() => setReanchorTarget(null)}
     />
