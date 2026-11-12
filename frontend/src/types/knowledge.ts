@@ -1,4 +1,4 @@
-export type EvidenceKind = 'article' | 'note' | 'annotation' | 'research' | 'topic'
+export type EvidenceKind = 'article' | 'note' | 'annotation' | 'research' | 'topic' | 'personal_note'
 export interface EvidenceSource {
   citation_id?: string
   chunk_id: string
@@ -39,4 +39,32 @@ export interface ResearchProject {
   id: string; title: string; question: string; revision: number; evidence: EvidenceSource[]
   turns: { id: string; question: string; answer: string; sources: EvidenceSource[]; created_at: string }[]
   notes: { id: string; title: string; status: string }[]
+}
+
+export interface PersonalNoteSource {
+  source_id: string
+  source_type: EvidenceKind
+  title_snapshot: string
+  url_snapshot?: string | null
+  created_at: string
+}
+
+export interface PersonalKnowledgeNote {
+  id: string
+  title: string
+  body_md: string
+  revision: number
+  created_at: string
+  updated_at: string
+  sources: PersonalNoteSource[]
+}
+
+export interface PersonalKnowledgeNoteListItem {
+  id: string
+  title: string
+  revision: number
+  created_at: string
+  updated_at: string
+  source_count: number
+  excerpt: string
 }
