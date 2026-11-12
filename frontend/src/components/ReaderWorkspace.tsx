@@ -46,10 +46,6 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
   const annotations = context.annotations
   useAnnotationHighlights(annotations)
 
-  useEffect(() => () => {
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
-  }, [])
-
   useEffect(() => {
     const noteId = searchParams.get('note')
     if (noteId) {
