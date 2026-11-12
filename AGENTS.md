@@ -14,7 +14,7 @@ Use Python type hints and 4-space indentation; Ruff is configured in `backend/py
 
 ## Testing Guidelines
 
-Pytest is configured for `backend/tests/`, although no automated test cases have been added yet. Frontend production compilation is checked with `cd frontend && npm run build`. Add focused coverage for sync resumability, filesystem boundaries, classification validation, and citation provenance as those modules are implemented.
+Pytest is configured for `backend/tests/` and currently includes coverage for AI, API fallback, classification, content deletion, knowledge, knowledge graph, library listing, login, Markdown sync, questions, research workspace, semantic search, sync, and workspace APIs. Run the complete suite with `cd backend && .venv/bin/pytest -q`. Frontend type-checking and production compilation are verified with `cd frontend && npm ci && npm run build`. The V3 GitHub Actions workflow runs both gates on pushes to `main` and `refactor/**`, and pull requests targeting `main`. Continue adding focused regression coverage for sync resumability, filesystem boundaries, classification validation, reading progress, annotation anchoring, and citation provenance.
 
 ## Commit & Pull Request Guidelines
 
