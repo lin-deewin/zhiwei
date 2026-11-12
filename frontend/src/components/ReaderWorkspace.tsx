@@ -371,7 +371,11 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
       onSave={() => void createHighlight()}
       onCancelReanchor={() => setReanchorTarget(null)}
     />
-    <div className="reading-workspace-tabs"><button className={tab === 'notes' ? 'selected' : ''} onClick={() => setTab('notes')}>高亮与笔记 <span>{annotations.length + context.notes.length}</span></button><button className={tab === 'ai' ? 'selected' : ''} onClick={() => setTab('ai')}><Sparkles size={14} /> AI 阅读助手</button></div>
+    <div className="reading-workspace-tabs" role="group" aria-label="阅读工作区">
+      <button type="button" aria-pressed={tab === 'notes'} className={tab === 'notes' ? 'selected' : ''} onClick={() => setTab('notes')}>高亮与笔记 <span>{annotations.length + context.notes.length}</span></button>
+      <button type="button" aria-pressed={tab === 'ai'} className={tab === 'ai' ? 'selected' : ''} onClick={() => setTab('ai')}><Sparkles size={14} /> AI 阅读助手</button>
+    </div>
+    <div className="reading-workspace-panel" role="region" aria-label={tab === 'notes' ? '高亮与笔记' : 'AI 阅读助手'}>
     {tab === 'notes'
       ? <ReadingNotesPanel
           context={context}
@@ -414,5 +418,6 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
           onSelectResult={setCurrentResult}
         />
     }
+    </div>
   </section>
 }
