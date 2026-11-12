@@ -113,10 +113,10 @@ def job(project_id: str, job_id: str):
 
 
 @router.post("/projects/{project_id}/jobs/{job_id}/cancel")
-def cancel_job(project_id: str, job_id: str):
+async def cancel_job(project_id: str, job_id: str):
     return run(research_job_manager.cancel, project_id, job_id)
 
 
 @router.post("/projects/{project_id}/jobs/{job_id}/retry", status_code=202)
-def retry_job(project_id: str, job_id: str):
+async def retry_job(project_id: str, job_id: str):
     return run(research_job_manager.retry, project_id, job_id)
