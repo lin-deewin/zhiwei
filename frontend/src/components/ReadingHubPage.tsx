@@ -50,17 +50,22 @@ export function ReadingHubPage({ onNotice }: ReadingHubPageProps) {
   const [recent, setRecent] = useState<ReadingListItem[]>([])
   const [later, setLater] = useState<ReadingListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let active = true
     setLoading(true)
+    setError('')
     Promise.all([api.recentlyRead(), api.readLater()]).then(([recentItems, laterItems]) => {
       if (!active) return
       setRecent(recentItems)
       setLater(laterItems)
     }).catch((error) => {
-      if (active) onNotice({ message: (error as Error).message, error: true })
+      if (active) {
+        setError((error as Error).message)
+        onNotice({ message: (error as Error).message, error: true })
+      }
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [refreshKey, onNotice])
@@ -100,6 +105,8 @@ export function ReadingHubPage({ onNotice }: ReadingHubPageProps) {
     </div>
     {loading
       ? <div className="reading-hub-loading"><LoaderCircle size={18} className="spin" />正在整理阅读记录…</div>
-      : <ReadingItems items={items} later={tab === 'later'} onRemove={(item) => void removeFromLater(item)} />}
+      : error
+        ? <div className="reading-hub-empty"><strong>暂时无法读取阅读记录</strong><span>{error}</span><button className="button button-soft" onClick={() => setRefreshKey((value) => value + 1)}>重试</button></div>
+        : <ReadingItems items={items} later={tab === 'later'} onRemove={(item) => void removeFromLater(item)} />}
   </section>
 }
