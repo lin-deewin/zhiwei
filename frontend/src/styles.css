@@ -650,3 +650,41 @@
 .personal-note-history-preview article{max-height:280px;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--color-surface);font-size:12px;line-height:1.7}
 .personal-note-history-preview>div:last-child{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 @media(max-width:560px){.personal-note-save-state{width:100%;text-align:right}.personal-note-history-list{grid-template-columns:1fr}}
+
+
+/* Reader workspace responsive and accessibility refinements */
+.reading-workspace{min-width:0}
+.reading-workspace-tabs{flex-wrap:wrap}
+.reading-workspace-tabs button{min-height:40px}
+.reading-workspace-tabs button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.reading-workspace-panel,.reading-notes-panel,.reading-ai-panel{min-width:0}
+.reading-ai-result,.reading-record-card,.reading-ai-progress{min-width:0;overflow-wrap:anywhere}
+.reading-ai-progress{flex-wrap:wrap}
+.reading-ai-progress span{min-width:0;overflow-wrap:anywhere}
+.note-save-status{gap:12px;flex-wrap:wrap}
+.note-save-status>div{display:flex;flex-wrap:wrap;gap:8px}
+.selection-toolbar-floating{flex-wrap:wrap}
+@media(max-width:720px){
+  .reading-workspace{margin:30px 0 16px;border-radius:10px}
+  .reading-workspace-tabs{padding:8px;gap:4px}
+  .reading-workspace-tabs button{flex:1 1 auto;justify-content:center;padding:10px 8px;min-height:42px;font-size:12px}
+  .reading-notes-panel,.reading-ai-panel{padding:14px}
+  .reading-data-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .reading-data-actions>*{justify-content:center;min-width:0;white-space:normal;text-align:center}
+  .reading-data-actions label{display:flex;align-items:center}
+  .reading-panel-heading{gap:10px}
+  .personal-note-editor{padding:10px}
+  .note-save-status{align-items:flex-start;flex-direction:column}
+  .note-save-status>div{width:100%}
+  .note-save-status button{flex:1}
+  .selection-toolbar-floating{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:9px}
+  .selection-toolbar-floating input{flex:1 1 100%;min-width:0;order:3}
+  .selection-toolbar-floating select{flex:1 1 100px;min-width:0}
+  .selection-toolbar-floating button{flex:1 1 auto;min-width:0;justify-content:center;padding-inline:8px}
+}
+@media(max-width:420px){
+  .reading-workspace-tabs button{flex-basis:100%}
+  .reading-data-actions{grid-template-columns:1fr}
+  .reading-result-actions{align-items:stretch}
+  .reading-result-actions strong{flex-basis:100%}
+}
