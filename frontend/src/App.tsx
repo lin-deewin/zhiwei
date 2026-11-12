@@ -12,6 +12,7 @@ import { KnowledgeHub } from './components/KnowledgeHub'
 import { LibraryPage } from './components/LibraryPage'
 import { AppSidebar } from './components/AppSidebar'
 import { ReaderPage } from './components/ReaderPage'
+import { ReadingHubPage } from './components/ReadingHubPage'
 import { QuestionsPage, QuestionDetail } from './components/QuestionsPages'
 import { SyncPage } from './components/SyncPage'
 import { CategoriesPage } from './components/CategoriesPage'
@@ -77,6 +78,7 @@ function App() {
       <WorkspaceTabs>{(href) => <Routes location={href}>
           <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
+          <Route path="/reading" element={<ReadingHubPage onNotice={setNotice} />} />
           <Route path="/sync" element={<SyncPage onSync={sync} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/questions" element={<QuestionsPage categories={categories} onNotice={setNotice} />} />
           <Route path="/questions/:id" element={<QuestionDetail categories={categories} onNotice={setNotice} />} />
