@@ -14,7 +14,7 @@
 
 ## 2. API 路由盘点
 
-当前 8 个路由模块，共 123 个路由声明：
+当前 8 个路由模块，共 125 个路由声明：
 
 | 路由模块 | 数量 | 主要职责 |
 |---|---:|---|
@@ -25,7 +25,7 @@
 | `api/semantic_routes.py` | 7 | 语义索引任务、评测案例、检索评估 |
 | `api/workspace_routes.py` | 9 | 研究项目、证据范围、追问、研究生成和版本恢复 |
 | `api/markdown_routes.py` | 6 | Markdown/Obsidian 目录配置、预览、导入、导出和同步 |
-| `api/personal_note_routes.py` | 5 | 独立个人笔记列表、详情、创建、更新和删除 |
+| `api/personal_note_routes.py` | 7 | 独立个人笔记列表、详情、创建、更新和删除 |
 
 ### API 兼容性约束
 
@@ -36,7 +36,7 @@
 
 ## 3. SQLite 表盘点
 
-当前 schema 声明 40 张表（原有 36 张 + 独立个人笔记 2 张 + 迁移登记 1 张 + 阅读进度 1 张）。按领域归类如下：
+当前 schema 声明 41 张表（原有 36 张 + 独立个人笔记 2 张 + 迁移登记 1 张 + 阅读进度 1 张 + 笔记版本 1 张）。按领域归类如下：
 
 ### Library / Sync
 
@@ -81,7 +81,7 @@
 
 ### Platform / Migration
 
-- `schema_migrations`：按版本登记迁移名称和应用时间；当前已落地版本 3（personal_notes、reading_progress）。
+- `schema_migrations`：按版本登记迁移名称和应用时间；当前已落地版本 4（personal_notes、reading_progress、personal_note_versions）。
 
 ### AI Retrieval / Markdown Interop
 
@@ -107,13 +107,13 @@
 
 ### 需要在后续版本解决
 
-1. `schema_migrations` 已建立有序迁移登记；当前版本 2 创建 `personal_notes` 与 `personal_note_sources`；版本 3 创建 `reading_progress`，并推进 `schema_version`。
+1. `schema_migrations` 已建立有序迁移登记；当前版本 2 创建 `personal_notes` 与 `personal_note_sources`；版本 3 创建 `reading_progress`；版本 4 创建 `personal_note_versions` 并为既有笔记回填当前版本快照。
 2. 历史列补齐仍保留列存在性检查，后续应逐步纳入 registry。
-3. 当前 v2/v3 均为新增表迁移；统一的迁移前自动备份策略尚未覆盖所有未来迁移。
+3. 当前 v2/v3/v4 均为新增表迁移；v4 对既有个人笔记回填初始历史版本。统一的迁移前自动备份策略尚未覆盖所有未来迁移。
 4. 尚无生产数据副本上的完整升级、回滚、备份恢复演练。
 5. 尚未对所有表的外键关系、级联删除策略、索引覆盖和迁移前后数据数量做机器化差异报告。
 
-**结论：** 当前已有最小版本化迁移 registry，个人笔记和阅读进度迁移可重复执行，旧库数据保留测试已加入；但迁移前备份、失败回滚演练和完整 schema diff 尚未完成。不得直接在用户生产库上试验。
+**结论：** 当前已有最小版本化迁移 registry，个人笔记、阅读进度和版本历史迁移可重复执行，旧笔记历史回填与旧库数据保留测试已加入；但迁移前备份、失败回滚演练和完整 schema diff 尚未完成。不得直接在用户生产库上试验。
 
 ## 5. 文件系统与数据安全
 
@@ -145,6 +145,6 @@
 
 ## 7. 自动化验证基线
 
-- 后端：此前完整 CI 基线为 70 passed；阅读进度新增测试尚未获得新一轮 CI 结果。
-- 前端：此前 TypeScript 项目构建与 Vite 生产构建通过；阅读器拆分、阅读进度页面和个人笔记样式修正尚待新一轮 CI 验证。
+- 后端：此前完整 CI 基线为 70 passed；阅读进度与个人笔记版本历史新增测试尚未获得最新 head 的 CI 结果。
+- 前端：此前 TypeScript 项目构建与 Vite 生产构建通过；阅读器拆分、阅读进度页面、个人笔记自动保存与版本历史尚待最新 head 的 CI 验证。
 - 当前自动化尚未包含前端交互测试、浏览器端端到端流程、跨平台文件系统测试或真实数据迁移演练。
