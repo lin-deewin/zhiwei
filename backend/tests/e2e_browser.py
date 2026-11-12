@@ -182,11 +182,11 @@ async def _test_reader(browser) -> None:
         await page.get_by_label("笔记标题").fill("V3 浏览器阅读笔记")
         await page.get_by_label("笔记正文").fill("这条笔记属于文章阅读记录，不是独立个人笔记。")
         await page.wait_for_function(
-            "() => document.querySelector('.note-save-status')?.textContent === '未保存'",
+            "() => document.querySelector('.note-save-status span')?.textContent === '未保存'",
             timeout=5000,
         )
         await page.wait_for_function(
-            "() => document.querySelector('.note-save-status')?.textContent === '已保存'",
+            "() => document.querySelector('.note-save-status span')?.textContent === '已保存'",
             timeout=10000,
         )
         reading_response = await page.request.get(f"{BASE}/api/v1/contents/{content_id}/reading-context")
