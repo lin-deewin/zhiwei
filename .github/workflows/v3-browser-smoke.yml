@@ -2,7 +2,7 @@ name: V3 browser smoke
 
 on:
   push:
-    branches: ["refactor/v3"]
+    branches: ["main", "refactor/**"]
     paths:
       - "frontend/**"
       - "backend/**"

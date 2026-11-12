@@ -334,7 +334,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
               {!tags.length && <small>添加标签，方便整理和检索</small>}
             </div>
             <form onSubmit={(event) => { event.preventDefault(); addTag() }}>
-              <TextInput label="新标签" width="100%" aria-label="新标签" value={tagInput} isDisabled={busy} placeholder="输入标签，按回车添加" onChange={(_value, event) => setTagInput(event.target.value)} />
+              <TextInput label="新标签" width="100%" aria-label="新标签" value={tagInput} isDisabled={busy} placeholder="输入标签，按回车添加" onChange={(_value, event) => setTagInput(event.target.value.slice(0, 24))} />
               <button type="submit" disabled={busy || !tagInput.trim() || tags.length >= 12} aria-label="添加标签"><Plus size={14} /></button>
             </form>
           </div>

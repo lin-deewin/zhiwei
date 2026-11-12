@@ -41,6 +41,22 @@ async def main():
         await expect(
             page.get_by_role("heading", name="Astryx 验证文章").first
         ).to_be_visible()
+        await page.locator("p.reader-markable").first.evaluate("""element => {
+            const range = document.createRange(); range.setStart(element.firstChild, 0); range.setEnd(element.firstChild, Math.min(20, element.firstChild.textContent.length));
+            const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+            element.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+        }""")
+        await page.get_by_role("textbox", name="批注内容", exact=True).fill(
+            "Astryx 锚点验证"
+        )
+        await page.get_by_role("button", name="保存高亮与批注", exact=True).click()
+        await page.wait_for_timeout(300)
+        annotations = await page.request.get(
+            f"http://127.0.0.1:8010/api/v1/contents/{article['id']}/annotations"
+        )
+        assert any(
+            item["comment_md"] == "Astryx 锚点验证" for item in await annotations.json()
+        )
         await page.get_by_role("button", name="稍后阅读", exact=True).click()
         await expect(
             page.get_by_role("button", name="已加入稍后阅读", exact=True)
@@ -68,29 +84,33 @@ async def main():
         await expect(
             page.get_by_role("button", name="切换到浅色主题", exact=True)
         ).to_be_visible()
-        for width in (360, 390, 768, 1024, 1440):
-            await page.set_viewport_size({"width": width, "height": 900})
-            for route in (
-                "/",
-                "/overview",
-                "/reading",
-                "/notes",
-                "/personal-notes",
-                "/questions",
-                "/categories",
-                "/sync",
-                "/settings",
-                "/ask",
-                "/knowledge?tab=assistant",
-                "/knowledge?tab=topics",
-                "/knowledge?tab=projects",
-                "/knowledge?tab=markdown",
-            ):
-                await page.goto("http://127.0.0.1:5173" + route)
-                await page.wait_for_timeout(200)
-                assert not await page.evaluate(
-                    "document.documentElement.scrollWidth > innerWidth + 2"
-                ), (route, width)
+        for mode in ("light", "warm"):
+            await page.evaluate(
+                "mode => localStorage.setItem('zhiwei-reading-theme', mode)", mode
+            )
+            for width in (360, 390, 768, 1024, 1440):
+                await page.set_viewport_size({"width": width, "height": 900})
+                for route in (
+                    "/",
+                    "/overview",
+                    "/reading",
+                    "/notes",
+                    "/personal-notes",
+                    "/questions",
+                    "/categories",
+                    "/sync",
+                    "/settings",
+                    "/ask",
+                    "/knowledge?tab=assistant",
+                    "/knowledge?tab=topics",
+                    "/knowledge?tab=projects",
+                    "/knowledge?tab=markdown",
+                ):
+                    await page.goto("http://127.0.0.1:5173" + route)
+                    await page.wait_for_timeout(200)
+                    assert not await page.evaluate(
+                        "document.documentElement.scrollWidth > innerWidth + 2"
+                    ), (route, width)
         assert not errors, errors
         print(
             "PASS: import, reader, read later, dialog cancel, note save, delete cancel, themes; no runtime errors"

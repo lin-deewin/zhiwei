@@ -28,15 +28,15 @@ export function ReadingSelectionToolbar({
     {reanchorTarget
       ? <>
         <span>为这条高亮重新选择原文</span>
-        <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave}><Highlighter size={14} />确认重新绑定</button>
+        <Button label="确认重新绑定" icon={<Highlighter />} variant="primary"   isDisabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave} />
         <button onClick={onCancelReanchor}>取消</button>
       </>
       : <>
-        <button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={onExplain}><Sparkles size={14} />解释这段</button>
-        <button className="button button-soft" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onCreateNote}><FilePlus2 size={14} />转为个人笔记</button>
+        <Button label="解释这段" icon={<Sparkles />} variant="secondary"   onMouseDown={(event) => event.preventDefault()} onClick={onExplain} />
+        <Button label="转为个人笔记" icon={<FilePlus2 />} variant="secondary"   isDisabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onCreateNote} />
         <Selector label="高亮颜色" options={[({value:String("yellow"),label:"黄色"}),({value:String("green"),label:"绿色"}),({value:String("blue"),label:"蓝色"})]} value={String(color)} onChange={value => onColorChange(value as typeof color)} />
         <TextInput label="批注内容" width="100%" aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(_value, event) => onCommentChange(event.target.value)} />
-        <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave}><Highlighter size={14} />保存高亮与批注</button>
+        <Button label="保存高亮与批注" icon={<Highlighter />} variant="primary"   isDisabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave} />
       </>}
   </div>
 }

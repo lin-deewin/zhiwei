@@ -78,7 +78,7 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
         await title.wait_for(timeout=15000)
         note_title = f"{name} 浏览器验收笔记"
         await title.fill(note_title)
-        await page.locator("textarea.personal-note-body").fill(
+        await page.locator(".personal-note-body textarea").fill(
             "浏览器验收的正文：通过独立个人笔记保存自己的理解。"
         )
         # Assert the UI actually enters and leaves its debounced auto-save state.
@@ -96,7 +96,7 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
         print(f"{name} after reload: {page.url}", flush=True)
         try:
             await page.wait_for_function(
-                "(expected) => document.querySelector('input.personal-note-title')?.value === expected",
+                "(expected) => document.querySelector('.personal-note-title input')?.value === expected",
                 arg=note_title, timeout=15000,
             )
         except Exception:
@@ -106,7 +106,7 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
                 const item = response?.ok ? await response.json() : null;
                 return {
                     url: location.href,
-                    titleInput: document.querySelector('input.personal-note-title')?.value ?? null,
+                    titleInput: document.querySelector('.personal-note-title input')?.value ?? null,
                     loading: document.querySelector('.personal-note-loading')?.textContent ?? null,
                     persisted: item ? {title:item.title, revision:item.revision, body:item.body_md.slice(0,100)} : null,
                     status: response?.status ?? null,
@@ -224,8 +224,9 @@ async def _test_reader(browser) -> None:
         # Create an explicit graph edge from the personal note to its source article.
         await page.locator("details.knowledge-graph summary").click()
         await page.get_by_label("搜索链接目标").fill("V3 浏览器验收文章")
-        graph_target = page.get_by_label("选择链接目标")
-        await graph_target.select_option(f"article:{content_id}")
+        graph_target = page.get_by_role("combobox", name="选择链接目标", exact=True)
+        await graph_target.click()
+        await page.get_by_role("option", name="V3 浏览器验收文章", exact=False).click()
         await page.get_by_role("button", name="建立链接").click()
         graph_response = await page.request.get(
             f"{BASE}/api/v1/knowledge/links?source_id=personal_note:{personal_note_id}"
@@ -260,9 +261,9 @@ async def _test_research_and_sync(browser) -> None:
         await page.get_by_label("研究主问题").fill("这篇资料的主要论点和证据是什么？")
         search = page.get_by_placeholder("搜索资料标题或 ID")
         await search.fill("V3 浏览器验收文章")
-        source_label = page.locator(".knowledge-directory label").filter(has_text="V3 浏览器验收文章").first
-        await source_label.wait_for(timeout=10000)
-        await source_label.locator("input").check()
+        source = page.get_by_role("checkbox", name="V3 浏览器验收文章", exact=False).first
+        await source.wait_for(timeout=10000)
+        await source.check()
         await page.get_by_role("button", name="创建并保存研究项目").click()
         await page.get_by_role("heading", name="V3 浏览器研究任务").wait_for(timeout=15000)
         await page.get_by_label("研究追问").fill("请用三点概括，并指出证据边界。")

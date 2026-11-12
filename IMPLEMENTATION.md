@@ -325,3 +325,14 @@ for unique item:
 ## 恢复概览与主题切换
 
 从 dev 版本恢复概览内容，适配 main 路由与样式；侧栏加入概览入口及主题开关，兼容原有 `zhiwei-reading-theme` 偏好。生产构建与 Playwright 验证涵盖概览导航、主题刷新保留和移动视口。
+
+## Astryx migration stages
+
+1. Preserve the pre-existing workspace changes in a separate commit on `refactor/astryx-ui`.
+2. Pin Astryx dependencies; query component APIs; generate the application theme; adopt responsive AppShell/SideNav without changing route contracts.
+3. Introduce shared confirmations, feedback, paging, category selection, headers, and page states.
+4. Migrate library, reading, personal notes, questions, classification, sync, settings and knowledge surfaces to the documented controls. Retain specialized reading DOM, graph rendering, API calls, revision checks and evidence hashes.
+5. Replace blocking in-app confirmations with promise-based dialogs, while keeping the browser-required native beforeunload protection. Protect internal link navigation before awaiting user decisions.
+6. Validate production compilation, backend regression coverage, isolated Chromium flows, both themes and responsive route sweeps. Review each stage with `git diff --check` before publishing.
+
+Theme regeneration: `cd frontend && npx astryx theme build src/theme/zhiwei-theme.ts --out src/theme/zhiwei.css`. Check committed artifacts using the same command with `--check`. Run `npx astryx doctor --built dist` for build integration, and `npx astryx doctor --built .` for the stricter source audit. The source audit still reports retained native domain markup and legacy geometry; it is not a claim of zero remaining findings.
