@@ -233,17 +233,18 @@ async def _test_research_and_sync(browser) -> None:
 
         # Retry is a new durable job; the previous failure remains in history.
         await page.get_by_role("button", name="重新执行").click()
-        await page.wait_for_function(
-            """async (projectId) => {
-                const response = await fetch('/api/v1/knowledge/projects/' + encodeURIComponent(projectId) + '/jobs',
-                    {cache: 'no-store'});
-                if (!response.ok) return false;
-                const data = await response.json();
-                return data.items.length === 2 && data.items[0].status === 'failed';
-            }""",
-            arg=project_id,
-            timeout=15000,
-        )
+        retry_deadline = asyncio.get_running_loop().time() + 15
+        retried_jobs = []
+        while asyncio.get_running_loop().time() < retry_deadline:
+            retry_response = await page.request.get(
+                f"{BASE}/api/v1/knowledge/projects/{project_id}/jobs"
+            )
+            assert retry_response.ok, await retry_response.text()
+            retried_jobs = (await retry_response.json())["items"]
+            if len(retried_jobs) == 2 and retried_jobs[0]["status"] == "failed":
+                break
+            await asyncio.sleep(0.2)
+        assert len(retried_jobs) == 2 and retried_jobs[0]["status"] == "failed", retried_jobs
         await page.reload(wait_until="domcontentloaded")
         await page.locator(".research-job-status strong").filter(has_text="研究任务失败").wait_for(timeout=15000)
         await page.screenshot(path=str(CAPTURES / "desktop-research-job.png"), full_page=True)
