@@ -72,3 +72,21 @@ def test_snapshot_is_read_only_and_reports_schema_version(monkeypatch, tmp_path)
     assert report["foreign_key_violations"] == 0
     assert report["schema_version"] == 6
     assert (source / "app-data/library.sqlite").stat().st_mtime_ns == before
+
+
+
+def test_release_check_detects_personal_note_body_mutation_with_same_id(monkeypatch, tmp_path):
+    source = tmp_path / "library"
+    _seed(monkeypatch, source)
+    restored = tmp_path / "restored"
+    backup_library(source, tmp_path / "backup")
+    restore_library(tmp_path / "backup", restored)
+    connection = sqlite3.connect(restored / "app-data/library.sqlite")
+    connection.execute(
+        "UPDATE personal_notes SET body_md='被意外覆盖的正文' WHERE title='我的学习结论'"
+    )
+    connection.commit()
+    connection.close()
+    report = compare(source, restored)
+    assert report["passed"] is False
+    assert "personal_notes.body_md: 记录值发生变化" in report["issues"]
