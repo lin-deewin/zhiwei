@@ -17,6 +17,7 @@ from app.core.config import get_library_dir, library_scope
 from app.core.database import session
 from app.services import knowledge_graph
 from app.services.knowledge import save_research
+from app.services.personal_notes import get_personal_note, update_personal_note
 from app.services.library import import_markdown, now
 from app.services.rag import _records
 from app.services.reading_workspace import patch_annotation, patch_note
@@ -180,6 +181,16 @@ def _record(source_id: str) -> dict:
             "url": row["url"],
             "author": row["author"],
         }
+    if kind == "personal_note":
+        note = get_personal_note(record_id)
+        return {
+            "title": note["title"],
+            "body": note["body_md"],
+            "kind": kind,
+            "id": record_id,
+            "revision": note["revision"],
+            "tags": note.get("tags", []),
+        }
     table = {
         "note": "notes",
         "annotation": "annotations",
@@ -207,6 +218,8 @@ def _record(source_id: str) -> dict:
 
 def _record_hash(record: dict) -> str:
     parts = [record["title"], record["body"]]
+    if record["kind"] == "personal_note":
+        parts.append(json.dumps(record.get("tags", []), ensure_ascii=False))
     if record["kind"] == "article":
         path = get_library_dir() / record["path"]
         parts.append(_file_hash(path, get_library_dir().resolve()))
@@ -427,6 +440,7 @@ def export_all() -> dict:
                     "source_url": record.get("url"),
                     "author": record.get("author"),
                     "question": record.get("question"),
+                    **({"tags": record.get("tags", [])} if record["kind"] == "personal_note" else {}),
                 }
                 output = (
                     "---\n"
@@ -600,6 +614,13 @@ def apply(
                         patch_annotation(rid, {"comment_md": body, "revision": record["revision"]})
                     elif kind == "research":
                         save_research(rid, title, body, record["revision"])
+                    elif kind == "personal_note":
+                        update_personal_note(rid, {
+                            "title": title,
+                            "body_md": body,
+                            "revision": record["revision"],
+                            "tags": meta.get("tags", record.get("tags", [])),
+                        })
                     else:
                         knowledge_graph.save_topic(title, body, rid, record["revision"])
                 if sid.startswith("article:"):
