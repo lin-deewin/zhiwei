@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.database import session
+from app.api.knowledge_routes import EvidenceInput
 from app.services import knowledge
 from app.services.library import import_markdown
 from app.services.rag import retrieve
@@ -198,3 +199,11 @@ def test_evidence_budget_keeps_query_matches_and_snapshots():
     assert result["excerpted"]
     assert result["chunk_id"] == source["chunk_id"]
     assert result["content_hash"] == source["content_hash"]
+
+
+
+def test_knowledge_filters_include_personal_notes():
+    default = EvidenceInput(question="如何建立长期学习习惯？")
+    assert "personal_note" in default.kinds
+    explicit = EvidenceInput(question="如何建立长期学习习惯？", kinds=["personal_note"])
+    assert explicit.kinds == ["personal_note"]
