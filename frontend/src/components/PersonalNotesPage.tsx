@@ -23,11 +23,14 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const [params, setParams] = useSearchParams()
   const selectedId = params.get('note')
   const [items, setItems] = useState<PersonalKnowledgeNoteListItem[]>([])
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [note, setNote] = useState<PersonalKnowledgeNote | null>(null)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [sources, setSources] = useState<PersonalNoteSource[]>([])
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [sourceQuery, setSourceQuery] = useState('')
   const [sourceCandidates, setSourceCandidates] = useState<Awaited<ReturnType<typeof api.knowledgeNodes>>['items']>([])
   const [busy, setBusy] = useState(false)
@@ -51,7 +54,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
 
   useEffect(() => {
     if (!selectedId) {
-      setNote(null); setTitle(''); setBody(''); setSources([]); setDirty(false)
+      setNote(null); setTitle(''); setBody(''); setSources([]); setTags([]); setTagInput(''); setDirty(false)
       setVersions([]); setHistoryPreview(null); setHistoryOpen(false); setAutoSavePaused(false)
       return
     }
@@ -60,7 +63,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     api.personalNote(selectedId).then((result) => {
       if (!active) return
       setNote(result); setTitle(result.title); setBody(result.body_md)
-      setSources(result.sources); setDirty(false); setAutoSavePaused(false)
+      setSources(result.sources); setTags(result.tags || []); setTagInput(''); setDirty(false); setAutoSavePaused(false)
       setHistoryPreview(null); setHistoryOpen(false)
     }).catch((error) => {
       if (active) {
@@ -120,9 +123,9 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     if (!note || busy) return
     setBusy(true)
     try {
-      const updated = await api.savePersonalNote(note.id, title, body, note.revision, sources.map((source) => source.source_id))
+      const updated = await api.savePersonalNote(note.id, title, body, note.revision, sources.map((source) => source.source_id), tags)
       setNote(updated); setTitle(updated.title); setBody(updated.body_md)
-      setSources(updated.sources); setDirty(false); setAutoSavePaused(false)
+      setSources(updated.sources); setTags(updated.tags || []); setDirty(false); setAutoSavePaused(false)
       setReloadKey((value) => value + 1)
     } catch (error) {
       setAutoSavePaused(true)
@@ -134,7 +137,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     if (!note || !dirty || busy || autoSavePaused) return
     const timer = window.setTimeout(() => { void saveNote() }, 1200)
     return () => window.clearTimeout(timer)
-  }, [note?.id, note?.revision, title, body, sources, dirty, busy, autoSavePaused])
+  }, [note?.id, note?.revision, title, body, sources, tags, dirty, busy, autoSavePaused])
 
   const openVersion = async (revision: number) => {
     if (!note) return
@@ -181,6 +184,58 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     setSourceQuery(''); setSourceCandidates([]); setDirty(true); setAutoSavePaused(false)
   }
 
+  const addTag = () => {
+    const tag = tagInput.trim()
+    if (!tag) return
+    if (tags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())) {
+      setTagInput('')
+      return
+    }
+    if (tags.length >= 12) {
+      onNotice({ message: '每条个人笔记最多添加 12 个标签', error: true })
+      return
+    }
+    setTags((current) => [...current, tag])
+    setTagInput('')
+    setDirty(true)
+    setAutoSavePaused(false)
+  }
+
+  const removeTag = (tag: string) => {
+    if (busy) return
+    setTags((current) => current.filter((value) => value !== tag))
+    setDirty(true)
+    setAutoSavePaused(false)
+  }
+
+  const toggleSelectedNote = (id: string, checked: boolean) => {
+    setSelectedNoteIds((current) => {
+      const next = new Set(current)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  const bulkDeleteNotes = async () => {
+    if (busy) return
+    const selected = items.filter((item) => selectedNoteIds.has(item.id))
+    if (!selected.length || !window.confirm(\`确定删除选中的 \${selected.length} 条个人笔记？其来源引用、版本历史和知识链接也会删除。\`)) return
+    setBusy(true)
+    try {
+      const result = await api.bulkDeletePersonalNotes(selected.map(({ id, revision }) => ({ id, revision })))
+      if (selectedId && selectedNoteIds.has(selectedId)) {
+        setDirty(false)
+        setParams({}, { replace: true })
+      }
+      setSelectedNoteIds(new Set())
+      setReloadKey((value) => value + 1)
+      onNotice({ message: \`已删除 \${result.deleted} 条个人笔记\` })
+    } catch (error) {
+      onNotice({ message: (error as Error).message, error: true })
+    } finally { setBusy(false) }
+  }
+
   const removeSource = (sourceId: string) => {
     if (busy) return
     setSources((current) => current.filter((source) => source.source_id !== sourceId))
@@ -194,12 +249,21 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
         <button className="button button-primary button-icon" onClick={() => void createNote()} disabled={busy} aria-label="新建个人笔记" title="新建个人笔记"><FilePlus2 size={17} /></button>
       </div>
       <label className="personal-notes-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索个人笔记…" /></label>
+      {selectedNoteIds.size > 0 && <div className="personal-note-bulk-bar">
+        <span>{selectedNoteIds.size} 条已选</span>
+        <button className="button button-danger-quiet" disabled={busy} onClick={() => void bulkDeleteNotes()}><Trash2 size={13} />批量删除</button>
+        <button className="button button-soft" disabled={busy} onClick={() => setSelectedNoteIds(new Set())}>取消选择</button>
+      </div>}
       <div className="personal-notes-items">
-        {items.map((item) => <button key={item.id} className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
-          <strong>{item.title || '未命名笔记'}</strong>
-          <span>{item.excerpt || '尚未添加正文'}</span>
-          <small>{item.source_count} 个引用 · {new Date(item.updated_at).toLocaleDateString('zh-CN')}</small>
-        </button>)}
+        {items.map((item) => <div key={item.id} className="personal-note-list-row">
+          <input type="checkbox" aria-label={`选择 ${item.title || '未命名笔记'}`} checked={selectedNoteIds.has(item.id)} disabled={busy} onChange={(event) => toggleSelectedNote(item.id, event.target.checked)} />
+          <button className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
+            <strong>{item.title || '未命名笔记'}</strong>
+            <span>{item.excerpt || '尚未添加正文'}</span>
+            {!!item.tags?.length && <div className="personal-note-list-tags">{item.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div>}
+            <small>{item.source_count} 个引用 · {new Date(item.updated_at).toLocaleDateString('zh-CN')}</small>
+          </button>
+        </div>)}
         {!items.length && <div className="personal-notes-empty"><FileText size={20} /><span>{query ? '没有找到匹配的笔记' : '还没有个人笔记'}</span><small>把阅读中的想法、判断和总结写在这里</small></div>}
       </div>
     </aside>
@@ -239,6 +303,16 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
               <div><button className="button button-soft" onClick={() => setHistoryPreview(null)}>关闭预览</button><button className="button button-primary" disabled={historyPreview.revision === note.revision} onClick={restoreVersion}><RotateCcw size={14} />恢复标题和正文</button></div>
             </div>}
           </section>}
+          <div className="personal-note-tags">
+            <div className="personal-note-tag-list">
+              {tags.map((tag) => <button key={tag} type="button" disabled={busy} onClick={() => removeTag(tag)} title="移除标签"><span>{tag}</span><X size={11} /></button>)}
+              {!tags.length && <small>添加标签，方便整理和检索</small>}
+            </div>
+            <form onSubmit={(event) => { event.preventDefault(); addTag() }}>
+              <input value={tagInput} maxLength={24} disabled={busy} placeholder="输入标签，按回车添加" onChange={(event) => setTagInput(event.target.value)} />
+              <button type="submit" disabled={busy || !tagInput.trim() || tags.length >= 12} aria-label="添加标签"><Plus size={14} /></button>
+            </form>
+          </div>
           <input className="personal-note-title" disabled={busy} value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="给这条笔记起个标题…" />
           {preview
             ? <article className="personal-note-preview"><ReactMarkdown remarkPlugins={[remarkGfm, [wikiPlugin, { links }]]} rehypePlugins={[rehypeSanitize]}>{body || '（暂无正文）'}</ReactMarkdown></article>
