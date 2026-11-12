@@ -44,7 +44,10 @@ def get_personal_note(note_id: str) -> dict:
             raise LookupError("个人笔记不存在")
         result = dict(row)
         result["sources"] = _sources(db, note_id)
-        return result
+    available = set(_catalog())
+    for source in result["sources"]:
+        source["available"] = source["source_id"] in available
+    return result
 
 
 def list_personal_notes(q: str = "", page: int = 1, page_size: int = 20) -> dict:
