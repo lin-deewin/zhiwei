@@ -1,6 +1,6 @@
 import { useWikiLinks, wikiPlugin } from './utils/wiki_markdown'
 import { Children, createElement, isValidElement, memo, useCallback, useEffect, useRef, useState, type ReactNode, type HTMLAttributes, type ElementType } from 'react'
-import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -8,7 +8,7 @@ import rehypeHighlight from 'rehype-highlight'
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, Bookmark, Bot, Check, ChevronDown,
   ChevronRight, CircleHelp, Clock3, FileText, FolderOpen, Hash,
-  LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Sparkles, Tags,
+  LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Tags,
   Trash2, Upload, X,
 } from 'lucide-react'
 import { api } from './api'
@@ -101,10 +101,6 @@ function App() {
   </div>
 }
 
-function shortenPath(path: string) {
-  const home = path.replace(/^\/home\/[^/]+/, '~')
-  return home.length > 28 ? `…${home.slice(-26)}` : home
-}
 
 function LibraryPage({ search, categories, refresh, onSearchChange, onImport, onNotice, onLibraryChanged }: {
   search: string; categories: Category[]; refresh: number; onSearchChange: (search: string) => void; onImport: (file?: File) => void;
