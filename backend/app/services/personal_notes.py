@@ -159,12 +159,16 @@ def list_personal_note_versions(note_id: str) -> list[dict]:
         if not db.execute("SELECT 1 FROM personal_notes WHERE id=?", (note_id,)).fetchone():
             raise LookupError("个人笔记不存在")
         rows = db.execute(
-            """SELECT revision,title,created_at,length(body_md) AS body_length,
-                      (SELECT COUNT(*) FROM json_each(personal_note_versions.sources_json)) AS source_count
+            """SELECT revision,title,created_at,length(body_md) AS body_length,sources_json
                FROM personal_note_versions WHERE note_id=? ORDER BY revision DESC""",
             (note_id,),
         ).fetchall()
-    return [dict(row) for row in rows]
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["source_count"] = len(json.loads(item.pop("sources_json")))
+        result.append(item)
+    return result
 
 
 def get_personal_note_version(note_id: str, revision: int) -> dict:
