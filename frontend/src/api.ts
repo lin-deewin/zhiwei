@@ -1,5 +1,5 @@
 import { newRequestKey } from './utils/request_key'
-import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, ReadingContext, ReadingAIJob, ReadingAIResult } from './types'
+import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, ReadingContext, ReadingAIJob, ReadingAIResult, ReadingProgress, ReadingListItem } from './types'
 
 export type AccountStatus = { status: string; message: string; profile?: { name: string } | null }
 export type LoginStatus = {
@@ -90,6 +90,11 @@ export const api = {
   },
   content: (id: string) => request<Content>(`/contents/${encodeURIComponent(id)}`),
   readingContext: (id: string) => request<ReadingContext>(`/contents/${encodeURIComponent(id)}/reading-context`),
+  readingProgress: (id: string) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`),
+  saveReadingProgress: (id: string, value: { progress_ratio: number; scroll_y: number; block_id?: string | null }) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/reading-progress`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
+  setReadLater: (id: string, enabled: boolean) => request<ReadingProgress>(`/contents/${encodeURIComponent(id)}/read-later`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) }),
+  recentlyRead: (limit = 50) => request<ReadingListItem[]>(`/reading/recent?limit=${limit}`),
+  readLater: (limit = 50) => request<ReadingListItem[]>(`/reading/later?limit=${limit}`),
   annotations: (id: string) => request<Annotation[]>(`/contents/${encodeURIComponent(id)}/annotations`),
   createAnnotation: (id: string, value: { revision_id: string; anchor: object; color: string; comment_md: string; request_key: string }) => request<Annotation>(`/contents/${encodeURIComponent(id)}/annotations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
   patchAnnotation: (id: string, value: { revision: number; color?: string; comment_md?: string }) => request<Annotation>(`/annotations/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }),
