@@ -9,7 +9,7 @@ type AppSidebarProps = {
 }
 
 function shortenPath(path: string) {
-  const home = path.replace(/^\\/home\\/[^/]+/, '~')
+  const home = path.replace(/^\/home\/[^/]+/, '~')
   return home.length > 28 ? `…${home.slice(-26)}` : home
 }
 
