@@ -13,7 +13,7 @@ import { GraphPanel } from './KnowledgeHub'
 import { nodePath } from '../utils/knowledge_links'
 import type { AskResult, Category, EvidenceKind, EvidenceSource, ResearchNote } from '../types'
 
-const labels: Record<EvidenceKind, string> = { article: '文章原文', note: '个人笔记', annotation: '高亮批注', research: 'AI 研究笔记', topic: '主题知识页' }
+const labels: Record<EvidenceKind, string> = { article: '文章原文', note: '个人笔记', annotation: '高亮批注', research: 'AI 研究笔记', topic: '主题知识页', personal_note: '个人笔记' }
 function sourcePath(source: EvidenceSource) {
   return nodePath(source)
 }
