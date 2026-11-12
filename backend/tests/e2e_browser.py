@@ -51,12 +51,18 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
         await page.locator("textarea.personal-note-body").fill(
             "浏览器验收的正文：通过独立个人笔记保存自己的理解。"
         )
-        # Wait for the debounced auto-save to reach the backend before reload.
+        # Assert the UI actually enters and leaves its debounced auto-save state.
+        await page.wait_for_function(
+            """() => document.querySelector('.personal-note-save-state')?.textContent === '修改将自动保存'""",
+            timeout=5000,
+        )
         await page.wait_for_function(
             """async (expectedTitle) => {
+                const state = document.querySelector('.personal-note-save-state')?.textContent;
+                if (state !== '已保存') return false;
                 const id = new URL(location.href).searchParams.get('note');
                 if (!id) return false;
-                const response = await fetch('/api/v1/personal-notes/' + encodeURIComponent(id));
+                const response = await fetch('/api/v1/personal-notes/' + encodeURIComponent(id), {cache: 'no-store'});
                 if (!response.ok) return false;
                 const note = await response.json();
                 return note.title === expectedTitle
