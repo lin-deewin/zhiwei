@@ -311,9 +311,9 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
     if (!selection || busy) return
     const quote = selection.exact.trim()
     if (!quote) return
-    const excerpt = Array.from(quote.replace(/\\s+/g, ' ')).slice(0, 48).join('')
+    const excerpt = Array.from(quote.replace(/\s+/g, ' ')).slice(0, 48).join('')
     const title = excerpt ? `摘录：${excerpt}` : '阅读摘录'
-    const body = quote.split(/\\r?\\n/).map((line) => `> ${line}`).join('\\n') + '\\n\\n## 我的理解\\n\\n'
+    const body = quote.split(/\r?\n/).map((line) => `> ${line}`).join('\n') + '\n\n## 我的理解\n\n'
     setBusy(true)
     try {
       const note = await api.createPersonalNote(title, body, [`article:${context.content_id}`])
