@@ -29,6 +29,7 @@ def test_v1_api_openapi_contains_domain_request_dtos():
         "PersonalNoteCreate",
         "PersonalNotePatch",
         "CreateProject",
+        "ProjectAskInput",
         "ResearchJobInput",
     ):
         assert name in schemas, f"request DTO missing from OpenAPI: {name}"
