@@ -45,10 +45,10 @@ export function ReadingNotesPanel({
         <strong>旧版本草稿</strong><p>{staleDraft.title || ''}</p><pre>{staleDraft.body_md || ''}</pre>
         <button className="button button-soft" onClick={onRestoreDraft}>恢复此草稿</button>
       </div>}
-      <input value={draftTitle} onChange={(event) => onDraftChange(event.target.value, draftBody)} placeholder="笔记标题（可选）" />
-      <textarea value={draftBody} onChange={(event) => onDraftChange(draftTitle, event.target.value)} placeholder="写下你的理解、问题或行动计划…" rows={7} />
+      <input aria-label="笔记标题" value={draftTitle} onChange={(event) => onDraftChange(event.target.value, draftBody)} placeholder="笔记标题（可选）" />
+      <textarea aria-label="笔记正文" value={draftBody} onChange={(event) => onDraftChange(draftTitle, event.target.value)} placeholder="写下你的理解、问题或行动计划…" rows={7} />
       <details><summary>预览 Markdown 与知识链接</summary><WikiMarkdown text={draftBody} /></details>
-      <div className="note-save-status">
+      <div className="note-save-status" role="status" aria-live="polite">
         <span>{noteStatus}</span>
         <div>
           <button className="button button-soft" disabled={noteStatus === '保存中…'} onClick={onFlush}><Save size={13} />立即保存</button>
