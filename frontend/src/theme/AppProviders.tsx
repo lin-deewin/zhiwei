@@ -3,6 +3,7 @@ import {Link as RouterLink} from 'react-router-dom'
 import {Theme} from '@astryxdesign/core/theme'
 import {LinkProvider} from '@astryxdesign/core/Link'
 import {InternationalizationProvider} from '@astryxdesign/core/i18n'
+import {ConfirmationProvider} from '../components/shared/ConfirmationProvider'
 import {zhiweiTheme} from './zhiwei'
 import './zhiwei.css'
 
@@ -15,7 +16,7 @@ const NavigationLink = forwardRef<HTMLAnchorElement, ComponentProps<'a'>>(
 export function AppProviders({dark, children}: {dark: boolean; children: ReactNode}) {
   return <Theme theme={zhiweiTheme} mode={dark ? 'dark' : 'light'}>
     <InternationalizationProvider locale="zh-Hans">
-      <LinkProvider component={NavigationLink}>{children}</LinkProvider>
+      <LinkProvider component={NavigationLink}><ConfirmationProvider>{children}</ConfirmationProvider></LinkProvider>
     </InternationalizationProvider>
   </Theme>
 }
