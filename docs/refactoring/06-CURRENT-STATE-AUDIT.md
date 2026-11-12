@@ -1,70 +1,84 @@
-# E0 现状审计记录（初始）
+# E0 现状审计记录
 
 日期：2026-11-12
-审计范围：GitHub `main` 分支代码树、主要入口文件、设计文档与测试文件清单。
-审计限制：本执行环境无法解析/连接 github.com，不能在此克隆仓库或运行 npm/pytest；因此本文件区分“静态检查发现”和“尚未实测”，不把静态检查冒充运行测试。
+审计分支：`refactor/v3`
+审计基准提交：`fca3f63effd594da3d3a458b923e303f6aaa8fe6`
+审计范围：前后端入口、路由模块、组件边界、SQLite schema 初始化、文件同步服务、现有自动化测试及已部署页面的只读浏览器观察。
 
-## 1. 仓库结构事实
+## 1. 技术与仓库事实
 
-- 前端：React 19、TypeScript、Vite、React Router 7；构建脚本为 `tsc -b && vite build`。
-- 后端：FastAPI、SQLite；Python 项目配置在 `backend/pyproject.toml`。
-- 前端入口：`frontend/src/App.tsx`；初步读取大小约 61 KB，包含应用 Shell、导航、路由及多个页面实现，存在继续拆分页面编排职责的价值。
-- 全局样式：`frontend/src/styles.css`，文件约 77 KB，包含多个页面和响应式样式规则；后续应审计重复选择器和样式归属，不宜在未盘点前整体替换。
-- 阅读：`frontend/src/components/ReaderWorkspace.tsx`；后端 `backend/app/services/reading_workspace.py`、`backend/app/api/reading_routes.py`。
-- 知识：`KnowledgeHub.tsx`、`KnowledgePage.tsx`、`knowledge_graph.py`、`knowledge.py`、`semantic.py`、`rag.py`。
-- 多标签：`WorkspaceTabs.tsx`。
-- 现有设计文档：`DESIGN.md`、`IMPLEMENTATION.md`、`docs/reading-workspace-design.md`、`docs/reading-workspace-plan.md`、`docs/knowledge-research.md`、`docs/knowledge-evolution-plan.md`、`docs/user-guide.md`。
+- 前端：React 19、TypeScript、Vite、React Router 7。
+- 后端：FastAPI、SQLite、Playwright。
+- 前端生产构建：`cd frontend && npm ci && npm run build`。
+- 后端测试：`cd backend && pytest -q`。
+- 前端主要样式：`frontend/src/styles.css`，约 78 KB；已增加独立的 `styles/tokens.css`，正在逐步迁移旧选择器。
+- 后端数据库：`app-data/library.sqlite`，当前 schema 声明 36 张表。
+- 后端 API：7 个 router 文件，共 113 个路由声明。完整清单见 `09-API-DATA-INVENTORY.md`。
 
-## 2. 测试资产静态清单
+## 2. 前端组件审计与当前拆分
 
-仓库测试目录包含以下 15 个测试模块及一个 conftest：
-- `test_ai.py`
-- `test_api_fallback.py`
-- `test_classification.py`
-- `test_content_deletion.py`
-- `test_knowledge.py`
-- `test_knowledge_graph.py`
-- `test_library_list.py`
-- `test_login.py`
-- `test_markdown_sync.py`
-- `test_questions.py`
-- `test_research_workspace.py`
-- `test_semantic.py`
-- `test_sync.py`
-- `test_workspace_api.py`
-- `conftest.py`
+重构前 `App.tsx` 约 57 KB，混合应用 Shell、路由和多个页面。当前已缩减至约 5 KB，主要负责全局状态和路由组合。
 
-GitHub Actions 已在提交 `d3846c89a23a3acf6c4bf5de958065c0e40f15ce` 上实际运行：前端 `npm ci` 与 `npm run build` 成功；后端 `pip install -e ".[dev]"` 与 `pytest -q` 成功。运行记录：[GitHub Actions run #43177156558](https://github.com/lin-deewin/zhiwei/actions/runs/43177156558)。这证明该提交通过仓库现有自动化质量门槛，不等于完成真实知乎登录、完整 UI 人工验收或生产数据迁移演练。
+已拆分：
+- `AppSidebar.tsx`：导航。
+- `LibraryPage.tsx`：资料库列表和空状态。
+- `ReaderPage.tsx`：阅读器、Markdown 渲染和阅读工具组合。
+- `QuestionsPages.tsx`：问题列表和详情。
+- `SyncPage.tsx`：同步中心。
+- `CategoriesPage.tsx`：分类管理。
+- `SettingsPage.tsx`：设置。
+- `types/ui.ts`：共享 UI 通知类型。
+- `utils/format.ts`：日期格式化。
 
-## 3. 已发现的产品结构问题（静态判断）
+仍需进一步审计/拆分的较大模块：
+- `ReaderWorkspace.tsx`：约 29.5 KB / 498 行，同时包含选区锚点、标注、高亮和个人笔记列表。
+- `api.ts`：约 23.8 KB / 236 行，仍集中维护多领域请求。
+- `styles.css`：约 78 KB / 534 行，多个选择器重复定义，需按组件边界渐进整理，不能一次性删改。
 
-1. 原主导航把文章库、话题汇总、主题分类、知识问答、知识空间、我的笔记、同步中心并列，外部资料管理、个人创作、AI 和后台管理混在同一层级。
-2. `App.tsx` 同时承载 Shell、导航、路由、全局状态和部分页面实现，长期演进存在高耦合风险。
-3. 现有阅读工作区已经包含阅读标注、个人笔记和单篇 AI 阅读等能力；应先复用并明确边界，避免另建一套笔记系统。
-4. 仓库已有知识链接、研究笔记、Markdown/Obsidian 互通能力；应保留并调整入口，而非直接删除。
-5. 现有资料库文章列表已支持来源、分类、搜索、排序和分页；重构应保持这些能力并改善默认阅读路径。
-6. 现有项目文档中部分实现状态带有日期，必须通过当前代码和实际运行重新确认。
+## 3. 自动化测试基线
 
-## 4. 当前基线改动
+GitHub Actions 已在以下提交运行前后端质量门槛：
+- `9b0ce2f4742c5e5866634158cb1caa92747da238`：前端构建成功，后端 64 tests 成功。
+- `567c80d7c1b14bd94f7c8203f4f91c2f2e8bcde1`：前端构建成功，后端测试成功。
 
-在 `refactor/v3` 分支已经完成：
-- 增加 V3 重构章程、信息架构、领域模型、执行计划、质量门槛和 Codex 执行规范。
-- 将左侧导航重新组织为“核心工作区 / 资料管理 / 系统”分组；核心入口为资料库、个人笔记、AI 助手、研究工作区。原有路由保持不变。
-- 将“文章库”主入口名称调整为“资料库”，常用分类区域名称调整为“常用主题”。
+运行记录：
+- [CI 9b0ce2f](https://github.com/lin-deewin/zhiwei/actions/runs/43179043226)
+- [CI 567c80d](https://github.com/lin-deewin/zhiwei/actions/runs/43179215630)
 
-此导航调整属于第一轮信息架构落地，不代表全站页面重构已经完成。
+这些证据仅代表对应提交通过当前 CI；不等于 UI 人工验收、端到端测试或生产数据迁移演练已完成。
 
-## 5. 必须补齐的动态审计
+## 4. 后端数据与安全发现
 
-- [x] 在 GitHub Actions 环境执行后端完整测试（`pytest -q` 成功）。
-- [x] 执行前端 `npm ci && npm run build`（成功）。
-- [ ] 检查 SQLite 实际 schema、迁移版本和外键。
-- [ ] 使用备份副本验证旧资料库启动与升级。
-- [ ] 实际操作：同步、离线阅读、阅读位置、高亮、批注、笔记保存。
-- [ ] 实际操作：笔记双向链接、主题页、研究证据、AI 引用。
-- [ ] 记录桌面端和窄屏截图，作为 UI 基线。
-- [ ] 检查现有部署服务、环境变量、数据目录及恢复流程。
+- 36 张表覆盖 Library、Reading、PersonalKnowledge/Research、AI Retrieval 和 Markdown interop。
+- SQLite 连接启用外键并使用 WAL。
+- 当前迁移以 `CREATE IF NOT EXISTS` 和列存在性判断为主，`schema_version` 未形成完整的递增迁移登记机制。
+- 首次引入阅读版本表前存在一次数据库备份逻辑，但不代表所有未来迁移均自动备份。
+- Markdown 同步已实现路径穿越和符号链接检查、文件哈希确认和原子写入。
+- AI API Key 保存在本地配置文件中；配置文件尝试使用 0600 权限。
+- 远程访问由 `ZHILIB_ALLOW_REMOTE` 开启，CORS 白名单不是身份认证。远程部署必须另有反向代理/VPN/防火墙认证，不能直接暴露后端端口。
 
-## 6. 阻塞与风险
+详细内容见 `09-API-DATA-INVENTORY.md`。
 
-本轮通过 GitHub Actions 获得了远程 CI 的构建和测试证据；当前会话仍没有可交互的本地仓库工作树，无法直接启动开发服务器、执行浏览器人工验收或连接用户真实资料库。后续涉及 UI 视觉质量、真实知乎接入、文件系统安全和数据迁移的验收仍须在可运行的部署/开发环境完成。
+## 5. 生产环境观察
+
+当前浏览器已打开 `https://zhiwei.deewins.top` 的旧版阅读页面。可见该部署仍使用旧版导航和现有阅读数据，不能作为 V3 分支的预览环境。
+
+因此：
+- 不在生产站点做删除、导入、同步或数据库迁移实验。
+- 不把生产浏览器页面的表现归因于尚未部署的 V3 分支。
+- 后续视觉验收需要独立预览环境或用户明确提供的测试实例。
+- 真实知乎登录只使用用户自己的授权会话。
+
+## 6. E0 状态
+
+- [x] E0-01：静态盘点前端路由、页面入口和主要导航。
+- [x] E0-02：识别超大组件并完成第一轮页面模块拆分；ReaderWorkspace、API 和 CSS 仍需继续细分。
+- [x] E0-03：盘点 API router 和 SQLite 表；详细服务依赖图仍待补充。
+- [x] E0-04：GitHub Actions 后端 pytest 全量通过（64 passed）。
+- [x] E0-05：GitHub Actions 前端 TypeScript + Vite 构建通过。
+- [ ] E0-06：实际回归阅读位置、高亮、批注、笔记、双向链接、研究和同步。
+- [ ] E0-07：脱敏/副本数据库备份恢复演练、迁移风险和回滚验证。
+
+## 7. 当前阻塞
+
+当前没有将 V3 分支部署到独立预览环境，也没有生产资料库的可安全迁移副本。因此，浏览器端视觉验收、真实知乎会话验证和数据迁移验收仍未完成。不得以静态审计或 CI 成功代替这些验收。
