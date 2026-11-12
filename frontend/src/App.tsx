@@ -7,7 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
 import {
   ArrowDownToLine, ArrowLeft, ArrowRight, BookOpen, Bookmark, Bot, Check, ChevronDown,
-  ChevronRight, CircleHelp, Clock3, FileText, FolderOpen, Hash,
+  ChevronRight, CircleHelp, Clock3, FolderOpen, Hash,
   LayoutGrid, LoaderCircle, MoreHorizontal, Plus, Search, Settings2, Tags,
   Trash2, Upload, X,
 } from 'lucide-react'
@@ -22,7 +22,7 @@ import { NotesPage, ReaderWorkspace } from './components/ReaderWorkspace'
 import { KnowledgePage } from './components/KnowledgePage'
 import { WorkspaceTabs, useWorkspaceTitle } from './components/WorkspaceTabs'
 import { KnowledgeHub } from './components/KnowledgeHub'
-import { LibraryPage } from './components/LibraryPage'
+import { EmptyLibrary, LibraryPage } from './components/LibraryPage'
 import { AppSidebar } from './components/AppSidebar'
 import { QuestionsPage, QuestionDetail } from './components/QuestionsPages'
 import { formatDate } from './utils/format'
