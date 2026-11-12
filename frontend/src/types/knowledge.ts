@@ -88,3 +88,20 @@ export interface PersonalNoteVersion {
   created_at: string
   sources: PersonalNoteSource[]
 }
+
+export type ResearchJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+
+export interface ResearchJob {
+  id: string
+  project_id: string
+  question: string
+  project_revision: number
+  research: boolean
+  status: ResearchJobStatus
+  stage: string
+  result: { project: ResearchProject; note_id: string | null } | null
+  error_code: string | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
