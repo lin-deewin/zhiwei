@@ -149,7 +149,8 @@ async def _test_reader(browser) -> None:
         assert progress_response.ok, await progress_response.text()
         progress = await progress_response.json()
         assert progress["progress_ratio"] > 0.1 and progress["scroll_y"] > 0, progress
-        await page.reload(wait_until="domcontentloaded")
+        await page.goto("about:blank")
+        await page.goto(f"{BASE}/read/{content_id}", wait_until="domcontentloaded")
         await page.get_by_role("heading", name="V3 浏览器验收文章", exact=True).wait_for(timeout=20000)
         await page.wait_for_function("() => window.scrollY > 0", timeout=10000)
 
