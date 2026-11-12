@@ -93,3 +93,37 @@ def test_personal_note_history_migration_backfills_existing_notes(monkeypatch, t
     assert version["title"] == "迁移前的笔记"
     assert version["body_md"] == "已经存在的内容。"
     assert version["sources"][0]["source_id"] == "article:" + article["id"]
+
+
+
+def test_upgrade_auto_backup_preserves_previous_schema_and_content(monkeypatch, tmp_path):
+    library = tmp_path / "library"
+    monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(library))
+    article = import_markdown("before.md", "# 升级前资料\n\n不能丢失".encode())
+
+    # Simulate an old database with user content and an upgrade pending.
+    connection = sqlite3.connect(library / "app-data" / "library.sqlite")
+    connection.row_factory = sqlite3.Row
+    connection.execute("DELETE FROM schema_migrations WHERE version=5")
+    connection.execute("UPDATE schema_version SET version=4")
+    # Intentionally do not commit: the initializer must not deadlock when the
+    # caller has uncommitted setup statements.
+    _initialize_schema(connection, library)
+    connection.commit()
+    connection.close()
+
+    files = sorted((library / "app-data" / "backups").glob("library-before-schema-v5-*.sqlite"))
+    assert len(files) == 1
+    old = sqlite3.connect(files[0])
+    try:
+        assert old.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert old.execute("SELECT version FROM schema_version").fetchone()[0] == 4
+        assert old.execute("SELECT title FROM contents WHERE id=?", (article["id"],)).fetchone()[0] == "升级前资料"
+    finally:
+        old.close()
+
+    # A second initializer pass on the upgraded DB must not create another backup.
+    with sqlite3.connect(library / "app-data" / "library.sqlite") as current:
+        current.row_factory = sqlite3.Row
+        _initialize_schema(current, library)
+    assert len(list((library / "app-data" / "backups").glob("library-before-schema-v5-*.sqlite"))) == 1
