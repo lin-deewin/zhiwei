@@ -59,6 +59,7 @@ export interface SyncJob {
   mode: 'full' | 'incremental'
   status: string
   phase: string
+  folder_ids?: string
   total: number | null
   scanned: number
   downloaded: number
