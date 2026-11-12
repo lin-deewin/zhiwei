@@ -149,3 +149,52 @@ def test_personal_note_version_http_contract(client):
     detail = client.get(f"/api/v1/personal-notes/{note['id']}/versions/1")
     assert detail.status_code == 200
     assert detail.json()["body_md"] == "v1"
+
+
+
+def test_personal_note_tags_round_trip_and_search(client):
+    created = client.post(
+        "/api/v1/personal-notes",
+        json={"title": "投资框架", "body_md": "价值投资与风险控制。", "tags": ["投资", "价值投资", "Value"]},
+    )
+    assert created.status_code == 201
+    note = created.json()
+    assert note["tags"] == ["投资", "价值投资", "Value"]
+
+    updated = client.patch(
+        f"/api/v1/personal-notes/{note['id']}",
+        json={"title": note["title"], "body_md": note["body_md"], "revision": note["revision"],
+              "tags": ["投资", "长期投资", "长期投资"]},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["tags"] == ["投资", "长期投资"]
+
+    results = client.get("/api/v1/personal-notes", params={"q": "长期投资"})
+    assert results.status_code == 200
+    assert results.json()["items"][0]["id"] == note["id"]
+
+
+def test_personal_note_bulk_delete_is_revision_safe_and_atomic(client):
+    first = client.post("/api/v1/personal-notes", json={"title": "批量一", "body_md": "内容一"}).json()
+    second = client.post("/api/v1/personal-notes", json={"title": "批量二", "body_md": "内容二"}).json()
+    changed = client.patch(
+        f"/api/v1/personal-notes/{second['id']}",
+        json={"title": "批量二已修改", "body_md": "内容二", "revision": second["revision"]},
+    ).json()
+
+    stale = client.post("/api/v1/personal-notes/bulk-delete", json={"items": [
+        {"id": first["id"], "revision": first["revision"]},
+        {"id": second["id"], "revision": second["revision"]},
+    ]})
+    assert stale.status_code == 409
+    assert client.get(f"/api/v1/personal-notes/{first['id']}").status_code == 200
+    assert client.get(f"/api/v1/personal-notes/{second['id']}").status_code == 200
+
+    deleted = client.post("/api/v1/personal-notes/bulk-delete", json={"items": [
+        {"id": first["id"], "revision": first["revision"]},
+        {"id": second["id"], "revision": changed["revision"]},
+    ]})
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] == 2
+    assert client.get(f"/api/v1/personal-notes/{first['id']}").status_code == 404
+    assert client.get(f"/api/v1/personal-notes/{second['id']}").status_code == 404
