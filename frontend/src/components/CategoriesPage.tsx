@@ -12,7 +12,7 @@ type CategoriesPageProps = {
   onCategoryOpen: () => void
 }
 
-export function CategoriesPage({ categories, refresh, onNotice, onCategoryOpen }: { categories: Category[]; refresh: () => void; onNotice: (notice: Notice) => void; onCategoryOpen: () => void }) {
+export export function CategoriesPage({ categories, refresh, onNotice, onCategoryOpen }: CategoriesPageProps) {
   const [adding, setAdding] = useState(false)
   const [parentId, setParentId] = useState<number | undefined>()
   const [name, setName] = useState('')

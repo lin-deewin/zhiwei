@@ -11,7 +11,7 @@ type SettingsPageProps = {
   onConnect: () => Promise<void>
 }
 
-export function SettingsPage({ settings, onSaved, onNotice, onConnect }: { settings: LibrarySettings | null; onSaved: (settings: LibrarySettings) => void; onNotice: (notice: Notice) => void; onConnect: () => Promise<void> }) {
+export export function SettingsPage({ settings, onSaved, onNotice, onConnect }: SettingsPageProps) {
   const [path, setPath] = useState(settings?.library_dir || '')
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null)
   const [baseUrl, setBaseUrl] = useState(settings?.ai_base_url || '')

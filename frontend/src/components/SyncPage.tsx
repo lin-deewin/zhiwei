@@ -15,7 +15,7 @@ type SyncPageProps = {
   onLibraryChanged: () => void
 }
 
-export function SyncPage({ onSync, onImport, onNotice, onLibraryChanged }: { onSync: (mode: 'full' | 'incremental', folderIds: string[]) => Promise<void>; onImport: (file?: File) => void; onNotice: (notice: Notice) => void; onLibraryChanged: () => void }) {
+export export function SyncPage({ onSync, onImport, onNotice, onLibraryChanged }: SyncPageProps) {
   const [mode, setMode] = useState<'incremental' | 'full'>('incremental')
   const [jobs, setJobs] = useState<SyncJob[]>([])
   const [classificationJobs, setClassificationJobs] = useState<ClassificationJob[]>([])

@@ -11,7 +11,7 @@ import { useWorkspaceTitle } from './WorkspaceTabs'
 
 type Notice = { message: string; error?: boolean } | null
 
-function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNotice: (notice: Notice) => void }) {
+export function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNotice: (notice: Notice) => void }) {
   const [items, setItems] = useState<Question[]>([])
   const [total, setTotal] = useState(0)
   const location = useLocation()
@@ -36,7 +36,7 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
     navigate(`/questions?${next}`, { replace })
   }
   const selectCategory = (id?: number, unclassified = false) => updateFilters({ category: id ? String(id) : undefined, pending: unclassified ? '1' : undefined, page: undefined })
-  const [overview, setOverview] = useState<import('./types').QuestionOverview | null>(null)
+  const [overview, setOverview] = useState<QuestionOverview | null>(null)
   const [overviewError, setOverviewError] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -134,7 +134,7 @@ function QuestionsPage({ categories, onNotice }: { categories: Category[]; onNot
   </div>
 }
 
-function QuestionDetail({ categories, onNotice }: { categories: Category[]; onNotice: (notice: Notice) => void }) {
+export function QuestionDetail({ categories, onNotice }: { categories: Category[]; onNotice: (notice: Notice) => void }) {
   const { id = '' } = useParams()
   const location = useLocation()
   const [item, setItem] = useState<Question | null>(null)
