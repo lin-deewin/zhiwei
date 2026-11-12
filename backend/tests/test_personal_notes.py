@@ -107,3 +107,45 @@ def test_invalid_personal_note_source_is_rejected(client):
         json={"title": "test", "body_md": "", "source_ids": ["article:missing"]},
     )
     assert response.status_code == 400
+
+
+
+def test_personal_note_versions_capture_each_saved_revision(client):
+    note = personal_notes.create_personal_note({
+        "title": "第一版",
+        "body_md": "最初的理解。",
+        "source_ids": [],
+    })
+    updated = personal_notes.update_personal_note(note["id"], {
+        "title": "第二版",
+        "body_md": "修订后的理解。",
+        "revision": note["revision"],
+    })
+    versions = personal_notes.list_personal_note_versions(note["id"])
+    assert [item["revision"] for item in versions] == [2, 1]
+    assert versions[0]["title"] == "第二版"
+    assert versions[1]["title"] == "第一版"
+
+    original = personal_notes.get_personal_note_version(note["id"], 1)
+    latest = personal_notes.get_personal_note_version(note["id"], updated["revision"])
+    assert original["body_md"] == "最初的理解。"
+    assert latest["body_md"] == "修订后的理解。"
+    assert original["sources"] == []
+
+
+def test_personal_note_version_http_contract(client):
+    note = client.post(
+        "/api/v1/personal-notes",
+        json={"title": "版本接口", "body_md": "v1"},
+    ).json()
+    updated = client.patch(
+        f"/api/v1/personal-notes/{note['id']}",
+        json={"title": "版本接口", "body_md": "v2", "revision": note["revision"]},
+    ).json()
+
+    versions = client.get(f"/api/v1/personal-notes/{note['id']}/versions")
+    assert versions.status_code == 200
+    assert [item["revision"] for item in versions.json()] == [2, 1]
+    detail = client.get(f"/api/v1/personal-notes/{note['id']}/versions/1")
+    assert detail.status_code == 200
+    assert detail.json()["body_md"] == "v1"
