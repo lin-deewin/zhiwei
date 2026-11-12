@@ -170,7 +170,7 @@ export function ReaderPage({ categories, onNotice, reload }: { categories: Categ
     <div className="reader-toolbar">
       <button className="back-link" onClick={() => navigate(-1)}><ArrowLeft size={15} /> 返回文章库</button>
       <div className="reader-toolbar-actions">
-      <button className="button button-soft" aria-pressed={Boolean(readingProgress?.read_later)} onClick={() => void toggleReadLater()}>
+      <button className="button button-soft" aria-pressed={Boolean(readingProgress?.read_later)} disabled={!readingProgress} onClick={() => void toggleReadLater()}>
         <Bookmark size={14} fill={readingProgress?.read_later ? 'currentColor' : 'none'} />{readingProgress?.read_later ? '已加入稍后阅读' : '稍后阅读'}
       </button>
       <button className="button button-soft reader-info-toggle" aria-expanded={infoVisible} aria-controls="reader-article-info" onClick={() => setInfoVisible((visible) => !visible)}>
