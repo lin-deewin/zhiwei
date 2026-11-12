@@ -44,6 +44,13 @@ def test_personal_note_crud_sources_and_optimistic_revision(client):
     )
     assert updated.status_code == 200
     assert updated.json()["revision"] == note["revision"] + 1
+    metadata_only = client.patch(
+        f"/api/v1/personal-notes/{note['id']}",
+        json={"title": "仅更新标题", "body_md": "保留原有引用。", "revision": updated.json()["revision"]},
+    )
+    assert metadata_only.status_code == 200
+    assert metadata_only.json()["sources"][0]["source_id"] == source_id
+
     stale = client.patch(
         f"/api/v1/personal-notes/{note['id']}",
         json={"title": "过期写入", "body_md": "", "revision": note["revision"]},
@@ -52,7 +59,7 @@ def test_personal_note_crud_sources_and_optimistic_revision(client):
 
     deleted = client.delete(
         f"/api/v1/personal-notes/{note['id']}",
-        params={"revision": updated.json()["revision"]},
+        params={"revision": metadata_only.json()["revision"]},
     )
     assert deleted.status_code == 204
     assert client.get(f"/api/v1/personal-notes/{note['id']}").status_code == 404
