@@ -1,3 +1,10 @@
+import {CheckboxInput} from '@astryxdesign/core/CheckboxInput'
+import {Heading} from '@astryxdesign/core/Heading'
+import {useConfirm} from './shared/ConfirmationProvider'
+import {TextArea} from '@astryxdesign/core/TextArea'
+import {VStack} from '@astryxdesign/core/VStack'
+import {TextInput} from '@astryxdesign/core/TextInput'
+import {Button} from '@astryxdesign/core/Button'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
@@ -20,6 +27,7 @@ const sourceLabels: Record<string, string> = {
 }
 
 export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
+  const confirm = useConfirm()
   const [params, setParams] = useSearchParams()
   const selectedId = params.get('note')
   const noteView = params.get('view') === 'cards' ? 'cards' : 'list'
@@ -103,9 +111,9 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     return () => { active = false; window.clearTimeout(timer) }
   }, [sourceQuery, note?.id, sources])
 
-  const chooseNote = (id: string) => {
+  const chooseNote = async (id: string) => {
     if (busy) return
-    if (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并切换吗？')) return
+    if (dirty && !(await confirm('当前笔记有未保存的修改，确定放弃并切换吗？'))) return
     setDirty(false)
     setHistoryPreview(null)
     const next = new URLSearchParams(params)
@@ -114,7 +122,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   }
 
   const createNote = async () => {
-    if (busy || (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并新建吗？'))) return
+    if (busy || (dirty && !(await confirm('当前笔记有未保存的修改，确定放弃并新建吗？')))) return
     setDirty(false)
     setHistoryPreview(null)
     setBusy(true)
@@ -158,9 +166,9 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     finally { setHistoryLoading(false) }
   }
 
-  const restoreVersion = () => {
+  const restoreVersion = async () => {
     if (!historyPreview || !note || historyPreview.revision === note.revision) return
-    if (!window.confirm('恢复这个版本的标题和正文？当前引用资料保持不变。')) return
+    if (!(await confirm('恢复这个版本的标题和正文？当前引用资料保持不变。'))) return
     setTitle(historyPreview.title)
     setBody(historyPreview.body_md)
     setDirty(true)
@@ -171,7 +179,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   }
 
   const deleteNote = async () => {
-    if (!note || busy || !window.confirm('删除这条个人笔记？引用记录和知识链接也会一并删除。')) return
+    if (!note || busy || !(await confirm('删除这条个人笔记？引用记录和知识链接也会一并删除。'))) return
     setDirty(false)
     setHistoryPreview(null)
     setBusy(true)
@@ -231,7 +239,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const bulkDeleteNotes = async () => {
     if (busy) return
     const selected = items.filter((item) => selectedNoteIds.has(item.id))
-    if (!selected.length || !window.confirm(`确定删除选中的 ${selected.length} 条个人笔记？其来源引用、版本历史和知识链接也会删除。`)) return
+    if (!selected.length || !(await confirm(`确定删除选中的 ${selected.length} 条个人笔记？其来源引用、版本历史和知识链接也会删除。`))) return
     setBusy(true)
     try {
       const result = await api.bulkDeletePersonalNotes(selected.map(({ id, revision }) => ({ id, revision })))
@@ -256,24 +264,24 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   return <section className="personal-notes-page">
     <aside className="personal-notes-index panel">
       <div className="personal-notes-index-head">
-        <div><span className="eyebrow">YOUR KNOWLEDGE</span><h1>个人笔记</h1></div>
+        <div><span className="eyebrow">YOUR KNOWLEDGE</span><Heading level={1}>个人笔记</Heading></div>
         <div className="personal-notes-index-tools">
           <div className="personal-note-view-toggle" role="group" aria-label="笔记显示方式">
             <button type="button" aria-label="列表视图" aria-pressed={noteView === 'list'} className={noteView === 'list' ? 'selected' : ''} onClick={() => setNoteView('list')}><ListIcon size={15} /></button>
             <button type="button" aria-label="卡片视图" aria-pressed={noteView === 'cards'} className={noteView === 'cards' ? 'selected' : ''} onClick={() => setNoteView('cards')}><Grid2X2 size={15} /></button>
           </div>
-          <button className="button button-primary button-icon" onClick={() => void createNote()} disabled={busy} aria-label="新建个人笔记" title="新建个人笔记"><FilePlus2 size={17} /></button>
+          <Button isIconOnly icon={<FilePlus2 size={17} />} label="新建个人笔记" variant="primary" className="button-icon" onClick={() => void createNote()} isDisabled={busy} aria-label="新建个人笔记" tooltip="新建个人笔记"></Button>
         </div>
       </div>
-      <label className="personal-notes-search"><Search size={16} /><input aria-label="搜索个人笔记" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedNoteIds(new Set()) }} placeholder="搜索个人笔记…" /></label>
+      <VStack className="personal-notes-search"><Search size={16} /><TextInput label="搜索个人笔记" width="100%" value={query} onChange={(_value, event) => { setQuery(event.target.value); setSelectedNoteIds(new Set()) }} placeholder="搜索个人笔记…" /></VStack>
       {selectedNoteIds.size > 0 && <div className="personal-note-bulk-bar">
         <span>{selectedNoteIds.size} / 50 条已选</span>
-        <button className="button button-danger-quiet" disabled={busy} onClick={() => void bulkDeleteNotes()}><Trash2 size={13} />批量删除</button>
-        <button className="button button-soft" disabled={busy} onClick={() => setSelectedNoteIds(new Set())}>取消选择</button>
+        <Button icon={<Trash2 size={13} />} label="批量删除" variant="destructive"  isDisabled={busy} onClick={() => void bulkDeleteNotes()}>批量删除</Button>
+        <Button label="取消选择" variant="secondary"  isDisabled={busy} onClick={() => setSelectedNoteIds(new Set())}>取消选择</Button>
       </div>}
       <div className={'personal-notes-items' + (noteView === 'cards' ? ' is-cards' : '')}>
         {items.map((item) => <div key={item.id} className="personal-note-list-row">
-          <input type="checkbox" aria-label={`选择 ${item.title || '未命名笔记'}`} checked={selectedNoteIds.has(item.id)} disabled={busy || (!selectedNoteIds.has(item.id) && selectedNoteIds.size >= 50)} onChange={(event) => toggleSelectedNote(item.id, event.target.checked)} />
+          <CheckboxInput label={`选择 ${item.title || '未命名笔记'}`}  aria-label={`选择 ${item.title || '未命名笔记'}`} value={selectedNoteIds.has(item.id)} isDisabled={busy || (!selectedNoteIds.has(item.id) && selectedNoteIds.size >= 50)} onChange={(_checked, event) => toggleSelectedNote(item.id, event.target.checked)} />
           <button className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '') + (noteView === 'cards' ? ' as-card' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
             <strong>{item.title || '未命名笔记'}</strong>
             <span>{item.excerpt || '尚未添加正文'}</span>
@@ -288,9 +296,9 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     <main className="personal-note-workspace">
       {!selectedId && <div className="personal-note-welcome panel">
         <div className="personal-note-welcome-icon"><BookOpen size={24} /></div>
-        <h2>把读到的内容，变成自己的知识</h2>
+        <Heading level={2}>把读到的内容，变成自己的知识</Heading>
         <p>个人笔记独立于外部文章，可以引用多份资料，也可以与其他个人笔记建立明确的双向链接。</p>
-        <button className="button button-primary" onClick={() => void createNote()} disabled={busy}><Plus size={16} /> 新建个人笔记</button>
+        <Button icon={<Plus size={16} />} label="新建个人笔记" variant="primary"  onClick={() => void createNote()} isDisabled={busy}> 新建个人笔记</Button>
       </div>}
       {selectedId && <div className="personal-note-document panel">
         {loading && <div className="personal-note-loading"><LoaderCircle size={18} /> 正在读取笔记…</div>}
@@ -299,10 +307,10 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
             <div><span className="eyebrow">PERSONAL KNOWLEDGE</span><span className="personal-note-revision">版本 {note.revision}</span></div>
             <div className="personal-note-actions">
               <span className="personal-note-save-state" aria-live="polite">{busy ? '保存中…' : dirty ? autoSavePaused ? '自动保存已暂停' : '修改将自动保存' : '已保存'}</span>
-              <button className="button button-soft" onClick={() => setHistoryOpen((value) => !value)}><History size={15} />版本历史</button>
-              <button className="button button-soft" onClick={() => setPreview((value) => !value)}><Eye size={15} />{preview ? '继续编辑' : '预览'}</button>
-              <button className="button button-primary" onClick={() => void saveNote()} disabled={!dirty || busy}><Save size={15} />{busy ? '保存中…' : '立即保存'}</button>
-              <button className="button button-danger-quiet" onClick={() => void deleteNote()} disabled={busy} aria-label="删除笔记"><Trash2 size={15} /></button>
+              <Button icon={<History size={15} />} label="版本历史" variant="secondary"  onClick={() => setHistoryOpen((value) => !value)}>版本历史</Button>
+              <Button icon={<Eye size={15} />} label={preview ? '继续编辑' : '预览'} variant="secondary"  onClick={() => setPreview((value) => !value)}>{preview ? '继续编辑' : '预览'}</Button>
+              <Button icon={<Save size={15} />} label={busy ? '保存中…' : '立即保存'} variant="primary"  onClick={() => void saveNote()} isDisabled={!dirty || busy}>{busy ? '保存中…' : '立即保存'}</Button>
+              <Button isIconOnly icon={<Trash2 size={15} />} label="删除笔记" variant="destructive"  onClick={() => void deleteNote()} isDisabled={busy} aria-label="删除笔记"></Button>
             </div>
           </div>
           {historyOpen && <section className="personal-note-history">
@@ -317,7 +325,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
             {historyPreview && <div className="personal-note-history-preview">
               <div><strong>v{historyPreview.revision} · {historyPreview.title || '未命名笔记'}</strong><small>{new Date(historyPreview.created_at).toLocaleString('zh-CN')} · {historyPreview.sources.length} 个引用</small></div>
               <article><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{historyPreview.body_md || '（空白正文）'}</ReactMarkdown></article>
-              <div><button className="button button-soft" onClick={() => setHistoryPreview(null)}>关闭预览</button><button className="button button-primary" disabled={historyPreview.revision === note.revision} onClick={restoreVersion}><RotateCcw size={14} />恢复标题和正文</button></div>
+              <div><Button label="关闭预览" variant="secondary"  onClick={() => setHistoryPreview(null)}>关闭预览</Button><Button icon={<RotateCcw size={14} />} label="恢复标题和正文" variant="primary"  isDisabled={historyPreview.revision === note.revision} onClick={restoreVersion}>恢复标题和正文</Button></div>
             </div>}
           </section>}
           <div className="personal-note-tags">
@@ -326,17 +334,17 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
               {!tags.length && <small>添加标签，方便整理和检索</small>}
             </div>
             <form onSubmit={(event) => { event.preventDefault(); addTag() }}>
-              <input aria-label="新标签" value={tagInput} maxLength={24} disabled={busy} placeholder="输入标签，按回车添加" onChange={(event) => setTagInput(event.target.value)} />
+              <TextInput label="新标签" width="100%" aria-label="新标签" value={tagInput} isDisabled={busy} placeholder="输入标签，按回车添加" onChange={(_value, event) => setTagInput(event.target.value)} />
               <button type="submit" disabled={busy || !tagInput.trim() || tags.length >= 12} aria-label="添加标签"><Plus size={14} /></button>
             </form>
           </div>
-          <input className="personal-note-title" disabled={busy} value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="给这条笔记起个标题…" />
+          <TextInput label="给这条笔记起个标题…" width="100%" controlClassName="personal-note-title" isDisabled={busy} value={title} onChange={(_value, event) => { setTitle(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="给这条笔记起个标题…" />
           {preview
             ? <article className="personal-note-preview"><ReactMarkdown remarkPlugins={[remarkGfm, [wikiPlugin, { links }]]} rehypePlugins={[rehypeSanitize]}>{body || '（暂无正文）'}</ReactMarkdown></article>
-            : <textarea className="personal-note-body" disabled={busy} value={body} onChange={(event) => { setBody(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" spellCheck />}
+            : <TextArea label="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" width="100%" controlClassName="personal-note-body" isDisabled={busy} value={body} onChange={(_value, event) => { setBody(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" hasSpellCheck />}
           <section className="personal-note-sources">
             <div className="personal-note-section-title"><div><Link2 size={16} /><strong>引用资料</strong><small>{sources.length} 份</small></div></div>
-            <label className="personal-note-source-search"><Search size={15} /><input value={sourceQuery} disabled={busy} onChange={(event) => setSourceQuery(event.target.value)} placeholder="搜索文章、阅读笔记、研究成果或其他个人笔记…" /></label>
+            <VStack className="personal-note-source-search"><Search size={15} /><TextInput label="搜索引用资料" width="100%" value={sourceQuery} isDisabled={busy} onChange={(_value, event) => setSourceQuery(event.target.value)} placeholder="搜索文章、阅读笔记、研究成果或其他个人笔记…" /></VStack>
             {!!sourceCandidates.length && <div className="personal-note-source-candidates">
               {sourceCandidates.slice(0, 8).map((candidate) => <button key={candidate.source_id} onClick={() => addSource(candidate.source_id)}>
                 <span>{sourceLabels[candidate.source_type] || candidate.source_type}</span><strong>{candidate.title}</strong><Plus size={14} />

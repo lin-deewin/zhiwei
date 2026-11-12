@@ -1,3 +1,6 @@
+import {Button} from '@astryxdesign/core/Button'
+import {Selector} from '@astryxdesign/core/Selector'
+import {TextInput} from '@astryxdesign/core/TextInput'
 import { FilePlus2, Highlighter, Sparkles } from 'lucide-react'
 import type { Annotation, TextAnchor } from '../types'
 
@@ -31,10 +34,8 @@ export function ReadingSelectionToolbar({
       : <>
         <button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={onExplain}><Sparkles size={14} />解释这段</button>
         <button className="button button-soft" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onCreateNote}><FilePlus2 size={14} />转为个人笔记</button>
-        <select aria-label="高亮颜色" value={color} onChange={(event) => onColorChange(event.target.value as typeof color)}>
-          <option value="yellow">黄色</option><option value="green">绿色</option><option value="blue">蓝色</option>
-        </select>
-        <input aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(event) => onCommentChange(event.target.value)} />
+        <Selector label="高亮颜色" options={[({value:String("yellow"),label:"黄色"}),({value:String("green"),label:"绿色"}),({value:String("blue"),label:"蓝色"})]} value={String(color)} onChange={value => onColorChange(value as typeof color)} />
+        <TextInput label="批注内容" width="100%" aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(_value, event) => onCommentChange(event.target.value)} />
         <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={onSave}><Highlighter size={14} />保存高亮与批注</button>
       </>}
   </div>

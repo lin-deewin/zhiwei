@@ -1,8 +1,15 @@
+import {Heading} from '@astryxdesign/core/Heading'
+import {HStack} from '@astryxdesign/core/HStack'
+import {Selector} from '@astryxdesign/core/Selector'
+import {EmptyState} from '@astryxdesign/core/EmptyState'
+import {PageHeader} from './shared/PageHeader'
+import {TextInput} from '@astryxdesign/core/TextInput'
+import {Button} from '@astryxdesign/core/Button'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ArrowRight, BookOpen, ChevronDown, FileText, Hash, LayoutGrid,
-  LoaderCircle, Search, Trash2, Upload, X,
+  ArrowRight, BookOpen, FileText, Hash, LayoutGrid,
+  LoaderCircle, Search, Trash2, Upload,
 } from 'lucide-react'
 import { api } from '../api'
 import type { Category, Content } from '../types'
@@ -108,33 +115,14 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
     {deleteTarget && <DeleteArticleDialog title={deleteTarget.title} busy={deletingId !== null} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => { void removeArticle(deleteTarget) }} />}
     <input id="md-upload" className="visually-hidden" type="file" accept=".md,.markdown,.txt" onChange={(e) => { onImport(e.target.files?.[0]); e.currentTarget.value = '' }} />
 
-    <header className="library-heading">
-      <div className="library-heading-copy">
-        <span className="eyebrow">YOUR LIBRARY</span>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      <div className="library-heading-actions">
-        <span className="article-total"><strong>{total}</strong> 篇资料</span>
-        <button className="button button-primary" onClick={triggerImport}><Upload size={15} /> 导入 Markdown</button>
-      </div>
-    </header>
-
-    <div className="library-controls">
-      <label className="library-search">
-        <Search size={17} />
-        <input aria-label="搜索文章库" placeholder="搜索标题或正文…" value={search} onChange={(event) => { updateSearch(event.target.value) }} />
-        {search && <button aria-label="清空搜索" onClick={() => updateSearch('')}><X size={15} /></button>}
-      </label>
-      <div className="library-control-group">
-        <label className="library-source-filter"><span>来源</span><select aria-label="文章来源" value={source} onChange={(event) => { setSource(event.target.value); setPage(1) }}><option value="all">全部</option><option value="answer">知乎回答</option><option value="article">知乎文章</option><option value="local">本地导入</option></select></label>
-        <label className="select-wrap"><span>排序</span><select aria-label="资料排序" value={sort} onChange={(event) => setSort(event.target.value)}><option value="synced">最近同步</option><option value="title">标题 A–Z</option></select><ChevronDown size={14} /></label>
-        <div className="view-toggle" role="group" aria-label="资料显示方式">
-          <button aria-label="卡片视图" aria-pressed={view === 'grid'} className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><LayoutGrid size={16} /></button>
-          <button aria-label="列表视图" aria-pressed={view === 'list'} className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><FileText size={16} /></button>
-        </div>
-      </div>
-    </div>
+    <PageHeader title={title} description={description} actions={<><span className="article-total">{total} 篇资料</span><Button label="导入 Markdown" variant="primary" icon={<Upload />} onClick={triggerImport} /></>} />
+    <HStack gap={3} wrap="wrap" vAlign="end" paddingBlockEnd={6}>
+      <TextInput label="搜索文章库" type="search" placeholder="搜索标题或正文…" value={search} onChange={updateSearch} hasClear startIcon={Search} width="min(100%, 32rem)" />
+      <Selector label="文章来源" value={source} onChange={value => { setSource(value); setPage(1) }} options={[{value:'all',label:'全部来源'},{value:'answer',label:'知乎回答'},{value:'article',label:'知乎文章'},{value:'local',label:'本地导入'}]} />
+      <Selector label="资料排序" value={sort} onChange={setSort} options={[{value:'synced',label:'最近同步'},{value:'title',label:'标题 A–Z'}]} />
+      <Button label="卡片视图" variant={view === 'grid' ? 'primary' : 'secondary'} icon={<LayoutGrid />} isIconOnly aria-pressed={view === 'grid'} onClick={() => setView('grid')} />
+      <Button label="列表视图" variant={view === 'list' ? 'primary' : 'secondary'} icon={<FileText />} isIconOnly aria-pressed={view === 'list'} onClick={() => setView('list')} />
+    </HStack>
 
     {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search || pendingOnly || category)} onImport={triggerImport} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
       {visibleItems.map((item) => <ArticleCard key={item.id} item={item} view={view} onDelete={(content) => { setDeleteError(''); setDeleteTarget(content) }} deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
@@ -146,10 +134,10 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
 
 function ArticleCard({ item, view, onDelete, deleting, deleteDisabled }: { item: Content; view: 'grid' | 'list'; onDelete: (item: Content) => void; deleting: boolean; deleteDisabled: boolean }) {
   return <div className="article-card-container"><Link to={`/read/${encodeURIComponent(item.id)}`} className={'article-card' + (view === 'list' ? ' as-list' : '')}>
-    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><h3>{item.title}</h3><p>{item.excerpt || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
-  </Link><button className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} title="删除本地文章" disabled={deleteDisabled} onClick={() => onDelete(item)}>{deleting ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}</button></div>
+    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><Heading level={3}>{item.title}</Heading><p>{item.excerpt || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
+  </Link><Button label={`删除文章：${item.title}`} variant="destructive" className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} tooltip="删除本地文章" isDisabled={deleteDisabled} onClick={() => onDelete(item)}>{deleting ? <LoaderCircle size={15} className="spin" /> : <Trash2 size={15} />}</Button></div>
 }
 
 export function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {
-  return <div className="empty-state"><div className="empty-illustration"><div className="empty-sun" /><div className="empty-page"><span /><span /><span /></div><div className="empty-spark">✦</div></div><h3>{searched ? '没有找到匹配的资料' : '资料库还空着，导入第一篇资料吧'}</h3><p>{searched ? '试试其他关键词，或清除筛选条件。' : '支持 Markdown 文件。导入后可以在这里阅读和整理。'}</p>{!searched && <button className="button button-primary" onClick={onImport}><Upload size={16} /> 选择 Markdown 文件</button>}</div>
+  return <EmptyState title={searched ? '没有找到匹配的资料' : '资料库还空着，导入第一篇资料吧'} description={searched ? '试试其他关键词，或清除筛选条件。' : '支持 Markdown 文件。导入后可以在这里阅读和整理。'} icon={<BookOpen />} actions={!searched && <Button label="选择 Markdown 文件" variant="primary" icon={<Upload />} onClick={onImport} />} />
 }

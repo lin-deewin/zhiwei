@@ -8,7 +8,7 @@ const pages = {
   '/questions': { title: '话题汇总', icon: CircleHelp },
   '/categories': { title: '主题分类', icon: Tags },
   '/ask': { title: 'AI 助手', icon: Sparkles },
-  '/knowledge': { title: '研究工作区', icon: BookOpen },
+  '/knowledge': { title: '知识工作台', icon: BookOpen },
   '/personal-notes': { title: '个人笔记', icon: FileText },
   '/notes': { title: '阅读记录', icon: BookOpen },
   '/reading': { title: '最近阅读', icon: Clock3 },

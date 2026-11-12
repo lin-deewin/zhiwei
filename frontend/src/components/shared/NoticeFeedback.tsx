@@ -1,15 +1,11 @@
-import {useEffect, useRef} from 'react'
-import {useToast} from '@astryxdesign/core/Toast'
+import {Toast} from '@astryxdesign/core/Toast'
+import {VStack} from '@astryxdesign/core/VStack'
 import type {Notice} from '../../types/ui'
 
+// Keep the single application notice inside Theme so it follows reading mode.
 export function NoticeFeedback({notice, onDismiss}: {notice: Notice; onDismiss: () => void}) {
-  const toast = useToast()
-  const dismiss = useRef(onDismiss)
-  dismiss.current = onDismiss
-  useEffect(() => {
-    if (!notice) return
-    toast({body: notice.message, type: notice.error ? 'error' : 'info', uniqueID: 'library-notice', isAutoHide: !notice.error})
-    dismiss.current()
-  }, [notice, toast])
-  return null
+  if (!notice) return null
+  return <VStack className="notice-viewport" role="status" aria-live={notice.error ? 'assertive' : 'polite'}>
+    <Toast key={notice.message} body={notice.message} type={notice.error ? 'error' : 'info'} isAutoHide={!notice.error} autoHideDuration={5000} onDismiss={onDismiss} />
+  </VStack>
 }

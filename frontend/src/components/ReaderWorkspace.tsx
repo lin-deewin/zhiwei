@@ -1,3 +1,4 @@
+import {useConfirm} from './shared/ConfirmationProvider'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
@@ -15,6 +16,7 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
   context: ReadingContext; setContext: (next: ReadingContext | ((current: ReadingContext) => ReadingContext)) => void
   onNotice: (message: string, error?: boolean) => void
 }) {
+  const confirm = useConfirm()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [tab, setTab] = useState<'notes' | 'ai'>('notes')
@@ -284,7 +286,7 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
     try {
       const data = JSON.parse(await file.text()) as unknown
       const preview = await api.previewReadingImport(context.content_id, data)
-      const accepted = window.confirm(`将恢复 ${preview.annotations} 条高亮、${preview.notes} 条笔记和 ${preview.ai_results} 条 AI 结果到本篇文章。是否继续？`)
+      const accepted = (await confirm(`将恢复 ${preview.annotations} 条高亮、${preview.notes} 条笔记和 ${preview.ai_results} 条 AI 结果到本篇文章。是否继续？`))
       if (!accepted) return
       await api.importReadingData(context.content_id, data)
       await syncContext()

@@ -1,3 +1,7 @@
+import {TabList, Tab} from '@astryxdesign/core/TabList'
+import {ProgressBar} from '@astryxdesign/core/ProgressBar'
+import {Heading} from '@astryxdesign/core/Heading'
+import {Button} from '@astryxdesign/core/Button'
 import { useEffect, useState } from 'react'
 import { Bookmark, BookOpen, Clock3, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -32,10 +36,10 @@ function ReadingItems({ items, later, onRemove }: {
             <span>{item.kind === 'answer' ? '知乎回答' : item.kind === 'article' ? '知乎文章' : '本地资料'}</span>
             <time>{readTime(item.last_read_at)}</time>
           </div>
-          <h2>{item.title || '未命名资料'}</h2>
+          <Heading level={2}>{item.title || '未命名资料'}</Heading>
           <p>{item.excerpt || '暂无摘要，打开资料继续阅读。'}</p>
           <div className="reading-hub-progress">
-            <div className="reading-hub-progress-track"><span style={{ width: percent + '%' }} /></div>
+            <ProgressBar label="阅读进度" value={percent} isLabelHidden />
             <small>{percent}% 已读</small>
           </div>
         </Link>
@@ -88,25 +92,22 @@ export function ReadingHubPage({ onNotice }: ReadingHubPageProps) {
     <header className="reading-hub-heading">
       <div>
         <span className="eyebrow">READING WORKSPACE</span>
-        <h1>阅读进度</h1>
+        <Heading level={1}>阅读进度</Heading>
         <p>从上次停下的位置继续，把想读的资料集中管理。</p>
       </div>
-      <button className="button button-soft" onClick={() => setRefreshKey((value) => value + 1)} disabled={loading}>
-        <RefreshCw size={14} />刷新
-      </button>
+      <Button icon={<RefreshCw size={14} />} label="刷新" variant="secondary"  onClick={() => setRefreshKey((value) => value + 1)} isDisabled={loading}>
+        刷新
+      </Button>
     </header>
-    <div className="reading-hub-tabs" role="tablist" aria-label="阅读列表">
-      <button role="tab" aria-selected={tab === 'recent'} className={tab === 'recent' ? 'selected' : ''} onClick={() => setTab('recent')}>
-        <Clock3 size={15} />最近阅读<span>{recent.length}</span>
-      </button>
-      <button role="tab" aria-selected={tab === 'later'} className={tab === 'later' ? 'selected' : ''} onClick={() => setTab('later')}>
-        <Bookmark size={15} />稍后阅读<span>{later.length}</span>
-      </button>
-    </div>
+    <TabList value={tab} onChange={value => { if (value === 'recent' || value === 'later') setTab(value) }} aria-label="阅读列表" hasDivider>
+      <Tab value="recent" label={`最近阅读 · ${recent.length}`} icon={<Clock3 />} />
+      <Tab value="later" label={`稍后阅读 · ${later.length}`} icon={<Bookmark />} />
+    </TabList>
+
     {loading
       ? <div className="reading-hub-loading"><LoaderCircle size={18} className="spin" />正在整理阅读记录…</div>
       : error
-        ? <div className="reading-hub-empty"><strong>暂时无法读取阅读记录</strong><span>{error}</span><button className="button button-soft" onClick={() => setRefreshKey((value) => value + 1)}>重试</button></div>
+        ? <div className="reading-hub-empty"><strong>暂时无法读取阅读记录</strong><span>{error}</span><Button label="重试" variant="secondary"  onClick={() => setRefreshKey((value) => value + 1)}>重试</Button></div>
         : <ReadingItems items={items} later={tab === 'later'} onRemove={(item) => void removeFromLater(item)} />}
   </section>
 }

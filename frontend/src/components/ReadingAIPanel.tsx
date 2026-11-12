@@ -1,3 +1,4 @@
+import {Button} from '@astryxdesign/core/Button'
 import { ArrowRight, LoaderCircle, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -39,7 +40,7 @@ export function ReadingAIPanel({
       <div><strong>只分析当前文章</strong><small>{activeActionLabel ? `当前任务：${activeActionLabel} · ` : ''}提交后按当前正文版本调用已配置的模型，并保存结果</small></div>
     </div>
     <div className="reading-ai-actions">
-      {actions.map(([key, label]) => <button className="button button-soft" key={key} disabled={!context.revision_id || Boolean(job && ['queued', 'running'].includes(job.status))} onClick={() => onStart(key)}><Sparkles size={14} />{label}</button>)}
+      {actions.map(([key, label]) => <Button icon={<Sparkles size={14} />} label={label} variant="secondary"  key={key} isDisabled={!context.revision_id || Boolean(job && ['queued', 'running'].includes(job.status))} onClick={() => onStart(key)}>{label}</Button>)}
     </div>
     {job && <div className="reading-ai-progress">
       <LoaderCircle size={15} className={['queued','running'].includes(job.status) ? 'spin' : ''} />
@@ -50,9 +51,9 @@ export function ReadingAIPanel({
     {currentResult && <div className="reading-ai-result">
       <div className="reading-result-actions">
         <strong>已保存的 AI 结果 {currentResult.revision_id !== context.revision_id && <small>基于旧正文版本</small>}</strong>
-        <button className="button button-soft" onClick={() => onSaveAsNote(currentResult)}>保存为个人笔记</button>
+        <Button label="保存为个人笔记" variant="secondary"  onClick={() => onSaveAsNote(currentResult)}>保存为个人笔记</Button>
         <button onClick={onDeleteResult} aria-label="删除结果"><Trash2 size={14} /></button>
-        <button className="button button-soft" onClick={onRegenerate}><RefreshCw size={13} />重新生成</button>
+        <Button icon={<RefreshCw size={13} />} label="重新生成" variant="secondary"  onClick={onRegenerate}>重新生成</Button>
       </div>
       <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{currentResult.rendered_md}</ReactMarkdown></div>
       <details className="reading-ai-citations">

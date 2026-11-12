@@ -1,6 +1,9 @@
+import {TextInput} from '@astryxdesign/core/TextInput'
+import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog'
+import {VStack} from '@astryxdesign/core/VStack'
+import {Button} from '@astryxdesign/core/Button'
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent } from 'react'
-import { X } from 'lucide-react'
 import { api } from '../api'
 import type { LoginEvent, LoginFrame, LoginStatus } from '../api'
 
@@ -20,6 +23,7 @@ export function ZhihuLoginDialog({ onClose, onConnected }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(true)
   const [zoom, setZoom] = useState(false)
+  const [verificationText, setVerificationText] = useState('')
   const owner = useRef<{ id: string; token: string } | null>(null)
   const live = useRef(true)
   const inputChain = useRef(Promise.resolve())
@@ -141,8 +145,9 @@ export function ZhihuLoginDialog({ onClose, onConnected }: Props) {
   const image = frame?.image_data_url
   const challenge = status?.state === 'challenge_required' && frame?.frame_mode === 'page'
 
-  return <div className="zhihu-login-backdrop" role="presentation"><section className="zhihu-login-dialog" role="dialog" aria-modal="true" aria-label="登录知乎">
-    <header><div><strong>登录知乎</strong><p>{status?.message || '正在准备登录页面'}</p></div><button type="button" className="icon-button" aria-label="关闭登录窗口" onClick={close}><X size={18} /></button></header>
+  return <Dialog isOpen onOpenChange={open => { if (!open) close() }} purpose="form" width={challenge ? 'min(100%, 72rem)' : 'min(100%, 36rem)'} maxHeight="90dvh">
+    <VStack gap={4}>
+    <DialogHeader title="登录知乎" subtitle={status?.message || '正在准备登录页面'} onOpenChange={() => close()} />
     {busy && <div className="zhihu-login-wait">正在打开知乎登录页面…</div>}
     {error && <p className="zhihu-login-error">{error}</p>}
     {image && !challenge && <div className="zhihu-login-qr"><img src={image} alt="知乎登录二维码" /><span>请用知乎 App 扫码并在手机上确认</span></div>}
@@ -152,11 +157,11 @@ export function ZhihuLoginDialog({ onClose, onConnected }: Props) {
       onPointerUp={(event) => send([{ type: 'up', ...point(event) }])}
       onPointerCancel={(event) => send([{ type: 'up', ...point(event) }])} /></div>
       <p>在画面中完成知乎验证或选择扫码登录。画面变化时稍等片刻再操作。<button type="button" className="zhihu-login-zoom" onClick={() => setZoom((value) => !value)}>{zoom ? '适应窗口' : '放大画面'}</button></p>
-      <div className="zhihu-login-input"><input aria-label="验证输入" placeholder="需要输入验证码时，在画面中点击输入框后在这里输入" id="zhihu-login-text" />
-        <button className="button button-soft" onClick={() => { const field = document.getElementById('zhihu-login-text') as HTMLInputElement; send([{ type: 'text', value: field.value }]); field.value = '' }}>输入</button>
-        <button className="button button-soft" onClick={() => send([{ type: 'key', key: 'Enter' }])}>回车</button></div>
+      <div className="zhihu-login-input"><TextInput label="验证输入" placeholder="点击画面中的输入框后，在这里输入验证码" value={verificationText} onChange={setVerificationText} autoComplete="one-time-code" />
+        <Button label="输入" variant="secondary"  onClick={() => { send([{ type: 'text', value: verificationText }]); setVerificationText('') }}>输入</Button>
+        <Button label="回车" variant="secondary"  onClick={() => send([{ type: 'key', key: 'Enter' }])}>回车</Button></div>
     </div>}
     {!image && !busy && !error && status?.state !== 'connected' && <div className="zhihu-login-wait">{status?.message || '正在加载知乎页面…'}</div>}
-    <footer><button className="button button-soft" onClick={close}>关闭</button>{status?.can_refresh && <button className="button button-primary" onClick={() => void refresh()}>刷新登录页面</button>}</footer>
-  </section></div>
+    <footer><Button label="关闭" variant="secondary"  onClick={close}>关闭</Button>{status?.can_refresh && <Button label="刷新登录页面" variant="primary"  onClick={() => void refresh()}>刷新登录页面</Button>}</footer>
+  </VStack></Dialog>
 }

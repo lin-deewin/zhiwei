@@ -1,25 +1,27 @@
+import {PageState} from './components/shared/PageState'
 import {AppShell} from '@astryxdesign/core/AppShell'
 import {AppProviders} from './theme/AppProviders'
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Route, Routes, useNavigate } from 'react-router-dom'
-import { Check, CircleHelp, X } from 'lucide-react'
+import {NoticeFeedback} from './components/shared/NoticeFeedback'
 import { api } from './api'
 import type { Category, LibrarySettings } from './types'
 import type { Notice } from './types/ui'
-import { NotesPage } from './components/NotesPage'
-import { PersonalNotesPage } from './components/PersonalNotesPage'
-import { KnowledgePage } from './components/KnowledgePage'
+const NotesPage = lazy(() => import('./components/NotesPage').then(module => ({default: module.NotesPage})))
+const PersonalNotesPage = lazy(() => import('./components/PersonalNotesPage').then(module => ({default: module.PersonalNotesPage})))
+const KnowledgePage = lazy(() => import('./components/KnowledgePage').then(module => ({default: module.KnowledgePage})))
 import { WorkspaceTabs } from './components/WorkspaceTabs'
-import { KnowledgeHub } from './components/KnowledgeHub'
+const KnowledgeHub = lazy(() => import('./components/KnowledgeHub').then(module => ({default: module.KnowledgeHub})))
 import { LibraryPage } from './components/LibraryPage'
 import { AppSidebar } from './components/AppSidebar'
-import { ReaderPage } from './components/ReaderPage'
-import { ReadingHubPage } from './components/ReadingHubPage'
-import { QuestionsPage, QuestionDetail } from './components/QuestionsPages'
-import { SyncPage } from './components/SyncPage'
-import { CategoriesPage } from './components/CategoriesPage'
-import { OverviewPage } from './components/OverviewPage'
-import { SettingsPage } from './components/SettingsPage'
+const ReaderPage = lazy(() => import('./components/ReaderPage').then(module => ({default: module.ReaderPage})))
+const ReadingHubPage = lazy(() => import('./components/ReadingHubPage').then(module => ({default: module.ReadingHubPage})))
+const QuestionsPage = lazy(() => import('./components/QuestionsPages').then(module => ({default: module.QuestionsPage})))
+const QuestionDetail = lazy(() => import('./components/QuestionsPages').then(module => ({default: module.QuestionDetail})))
+const SyncPage = lazy(() => import('./components/SyncPage').then(module => ({default: module.SyncPage})))
+const CategoriesPage = lazy(() => import('./components/CategoriesPage').then(module => ({default: module.CategoriesPage})))
+const OverviewPage = lazy(() => import('./components/OverviewPage').then(module => ({default: module.OverviewPage})))
+const SettingsPage = lazy(() => import('./components/SettingsPage').then(module => ({default: module.SettingsPage})))
 
 function App() {
   const [readingTheme, setReadingTheme] = useState(() => {
@@ -36,6 +38,7 @@ function App() {
   const [refresh, setRefresh] = useState(0)
   const navigate = useNavigate()
 
+  const notesNotice = useCallback((message: string, error?: boolean) => setNotice({message, error}), [])
   const reload = useCallback(() => setRefresh((value) => value + 1), [])
   useEffect(() => {
     api.categories().then(setCategories).catch((e) => setNotice({ message: e.message, error: true }))
@@ -50,11 +53,7 @@ function App() {
       .catch(() => { if (!controller.signal.aborted) setPendingCount(null) })
     return () => controller.abort()
   }, [refresh])
-  useEffect(() => {
-    if (!notice) return
-    const timer = window.setTimeout(() => setNotice(null), 4200)
-    return () => window.clearTimeout(timer)
-  }, [notice])
+
 
   const importFile = async (file?: File) => {
     if (!file) return
@@ -82,7 +81,7 @@ function App() {
   }
 
   return <AppProviders dark={readingTheme}><AppShell height="auto" variant="surface" contentPadding={0} sideNav={<AppSidebar readingTheme={readingTheme} onThemeToggle={() => setReadingTheme(value => !value)} categories={categories} settings={settings} pendingCount={pendingCount} />} >
-      <WorkspaceTabs>{(href) => <Routes location={href}>
+      <WorkspaceTabs>{(href) => <Suspense fallback={<PageState loading />}><Routes location={href}>
           <Route path="/overview" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
           <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
@@ -95,11 +94,11 @@ function App() {
           <Route path="/ask" element={<KnowledgePage categories={categories} />} />
           <Route path="/knowledge" element={<KnowledgeHub categories={categories} onNotice={setNotice} />} />
           <Route path="/personal-notes" element={<PersonalNotesPage onNotice={setNotice} />} />
-          <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
+          <Route path="/notes" element={<NotesPage onNotice={notesNotice} />} />
           <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
-        </Routes>}</WorkspaceTabs>
+        </Routes></Suspense>}</WorkspaceTabs>
 
-    {notice && <div className={notice.error ? 'toast toast-error' : 'toast'}><span>{notice.error ? <CircleHelp size={17} /> : <Check size={17} />}</span>{notice.message}<button onClick={() => setNotice(null)} aria-label="关闭"><X size={15} /></button></div>}
+    <NoticeFeedback notice={notice} onDismiss={() => setNotice(null)} />
   </AppShell></AppProviders>
 }
 
