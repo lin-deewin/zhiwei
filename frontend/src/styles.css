@@ -688,3 +688,31 @@
   .reading-result-actions{align-items:stretch}
   .reading-result-actions strong{flex-basis:100%}
 }
+
+
+/* Personal note tags and safe bulk selection */
+.personal-note-list-row{display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;gap:5px;padding:2px;border-radius:10px}
+.personal-note-list-row>input{width:14px;height:14px;margin:15px 0 0 2px;accent-color:var(--green);cursor:pointer}
+.personal-note-list-row .personal-note-list-item{min-width:0;width:100%}
+.personal-note-list-tags{display:flex;flex-wrap:wrap;gap:4px}
+.personal-note-list-tags span,.personal-note-tag-list button{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;background:var(--color-surface-subtle);padding:3px 8px;color:var(--muted);font-size:10px;line-height:1.4}
+.personal-note-bulk-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--color-surface-subtle)}
+.personal-note-bulk-bar>span{margin-right:auto;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.personal-note-bulk-bar .button{min-height:30px;padding:0 8px;font-size:11px}
+.personal-note-tags{display:grid;gap:10px;margin:8px 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--color-surface-subtle)}
+.personal-note-tag-list{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:24px}
+.personal-note-tag-list button{border-color:var(--line-strong,var(--line));background:var(--color-surface);cursor:pointer}
+.personal-note-tag-list button:hover:not(:disabled){color:var(--danger,#a65b4b);border-color:var(--danger,#a65b4b)}
+.personal-note-tag-list>small{color:var(--muted);font-size:11px}
+.personal-note-tags form{display:flex;align-items:center;gap:6px;max-width:420px}
+.personal-note-tags form input{flex:1;min-width:0;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:7px;background:var(--color-surface);color:var(--ink);outline:0;font-size:12px}
+.personal-note-tags form input:focus{border-color:var(--green);box-shadow:var(--focus-ring)}
+.personal-note-tags form button{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--color-surface);color:var(--green);cursor:pointer}
+.personal-note-tags form button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:560px){
+  .personal-note-list-row{grid-template-columns:16px minmax(0,1fr);gap:3px}
+  .personal-note-list-row>input{margin-top:14px}
+  .personal-note-bulk-bar{align-items:stretch}
+  .personal-note-bulk-bar .button{flex:1;justify-content:center}
+  .personal-note-tags{padding:10px}
+}
