@@ -94,6 +94,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   }, [sourceQuery, note?.id, sources])
 
   const chooseNote = (id: string) => {
+    if (busy) return
     if (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并切换吗？')) return
     setParams({ note: id })
   }
@@ -165,6 +166,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   }
 
   const addSource = (sourceId: string) => {
+    if (busy) return
     const item = sourceCandidates.find((candidate) => candidate.source_id === sourceId)
     if (!item) return
     setSources((current) => current.some((source) => source.source_id === sourceId) ? current : [
@@ -175,6 +177,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   }
 
   const removeSource = (sourceId: string) => {
+    if (busy) return
     setSources((current) => current.filter((source) => source.source_id !== sourceId))
     setDirty(true); setAutoSavePaused(false)
   }
@@ -187,7 +190,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
       </div>
       <label className="personal-notes-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索个人笔记…" /></label>
       <div className="personal-notes-items">
-        {items.map((item) => <button key={item.id} className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '')} onClick={() => chooseNote(item.id)}>
+        {items.map((item) => <button key={item.id} className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
           <strong>{item.title || '未命名笔记'}</strong>
           <span>{item.excerpt || '尚未添加正文'}</span>
           <small>{item.source_count} 个引用 · {new Date(item.updated_at).toLocaleDateString('zh-CN')}</small>
@@ -231,13 +234,13 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
               <div><button className="button button-soft" onClick={() => setHistoryPreview(null)}>关闭预览</button><button className="button button-primary" disabled={historyPreview.revision === note.revision} onClick={restoreVersion}><RotateCcw size={14} />恢复标题和正文</button></div>
             </div>}
           </section>}
-          <input className="personal-note-title" value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="给这条笔记起个标题…" />
+          <input className="personal-note-title" disabled={busy} value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="给这条笔记起个标题…" />
           {preview
             ? <article className="personal-note-preview"><ReactMarkdown remarkPlugins={[remarkGfm, [wikiPlugin, { links }]]} rehypePlugins={[rehypeSanitize]}>{body || '（暂无正文）'}</ReactMarkdown></article>
-            : <textarea className="personal-note-body" value={body} onChange={(event) => { setBody(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" spellCheck />}
+            : <textarea className="personal-note-body" disabled={busy} value={body} onChange={(event) => { setBody(event.target.value); setDirty(true); setAutoSavePaused(false) }} placeholder="写下自己的理解、推理、疑问和结论。支持 Markdown 与 [[双向链接]]。" spellCheck />}
           <section className="personal-note-sources">
             <div className="personal-note-section-title"><div><Link2 size={16} /><strong>引用资料</strong><small>{sources.length} 份</small></div></div>
-            <label className="personal-note-source-search"><Search size={15} /><input value={sourceQuery} onChange={(event) => setSourceQuery(event.target.value)} placeholder="搜索文章、阅读笔记、研究成果或其他个人笔记…" /></label>
+            <label className="personal-note-source-search"><Search size={15} /><input value={sourceQuery} disabled={busy} onChange={(event) => setSourceQuery(event.target.value)} placeholder="搜索文章、阅读笔记、研究成果或其他个人笔记…" /></label>
             {!!sourceCandidates.length && <div className="personal-note-source-candidates">
               {sourceCandidates.slice(0, 8).map((candidate) => <button key={candidate.source_id} onClick={() => addSource(candidate.source_id)}>
                 <span>{sourceLabels[candidate.source_type] || candidate.source_type}</span><strong>{candidate.title}</strong><Plus size={14} />
