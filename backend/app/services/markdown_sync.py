@@ -292,16 +292,33 @@ def preview() -> dict:
                 ]
                 if len(renamed) == 1:
                     baseline = renamed[0]
-            source_id = meta.get("zhilib_source") or (baseline["source_id"] if baseline else None)
-            if source_id and not isinstance(source_id, str):
+            declared_source_id = meta.get("zhilib_source")
+            if declared_source_id is not None and not isinstance(declared_source_id, str):
                 raise ValueError("资料 ID 无效")
-            personal_note_restore = bool(source_id and meta.get("zhilib_kind") == "personal_note")
+            is_personal_note = (
+                isinstance(declared_source_id, str)
+                and declared_source_id.startswith("personal_note:")
+                and meta.get("zhilib_kind") == "personal_note"
+            )
+            # Imported notes acquire a new local ID. The external frontmatter retains
+            # the original library ID until our next export. Trust the local manifest
+            # for an already-imported personal note so rescans are idempotent.
+            restored_baseline = bool(
+                is_personal_note and baseline
+                and baseline["source_id"].startswith("personal_note:")
+            )
+            source_id = (
+                baseline["source_id"] if restored_baseline else
+                declared_source_id or (baseline["source_id"] if baseline else None)
+            )
+            personal_note_restore = bool(is_personal_note and not restored_baseline)
             foreign_library = bool(
-                source_id and meta.get("zhilib_library", cfg["library_id"]) != cfg["library_id"]
+                declared_source_id
+                and meta.get("zhilib_library", cfg["library_id"]) != cfg["library_id"]
             )
             record = None
             current_hash = None
-            if foreign_library and not personal_note_restore:
+            if foreign_library and not (personal_note_restore or restored_baseline):
                 items.append(
                     {
                         "path": relative,
@@ -310,7 +327,7 @@ def preview() -> dict:
                     }
                 )
                 continue
-            if source_id and not foreign_library:
+            if source_id and (not foreign_library or restored_baseline):
                 try:
                     record = _record(source_id)
                 except LookupError:
@@ -557,7 +574,7 @@ def apply(
                 and expected
                 and expected.get(relative) == item.get("file_hash")
             )
-            if not item or (item["status"] not in {"new", "update", "adopt"} and not resolve):
+            if not item or (item["status"] not in {"new", "update", "adopt", "restore"} and not resolve):
                 results.append(
                     {"path": relative, "status": "skipped", "message": "冲突或不需要导入"}
                 )
@@ -595,7 +612,20 @@ def apply(
                     or next(iter(re.findall(r"^#\s+(.+)$", body, re.MULTILINE)), path.stem)
                 )[:1000]
                 sid = item.get("source_id")
-                if not sid:
+                if item["status"] == "restore":
+                    if meta.get("zhilib_kind") != "personal_note" or not isinstance(meta.get("sources"), list):
+                        raise ValueError("恢复个人笔记需要完整的来源快照列表")
+                    if not isinstance(meta.get("zhilib_source"), str) or not meta["zhilib_source"].startswith("personal_note:"):
+                        raise ValueError("个人笔记来源 ID 无效")
+                    from app.services.personal_notes import create_personal_note
+                    recovered = create_personal_note({
+                        "title": title,
+                        "body_md": body,
+                        "tags": meta.get("tags", []),
+                        "source_snapshots": meta["sources"],
+                    })
+                    sid = "personal_note:" + recovered["id"]
+                elif not sid:
                     prepared = (
                         body
                         if re.search(r"^#\s+", body, re.MULTILINE)
