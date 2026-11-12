@@ -27,6 +27,38 @@ def _validated_sources(note_id: str, source_ids: list[str]) -> list[dict]:
     return [catalog[source_id] for source_id in unique]
 
 
+def _validated_source_snapshots(note_id: str, snapshots: list[dict]) -> list[dict]:
+    if not isinstance(snapshots, list) or len(snapshots) > 32:
+        raise ValueError("一篇个人笔记最多恢复 32 份来源快照")
+    allowed = {"article", "note", "annotation", "research", "topic", "personal_note"}
+    unique: dict[str, dict] = {}
+    for raw in snapshots:
+        if not isinstance(raw, dict):
+            raise ValueError("来源快照格式无效")
+        source_id = str(raw.get("source_id") or "").strip()
+        source_type, separator, record_id = source_id.partition(":")
+        if not separator or source_type not in allowed or not record_id or len(source_id) > 256:
+            raise ValueError("来源快照 ID 无效")
+        if source_type == "personal_note" and record_id == note_id:
+            raise ValueError("个人笔记不能引用自身")
+        declared_type = str(raw.get("source_type") or source_type)
+        if declared_type != source_type:
+            raise ValueError("来源快照类型与 ID 不一致")
+        title = str(raw.get("title_snapshot") or raw.get("title") or source_id).strip()[:1000]
+        url = raw.get("url_snapshot", raw.get("url"))
+        if url is not None:
+            url = str(url).strip()
+            if len(url) > 2000 or not url.startswith(("https://", "http://")):
+                raise ValueError("来源快照链接必须是 HTTP 或 HTTPS")
+        unique[source_id] = {
+            "source_id": source_id,
+            "source_type": source_type,
+            "title": title or source_id,
+            "url": url,
+        }
+    return list(unique.values())
+
+
 def _validated_tags(tags: list[str] | None) -> list[str] | None:
     if tags is None:
         return None
@@ -111,8 +143,11 @@ def create_personal_note(payload: dict) -> dict:
     if len(body) > 100000:
         raise ValueError("笔记正文不能超过 100000 个字符")
     note_id = uuid.uuid4().hex
-    source_ids = payload.get("source_ids") or []
-    sources = _validated_sources(note_id, source_ids) if source_ids else []
+    if payload.get("source_snapshots") is not None:
+        sources = _validated_source_snapshots(note_id, payload["source_snapshots"])
+    else:
+        source_ids = payload.get("source_ids") or []
+        sources = _validated_sources(note_id, source_ids) if source_ids else []
     tags = _validated_tags(payload.get("tags", [])) or []
     timestamp = now()
     with session() as db:
