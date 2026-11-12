@@ -449,11 +449,39 @@ def _migration_personal_note_tags(connection: sqlite3.Connection) -> None:
     """)
 
 
+def _migration_research_jobs(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS research_jobs (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+            question TEXT NOT NULL,
+            project_revision INTEGER NOT NULL,
+            research INTEGER NOT NULL CHECK(research IN (0,1)),
+            status TEXT NOT NULL CHECK(status IN ('pending','running','completed','failed','cancelled','interrupted')),
+            stage TEXT NOT NULL DEFAULT 'queued',
+            result_json TEXT,
+            error_code TEXT,
+            error_message TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_research_jobs_project_recent
+        ON research_jobs(project_id,created_at DESC)
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_research_jobs_active
+        ON research_jobs(status,updated_at)
+    """)
+
+
 _VERSIONED_MIGRATIONS = (
     (2, "personal_notes", _migration_personal_notes),
     (3, "reading_progress", _migration_reading_progress),
     (4, "personal_note_versions", _migration_personal_note_versions),
     (5, "personal_note_tags", _migration_personal_note_tags),
+    (6, "research_jobs", _migration_research_jobs),
 )
 
 
