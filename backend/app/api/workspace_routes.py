@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.api.knowledge_routes import translate_model
 from app.services import research_workspace as workspace
+from app.services.research_jobs import research_job_manager, enqueue, get_job, list_jobs
 
 router = APIRouter(prefix="/api/v1/knowledge")
 
@@ -30,12 +31,16 @@ class RestoreInput(BaseModel):
     revision: int = Field(ge=1)
 
 
+class ResearchJobInput(AskInput):
+    research: bool = False
+
+
 def run(call, *args):
     try:
         return call(*args)
     except LookupError as error:
         raise HTTPException(404, str(error)) from error
-    except ValueError as error:
+    except (ValueError, RuntimeError) as error:
         raise HTTPException(409, str(error)) from error
 
 
@@ -88,3 +93,30 @@ def compare(note_id: str, version_id: str):
 @router.post("/versions/{note_id}/{version_id}/restore")
 def restore(note_id: str, version_id: str, payload: RestoreInput):
     return run(workspace.restore, note_id, version_id, payload.revision)
+
+
+@router.get("/projects/{project_id}/jobs")
+def jobs(project_id: str, limit: int = 10):
+    return run(list_jobs, project_id, limit)
+
+
+@router.post("/projects/{project_id}/jobs", status_code=202)
+async def start_job(project_id: str, payload: ResearchJobInput):
+    job = run(enqueue, project_id, payload.question, payload.revision, payload.research)
+    research_job_manager.start(job)
+    return job
+
+
+@router.get("/projects/{project_id}/jobs/{job_id}")
+def job(project_id: str, job_id: str):
+    return run(get_job, project_id, job_id)
+
+
+@router.post("/projects/{project_id}/jobs/{job_id}/cancel")
+def cancel_job(project_id: str, job_id: str):
+    return run(research_job_manager.cancel, project_id, job_id)
+
+
+@router.post("/projects/{project_id}/jobs/{job_id}/retry", status_code=202)
+def retry_job(project_id: str, job_id: str):
+    return run(research_job_manager.retry, project_id, job_id)
