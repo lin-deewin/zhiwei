@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 
 from app.core.database import session
@@ -92,6 +93,12 @@ def create_personal_note(payload: dict) -> dict:
                 (note_id, source["source_id"], source["source_type"], source["title"],
                  source.get("url"), timestamp),
             )
+        snapshot = _sources(db, note_id)
+        db.execute(
+            """INSERT INTO personal_note_versions(note_id,revision,title,body_md,sources_json,created_at)
+               VALUES(?,1,?,?,?,?)""",
+            (note_id, title, body, json.dumps(snapshot, ensure_ascii=False), timestamp),
+        )
     return get_personal_note(note_id)
 
 
@@ -125,6 +132,12 @@ def update_personal_note(note_id: str, payload: dict) -> dict:
                     (note_id, source["source_id"], source["source_type"], source["title"],
                      source.get("url"), timestamp),
                 )
+        snapshot = _sources(db, note_id)
+        db.execute(
+            """INSERT INTO personal_note_versions(note_id,revision,title,body_md,sources_json,created_at)
+               VALUES(?,?,?,?,?,?)""",
+            (note_id, payload["revision"] + 1, title, body, json.dumps(snapshot, ensure_ascii=False), timestamp),
+        )
     return get_personal_note(note_id)
 
 
@@ -138,3 +151,31 @@ def delete_personal_note(note_id: str, revision: int) -> None:
             raise RuntimeError("个人笔记已在其他位置修改，请刷新后再删除")
         db.execute("DELETE FROM knowledge_links WHERE from_id=? OR to_id=?", (source_id, source_id))
         db.execute("DELETE FROM personal_notes WHERE id=? AND revision=?", (note_id, revision))
+
+
+
+def list_personal_note_versions(note_id: str) -> list[dict]:
+    with session() as db:
+        if not db.execute("SELECT 1 FROM personal_notes WHERE id=?", (note_id,)).fetchone():
+            raise LookupError("个人笔记不存在")
+        rows = db.execute(
+            """SELECT revision,title,created_at,length(body_md) AS body_length,
+                      (SELECT COUNT(*) FROM json_each(personal_note_versions.sources_json)) AS source_count
+               FROM personal_note_versions WHERE note_id=? ORDER BY revision DESC""",
+            (note_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_personal_note_version(note_id: str, revision: int) -> dict:
+    with session() as db:
+        row = db.execute(
+            """SELECT revision,title,body_md,sources_json,created_at
+               FROM personal_note_versions WHERE note_id=? AND revision=?""",
+            (note_id, revision),
+        ).fetchone()
+        if not row:
+            raise LookupError("个人笔记版本不存在")
+    result = dict(row)
+    result["sources"] = json.loads(result.pop("sources_json"))
+    return result
