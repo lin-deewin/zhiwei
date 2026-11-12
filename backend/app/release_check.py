@@ -59,31 +59,37 @@ def _table_snapshot(connection: sqlite3.Connection, table: str) -> dict:
     primary_key = [
         row["name"] for row in sorted(info, key=lambda item: item["pk"]) if row["pk"]
     ]
-    rows = connection.execute(f"SELECT * FROM {quoted}").fetchall()
+    order_columns = primary_key or columns
+    order_clause = ", ".join('"' + column.replace('"', '""') + '"' for column in order_columns)
+    cursor = connection.execute(f"SELECT * FROM {quoted} ORDER BY {order_clause}")
+    row_count = 0
     if primary_key:
-        rows.sort(key=lambda row: _canonical([row[column] for column in primary_key]))
-        column_fingerprints = {}
-        for column in columns:
-            keyed_values = [
-                ([row[key] for key in primary_key], row[column])
-                for row in rows
-            ]
-            column_fingerprints[column] = hashlib.sha256(
-                _canonical(keyed_values).encode("utf-8")
-            ).hexdigest()
+        hashers = {column: hashlib.sha256() for column in columns}
+        for row in cursor:
+            key = [row[column] for column in primary_key]
+            for column in columns:
+                hashers[column].update(
+                    _canonical([key, row[column]]).encode("utf-8") + b"\n"
+                )
+            row_count += 1
+        column_fingerprints = {
+            column: digest.hexdigest() for column, digest in hashers.items()
+        }
         row_fingerprint = None
     else:
-        serialized = sorted(_canonical([row[column] for column in columns]) for row in rows)
+        digest = hashlib.sha256()
+        for row in cursor:
+            digest.update(_canonical([row[column] for column in columns]).encode("utf-8") + b"\n")
+            row_count += 1
         column_fingerprints = {}
-        row_fingerprint = _fingerprint(serialized)
+        row_fingerprint = digest.hexdigest()
     return {
         "columns": columns,
         "primary_key": primary_key,
-        "row_count": len(rows),
+        "row_count": row_count,
         "column_fingerprints": column_fingerprints,
         "row_fingerprint": row_fingerprint,
     }
-
 
 def snapshot(library_dir: str | Path) -> dict:
     root = Path(library_dir).expanduser().resolve()
@@ -144,6 +150,10 @@ def snapshot(library_dir: str | Path) -> dict:
             missing_article_files += 1
 
     article_root = root / "articles"
+    if article_root.is_symlink() or (
+        article_root.exists() and not article_root.resolve().is_relative_to(root)
+    ):
+        raise ValueError("文章目录含符号链接或越界")
     if article_root.exists():
         for path in article_root.rglob("*"):
             if path.is_symlink():
