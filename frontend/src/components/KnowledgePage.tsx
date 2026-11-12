@@ -13,7 +13,7 @@ import { GraphPanel } from './KnowledgeGraphPanel'
 import { nodePath } from '../utils/knowledge_links'
 import type { AskResult, Category, EvidenceKind, EvidenceSource, ResearchNote } from '../types'
 
-const labels: Record<EvidenceKind, string> = { article: '文章原文', note: '个人笔记', annotation: '高亮批注', research: 'AI 研究笔记', topic: '主题知识页', personal_note: '个人笔记' }
+const labels: Record<EvidenceKind, string> = { article: '文章原文', note: '阅读笔记', annotation: '高亮批注', research: 'AI 研究笔记', topic: '主题知识页', personal_note: '个人笔记' }
 function sourcePath(source: EvidenceSource) {
   return nodePath(source)
 }
@@ -55,7 +55,7 @@ export function KnowledgePage({ categories, embedded = false, onDirtyChange }: {
   const navigate = useNavigate()
   const [question, setQuestion] = useState('')
   const [categoryId, setCategoryId] = useState<number | undefined>()
-  const [kinds, setKinds] = useState<EvidenceKind[]>(['article', 'note', 'annotation', 'research', 'topic'])
+  const [kinds, setKinds] = useState<EvidenceKind[]>(['article', 'note', 'personal_note', 'annotation', 'research', 'topic'])
   const [sources, setSources] = useState<EvidenceSource[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [answer, setAnswer] = useState<AskResult | null>(null)
@@ -133,14 +133,14 @@ export function KnowledgePage({ categories, embedded = false, onDirtyChange }: {
     })
   }
   return <div className={embedded ? 'knowledge-page knowledge-page-embedded' : 'subpage knowledge-page'}>
-    {!embedded && <div className="page-title-row"><div><div className="eyebrow">ASK YOUR LIBRARY</div><h1>让资料，开始回答。</h1><p>文章、笔记与批注一起检索；用多份证据形成可追溯的研究笔记。</p></div></div>}
+    {!embedded && <div className="page-title-row"><div><div className="eyebrow">ASK YOUR LIBRARY</div><h1>让资料，开始回答。</h1><p>文章、阅读笔记、独立个人笔记与批注一起检索；用多份证据形成可追溯的研究笔记。</p></div></div>}
     <SemanticPanel question={question} expected={[...new Set(sources.filter((s) => selected.includes(s.chunk_id)).map((s) => s.source_id))]} />
     <section className="panel knowledge-controls">
       <label>检索范围<select disabled={Boolean(busy)} value={categoryId ?? ''} onChange={(e) => { clearSearch(); setCategoryId(e.target.value ? Number(e.target.value) : undefined) }}><option value="">全部资料</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.parent_id ? '　↳ ' : ''}{c.name}</option>)}</select></label>
       <fieldset disabled={Boolean(busy)}><legend>资料类型</legend>{(Object.keys(labels) as EvidenceKind[]).map((kind) => <label key={kind}><input type="checkbox" checked={kinds.includes(kind)} onChange={() => { clearSearch(); setKinds(kinds.includes(kind) ? kinds.filter((k) => k !== kind) : [...kinds, kind]) }} />{labels[kind]}</label>)}</fieldset>
       <label className="knowledge-question">问题或研究主题<textarea disabled={Boolean(busy)} value={question} maxLength={2000} onChange={(e) => { setQuestion(e.target.value); clearSearch() }} placeholder="例如：结合收藏文章和我的笔记，比较提升专注力的方法与局限。" /></label>
       <div className="knowledge-actions"><button className="button button-soft" disabled={Boolean(busy) || question.trim().length < 2 || !kinds.length} onClick={() => void search()}><Search size={16} />查找资料</button><button className="button button-primary" disabled={Boolean(busy) || question.trim().length < 2 || !kinds.length} onClick={() => void run('生成回答', async () => { setAnswer(await api.ask(question.trim(), categoryId, kinds)) })}><Sparkles size={16} />根据资料回答</button></div>
-      <small>检索在本地执行。生成回答或研究笔记时，候选片段会发送给已配置的模型。按分类筛选时，仅包含该分类下的文章及其笔记、批注。</small>
+      <small>检索在本地执行。生成回答或研究笔记时，候选片段会发送给已配置的模型。按分类筛选时，仅包含该分类下的文章及其阅读笔记、批注；独立个人笔记和主题页不属于文章分类。</small>
     </section>
     {busy && <p role="status"><LoaderCircle className="spin" size={16} /> 正在{busy}…</p>}{error && <div className="ask-error" role="alert">{error}</div>}
     {answer && <section className="panel knowledge-result"><h2>知识库回答</h2><CitedMarkdown text={answer.answer} prefix="answer-evidence" /><small>{answer.retrieval.includes('model-rerank') ? '已使用模型重排证据' : answer.retrieval.includes('semantic') ? '关键词与语义融合检索' : '基于统一关键词检索'}</small><EvidenceList sources={answer.sources} prefix="answer-evidence" /></section>}
