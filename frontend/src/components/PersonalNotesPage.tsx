@@ -187,6 +187,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
             <div className="personal-note-source-list">
               {sources.map((source) => <div key={source.source_id} className="personal-note-source">
                 <span>{sourceLabels[source.source_type] || source.source_type}</span><strong>{source.title_snapshot}</strong>
+                {source.available === false && <small className="personal-note-source-missing">来源已删除</small>}
                 <button aria-label="移除引用" onClick={() => removeSource(source.source_id)}><X size={14} /></button>
               </div>)}
               {!sources.length && <small>引用是资料出处，不会自动把外部文章变成双向链接。</small>}
