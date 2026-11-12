@@ -27,6 +27,32 @@ def _validated_sources(note_id: str, source_ids: list[str]) -> list[dict]:
     return [catalog[source_id] for source_id in unique]
 
 
+def _validated_tags(tags: list[str] | None) -> list[str] | None:
+    if tags is None:
+        return None
+    if len(tags) > 12:
+        raise ValueError("每条个人笔记最多添加 12 个标签")
+    result: list[str] = []
+    seen: set[str] = set()
+    for raw in tags:
+        tag = str(raw).strip()
+        if not tag or len(tag) > 24 or any(ord(character) < 32 for character in tag):
+            raise ValueError("标签不能为空，且长度不能超过 24 个字符")
+        key = tag.casefold()
+        if key not in seen:
+            seen.add(key)
+            result.append(tag)
+    return result
+
+
+def _tags(db, note_id: str) -> list[str]:
+    rows = db.execute(
+        "SELECT tag FROM personal_note_tags WHERE note_id=? ORDER BY tag COLLATE NOCASE",
+        (note_id,),
+    ).fetchall()
+    return [row[0] for row in rows]
+
+
 def _sources(db, note_id: str) -> list[dict]:
     return [
         dict(row)
@@ -45,6 +71,7 @@ def get_personal_note(note_id: str) -> dict:
             raise LookupError("个人笔记不存在")
         result = dict(row)
         result["sources"] = _sources(db, note_id)
+        result["tags"] = _tags(db, note_id)
     available = set(_catalog())
     for source in result["sources"]:
         source["available"] = source["source_id"] in available
@@ -93,6 +120,12 @@ def create_personal_note(payload: dict) -> dict:
                 (note_id, source["source_id"], source["source_type"], source["title"],
                  source.get("url"), timestamp),
             )
+        for tag in tags:
+            db.execute("INSERT INTO personal_note_tags(note_id,tag,created_at) VALUES(?,?,?)", (note_id, tag, timestamp))
+        if tags is not None:
+            db.execute("DELETE FROM personal_note_tags WHERE note_id=?", (note_id,))
+            for tag in tags:
+                db.execute("INSERT INTO personal_note_tags(note_id,tag,created_at) VALUES(?,?,?)", (note_id, tag, timestamp))
         snapshot = _sources(db, note_id)
         db.execute(
             """INSERT INTO personal_note_versions(note_id,revision,title,body_md,sources_json,created_at)
@@ -183,3 +216,29 @@ def get_personal_note_version(note_id: str, revision: int) -> dict:
     result = dict(row)
     result["sources"] = json.loads(result.pop("sources_json"))
     return result
+
+
+
+def delete_personal_notes(items: list[dict]) -> dict:
+    if not items or len(items) > 50:
+        raise ValueError("批量删除需要选择 1 到 50 条笔记")
+    unique: dict[str, int] = {}
+    for item in items:
+        note_id = str(item.get("id", "")).strip()
+        revision = int(item.get("revision", 0))
+        if not note_id or revision < 1:
+            raise ValueError("批量删除参数无效")
+        unique[note_id] = revision
+
+    with session() as db:
+        for note_id, revision in unique.items():
+            row = db.execute("SELECT revision FROM personal_notes WHERE id=?", (note_id,)).fetchone()
+            if not row:
+                raise LookupError("所选个人笔记中有记录已不存在，请刷新列表")
+            if row["revision"] != revision:
+                raise RuntimeError("所选个人笔记已被修改，请刷新列表后重试")
+        for note_id in unique:
+            source_id = "personal_note:" + note_id
+            db.execute("DELETE FROM knowledge_links WHERE source_id=? OR target_id=?", (source_id, source_id))
+            db.execute("DELETE FROM personal_notes WHERE id=?", (note_id,))
+    return {"deleted": len(unique)}
