@@ -101,11 +101,19 @@ def verify_backup(backup_dir: Path | str) -> dict[str, Any]:
     if manifest_path.is_symlink() or not manifest_path.is_file():
         raise FileNotFoundError(f"Backup manifest not found: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("format_version") != 1 or not isinstance(manifest.get("files"), dict):
+    files = manifest.get("files")
+    if manifest.get("format_version") != 1 or not isinstance(files, dict):
         raise ValueError("Unsupported or invalid backup manifest")
+    database_name = DATABASE_RELATIVE.as_posix()
+    if database_name not in files:
+        raise ValueError("Backup manifest is missing the database checksum")
+    if manifest.get("file_count") != len(files):
+        raise ValueError("Backup manifest file count does not match its file list")
 
     total_bytes = 0
-    for relative_name, expected in manifest["files"].items():
+    for relative_name, expected in files.items():
+        if not isinstance(relative_name, str) or not isinstance(expected, dict):
+            raise ValueError("Invalid file entry in backup manifest")
         relative = _safe_manifest_path(relative_name)
         original_path = root / relative
         if original_path.is_symlink():
@@ -113,9 +121,37 @@ def verify_backup(backup_dir: Path | str) -> dict[str, Any]:
         path = original_path.resolve()
         if not path.is_relative_to(root) or not path.is_file():
             raise ValueError(f"Backup file is missing or unsafe: {relative_name}")
-        if path.stat().st_size != expected.get("size") or _sha256(path) != expected.get("sha256"):
+        expected_size = expected.get("size")
+        expected_hash = expected.get("sha256")
+        if not isinstance(expected_size, int) or expected_size < 0:
+            raise ValueError(f"Invalid file size in backup manifest: {relative_name}")
+        if not isinstance(expected_hash, str) or len(expected_hash) != 64 or any(
+            character not in "0123456789abcdef" for character in expected_hash
+        ):
+            raise ValueError(f"Invalid SHA-256 in backup manifest: {relative_name}")
+        if path.stat().st_size != expected_size or _sha256(path) != expected_hash:
             raise ValueError(f"Backup checksum mismatch: {relative_name}")
         total_bytes += path.stat().st_size
+
+    actual_files: set[str] = set()
+    for current_root, directories, filenames in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current_root)
+        for directory in directories:
+            if (current_path / directory).is_symlink():
+                raise ValueError(f"Backup contains a symbolic link: {current_path / directory}")
+        for filename in filenames:
+            candidate = current_path / filename
+            if candidate == manifest_path:
+                continue
+            if candidate.is_symlink() or not candidate.is_file():
+                raise ValueError(f"Backup contains an unsupported filesystem entry: {candidate}")
+            actual_files.add(candidate.relative_to(root).as_posix())
+    if actual_files != set(files):
+        missing = sorted(set(files) - actual_files)
+        extra = sorted(actual_files - set(files))
+        raise ValueError(f"Backup file set mismatch; missing={missing}, extra={extra}")
+    if manifest.get("total_bytes") != total_bytes:
+        raise ValueError("Backup manifest total size does not match its file list")
 
     database_path = root / Path(*DATABASE_RELATIVE.parts)
     database_report = _database_report(database_path)
