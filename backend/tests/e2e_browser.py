@@ -194,6 +194,54 @@ async def _test_reader(browser) -> None:
         reading = await reading_response.json()
         assert any(note["title"] == "V3 浏览器阅读笔记" for note in reading["notes"]), reading["notes"]
         await page.screenshot(path=str(CAPTURES / "desktop-reader-workspace.png"), full_page=True)
+
+        # Convert a second selected excerpt into an independent note with an article snapshot.
+        await page.locator("[data-reading-block-id]").nth(1).evaluate("""block => {
+            const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+            const node = walker.nextNode();
+            if (!node || !node.textContent?.trim()) throw new Error('second reading block has no text node');
+            const range = document.createRange();
+            range.setStart(node, 0);
+            range.setEnd(node, Math.min(20, node.textContent.length));
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            block.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+        }""")
+        await page.get_by_role("toolbar", name="选中文字操作").wait_for(timeout=10000)
+        await page.get_by_role("button", name="转为个人笔记").click()
+        await page.wait_for_url("**/personal-notes?note=*", timeout=15000)
+        personal_note_id = await page.evaluate("() => new URL(location.href).searchParams.get('note')")
+        assert personal_note_id
+        personal_response = await page.request.get(
+            f"{BASE}/api/v1/personal-notes/{personal_note_id}"
+        )
+        assert personal_response.ok, await personal_response.text()
+        personal_note = await personal_response.json()
+        assert any(source["source_id"] == f"article:{content_id}" for source in personal_note["sources"]), personal_note
+        assert personal_note["body_md"].startswith("> "), personal_note["body_md"]
+
+        # Create an explicit graph edge from the personal note to its source article.
+        await page.locator("details.knowledge-graph summary").click()
+        await page.get_by_label("搜索链接目标").fill("V3 浏览器验收文章")
+        graph_target = page.get_by_label("选择链接目标")
+        await graph_target.select_option(f"article:{content_id}")
+        await page.get_by_role("button", name="建立链接").click()
+        graph_response = await page.request.get(
+            f"{BASE}/api/v1/knowledge/links?source_id=personal_note:{personal_note_id}"
+        )
+        assert graph_response.ok, await graph_response.text()
+        graph = await graph_response.json()
+        assert any(item["source_id"] == f"article:{content_id}" and item["relation"] == "explicit"
+                   for item in graph["outgoing"]), graph
+        backlink_response = await page.request.get(
+            f"{BASE}/api/v1/knowledge/links?source_id=article:{content_id}"
+        )
+        assert backlink_response.ok, await backlink_response.text()
+        backlinks = await backlink_response.json()
+        assert any(item["source_id"] == f"personal_note:{personal_note_id}"
+                   for item in backlinks["incoming"]), backlinks
+        await page.screenshot(path=str(CAPTURES / "desktop-personal-note-source-and-links.png"), full_page=True)
         assert not errors, f"reader browser errors: {errors[:5]}"
         print("reader progress, annotation and note browser flow passed", flush=True)
     finally:
