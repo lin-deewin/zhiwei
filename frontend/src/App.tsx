@@ -85,7 +85,7 @@ function App() {
           <Route path="/categories" element={<CategoriesPage categories={categories} refresh={reload} onNotice={setNotice} onCategoryOpen={() => setSearch('')} />} />
           <Route path="/settings" element={<SettingsPage settings={settings} onSaved={(s) => { setSettings(s); reload(); setNotice({ message: '资料目录已更新' }) }} onNotice={setNotice} onConnect={connectZhihu} />} />
           <Route path="/ask" element={<KnowledgePage categories={categories} />} />
-          <Route path="/knowledge" element={<KnowledgeHub onNotice={setNotice} />} />
+          <Route path="/knowledge" element={<KnowledgeHub categories={categories} onNotice={setNotice} />} />
           <Route path="/personal-notes" element={<PersonalNotesPage onNotice={setNotice} />} />
           <Route path="/notes" element={<NotesPage onNotice={(message, error) => setNotice({ message, error })} />} />
           <Route path="*" element={<LibraryPage search="" categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
