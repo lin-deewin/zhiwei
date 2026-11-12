@@ -54,6 +54,7 @@ def test_release_check_detects_deleted_personal_note(monkeypatch, tmp_path):
     backup_library(source, tmp_path / "backup")
     restore_library(tmp_path / "backup", restored)
     connection = sqlite3.connect(restored / "app-data/library.sqlite")
+    connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("DELETE FROM personal_notes")
     connection.commit()
     connection.close()
