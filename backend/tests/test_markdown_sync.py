@@ -120,7 +120,7 @@ def test_personal_note_markdown_export_and_external_tag_sync(monkeypatch, tmp_pa
     library = tmp_path / "lib"
     vault = tmp_path / "vault"
     monkeypatch.setenv("ZHILIB_LIBRARY_DIR", str(library))
-    article = import_markdown("source.md", "# 来源文章\\n\\n引用来源。".encode())
+    article = import_markdown("source.md", "# 来源文章\n\n引用来源。".encode())
     note = create_personal_note({
         "title": "长期投资原则",
         "body_md": "先理解企业，再考虑价格。",
@@ -136,15 +136,13 @@ def test_personal_note_markdown_export_and_external_tag_sync(monkeypatch, tmp_pa
     metadata, body = sync._parse(path)
     assert metadata["zhilib_source"] == "personal_note:" + note["id"]
     assert metadata["tags"] == ["投资", "长期主义"]
-    assert sync.preview()["items"][0]["status"] == "unchanged" or next(
-        x for x in sync.preview()["items"] if x["path"] == item["path"]
-    )["status"] == "unchanged"
+    assert next(x for x in sync.preview()["items"] if x["path"] == item["path"])["status"] == "unchanged"
 
     metadata["title"] = "长期投资与风险控制"
     metadata["tags"] = ["投资", "风险控制"]
     path.write_text(
-        "---\\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False) + "---\\n"
-        + body + "\\n\\n新增的外部思考。",
+        "---\n" + yaml.safe_dump(metadata, allow_unicode=True, sort_keys=False) + "---\n"
+        + body + "\n\n新增的外部思考。",
         encoding="utf-8",
     )
     preview = next(x for x in sync.preview()["items"] if x["path"] == item["path"])
