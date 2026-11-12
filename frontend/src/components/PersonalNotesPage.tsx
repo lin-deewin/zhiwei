@@ -265,7 +265,7 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
           <button className="button button-primary button-icon" onClick={() => void createNote()} disabled={busy} aria-label="新建个人笔记" title="新建个人笔记"><FilePlus2 size={17} /></button>
         </div>
       </div>
-      <label className="personal-notes-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索个人笔记…" /></label>
+      <label className="personal-notes-search"><Search size={16} /><input aria-label="搜索个人笔记" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedNoteIds(new Set()) }} placeholder="搜索个人笔记…" /></label>
       {selectedNoteIds.size > 0 && <div className="personal-note-bulk-bar">
         <span>{selectedNoteIds.size} / 50 条已选</span>
         <button className="button button-danger-quiet" disabled={busy} onClick={() => void bulkDeleteNotes()}><Trash2 size={13} />批量删除</button>
