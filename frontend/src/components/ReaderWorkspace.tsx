@@ -1,13 +1,12 @@
-import { WikiMarkdown } from './WikiMarkdown'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowRight, Highlighter, LoaderCircle, Plus, RefreshCw, Save, Sparkles, Trash2 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeSanitize from 'rehype-sanitize'
+import { Sparkles } from 'lucide-react'
 import { api } from '../api'
 import { anchorFromSelection, rangeForAnchor } from '../utils/reading_anchors'
 import { useAnnotationHighlights } from '../hooks/useAnnotationHighlights'
+import { ReadingNotesPanel } from './ReadingNotesPanel'
+import { ReadingAIPanel } from './ReadingAIPanel'
+import { ReadingSelectionToolbar } from './ReadingSelectionToolbar'
 import { newRequestKey } from '../utils/request_key'
 import type { Annotation, PersonalNote, ReadingAIJob, ReadingAIResult, ReadingContext, TextAnchor } from '../types'
 
@@ -331,42 +330,89 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
     block?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
+  const cancelAIJob = async () => {
+    if (!job) return
+    try { setJob(await api.cancelReadingAIJob(job.id)) }
+    catch (error) { onNotice((error as Error).message, true) }
+  }
+
+  const retryAIJob = async () => {
+    if (!job) return
+    try {
+      const retried = await api.retryReadingAIJob(job.id)
+      setJob({ ...job, id: retried.id, status: retried.status })
+    } catch (error) { onNotice((error as Error).message, true) }
+  }
+
+  const deleteAIResult = async () => {
+    if (!currentResult) return
+    try {
+      await api.deleteReadingAIResult(currentResult.id)
+      setCurrentResult(null)
+      await syncContext()
+    } catch (error) { onNotice((error as Error).message, true) }
+  }
+
   const actions = useMemo(() => [
     ['summary', '总结全文'], ['explain', '解释选段'], ['key_points', '提取要点'],
   ] as const, [])
 
   return <section className="reading-workspace">
-        {selection && <div className="selection-toolbar selection-toolbar-floating" style={{ left: toolbarPosition.left, top: toolbarPosition.top }} role="toolbar" aria-label="选中文字操作">
-      {reanchorTarget ? <><span>为这条高亮重新选择原文</span><button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={() => void createHighlight()}><Highlighter size={14} />确认重新绑定</button><button onClick={() => setReanchorTarget(null)}>取消</button></> : <><button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={() => { setPendingExplain(selection); void startAI('explain', selection) }}><Sparkles size={14} />解释这段</button>
-      <select aria-label="高亮颜色" value={color} onChange={(event) => setColor(event.target.value as typeof color)}><option value="yellow">黄色</option><option value="green">绿色</option><option value="blue">蓝色</option></select>
-      <input aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(event) => setComment(event.target.value)} />
-      <button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={() => void createHighlight()}><Highlighter size={14} />保存高亮与批注</button></>}
-    </div>}
+    <ReadingSelectionToolbar
+      selection={selection}
+      position={toolbarPosition}
+      reanchorTarget={reanchorTarget}
+      busy={busy}
+      color={color}
+      comment={comment}
+      onColorChange={setColor}
+      onCommentChange={setComment}
+      onExplain={() => { if (selection) { setPendingExplain(selection); void startAI('explain', selection) } }}
+      onSave={() => void createHighlight()}
+      onCancelReanchor={() => setReanchorTarget(null)}
+    />
     <div className="reading-workspace-tabs"><button className={tab === 'notes' ? 'selected' : ''} onClick={() => setTab('notes')}>高亮与笔记 <span>{annotations.length + context.notes.length}</span></button><button className={tab === 'ai' ? 'selected' : ''} onClick={() => setTab('ai')}><Sparkles size={14} /> AI 阅读助手</button></div>
-    {tab === 'notes' ? <div className="reading-notes-panel">
-      <div className="reading-panel-heading"><div><strong>留下自己的理解</strong><small>笔记会保存在本地资料库</small></div><div className="reading-data-actions"><button className="button button-soft" onClick={() => void exportReadingData()}>导出阅读记录</button><label className="button button-soft">恢复记录<input type="file" accept="application/json,.json" hidden onChange={(event) => { void importReadingData(event.target.files?.[0]); event.currentTarget.value = '' }} /></label><button className="button button-soft" disabled={busy} onClick={() => void newNote()}><Plus size={14} />新建笔记</button></div></div>
-      {editing && <div className="personal-note-editor">{staleDraft && <div className="stale-note-draft"><strong>旧版本草稿</strong><p>{staleDraft.title || ''}</p><pre>{staleDraft.body_md || ''}</pre><button className="button button-soft" onClick={() => { setStaleDraft(null); changeDraft(staleDraft.title || '', staleDraft.body_md || '') }}>恢复此草稿</button></div>}<input value={draftTitle} onChange={(event) => changeDraft(event.target.value, draftBody)} placeholder="笔记标题（可选）" /><textarea value={draftBody} onChange={(event) => changeDraft(draftTitle, event.target.value)} placeholder="写下你的理解、问题或行动计划…" rows={7} /><details><summary>预览 Markdown 与知识链接</summary><WikiMarkdown text={draftBody} /></details><div className="note-save-status"><span>{noteStatus}</span><div><button className="button button-soft" disabled={noteStatus === '保存中…'} onClick={() => void flushQueued()}><Save size={13} />立即保存</button><button className="button button-soft" onClick={() => void removeCurrentNote()}><Trash2 size={13} />删除</button></div></div></div>}
-      <div className="reading-record-list">
-        {annotations.map((item) => <article className="reading-record-card" key={item.id}>
-          <div className="record-quote" onClick={() => locate(item)}><span className={`annotation-swatch ${item.color}`} />“{item.current_anchor?.exact || item.original_anchor.exact}”</div>
-          {item.comment_md && <p>{item.comment_md}</p>}
-          {item.anchor_status !== 'resolved' && <small className="anchor-warning">原文位置{item.anchor_status === 'ambiguous' ? '不明确' : '已失效'}</small>}
-          <div className="record-actions"><button onClick={() => locate(item)}>定位原文</button>{item.anchor_status !== 'resolved' && <button onClick={() => { setReanchorTarget(item); onNotice('请在正文中重新选择对应文字') }}>重新绑定</button>}<button aria-label="删除高亮" onClick={() => void removeAnnotation(item)}><Trash2 size={13} /></button></div>
-        </article>)}
-        {context.notes.map((note) => <article className="reading-record-card" key={note.id}>
-          <button className="record-note-title" onClick={() => selectNote(note)}>{note.title || '未命名笔记'}</button>
-          <p className="record-note-preview">{note.body_md.slice(0, 260) || '空白笔记'}</p>
-          {note.origin_ai_result_id && <small>从 AI 结果转存</small>}
-        </article>)}
-        {!annotations.length && !context.notes.length && !editing && <p className="reading-empty">选中一段文字添加高亮，或新建一篇个人笔记。</p>}
-      </div>
-    </div> : <div className="reading-ai-panel">
-      <div className="reading-panel-heading"><div><strong>只分析当前文章</strong><small>提交后按当前正文版本调用已配置的模型，并保存结果</small></div></div>
-      <div className="reading-ai-actions">{actions.map(([key, label]) => <button className="button button-soft" key={key} disabled={!context.revision_id || Boolean(job && ['queued', 'running'].includes(job.status))} onClick={() => void startAI(key)}><Sparkles size={14} />{label}</button>)}</div>
-      {job && <div className="reading-ai-progress"><LoaderCircle size={15} className={['queued','running'].includes(job.status) ? 'spin' : ''} /><span>{job.status === 'running' ? `正在处理 ${job.completed_steps}/${job.total_steps}` : job.status === 'queued' ? '等待开始' : job.error_message || job.status}</span>{['queued','running'].includes(job.status) && <button onClick={() => void api.cancelReadingAIJob(job.id).then(setJob)}>取消</button>}{['failed','interrupted'].includes(job.status) && <button onClick={() => void api.retryReadingAIJob(job.id).then((result) => setJob({ ...job, id: result.id, status: result.status }))}>重试</button>}</div>}
-      {currentResult && <div className="reading-ai-result"><div className="reading-result-actions"><strong>已保存的 AI 结果 {currentResult.revision_id !== context.revision_id && <small>基于旧正文版本</small>}</strong><button className="button button-soft" onClick={() => void saveAIAsNote(currentResult)}>保存为个人笔记</button><button onClick={() => void api.deleteReadingAIResult(currentResult.id).then(() => { setCurrentResult(null); void syncContext() })} aria-label="删除结果"><Trash2 size={14} /></button><button className="button button-soft" onClick={() => action && void startAI(action, pendingExplain || undefined, true)}><RefreshCw size={13} />重新生成</button></div><div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{currentResult.rendered_md}</ReactMarkdown></div><details className="reading-ai-citations"><summary>查看原文依据</summary>{Object.entries(JSON.parse(currentResult.citations_json || '{}') as Record<string, { text?: string }>).map(([id, citation]) => <p key={id}><b>[{id}]</b> {citation.text || ''}</p>)}</details></div>}
-      {results.length > 0 && <div className="reading-ai-history"><strong>历史结果</strong>{results.map((result) => <button key={result.id} onClick={() => setCurrentResult(result)}>{result.action === 'summary' ? '全文总结' : result.action === 'explain' ? '段落解释' : '文章要点'} · {new Date(result.created_at).toLocaleString()} <ArrowRight size={13} /></button>)}</div>}
-      {!context.revision_id && <p className="reading-empty">正文文件暂时不可用。已有笔记仍可查看。</p>}
-    </div>}
+    {tab === 'notes'
+      ? <ReadingNotesPanel
+          context={context}
+          annotations={annotations}
+          editing={editing}
+          staleDraft={staleDraft}
+          draftTitle={draftTitle}
+          draftBody={draftBody}
+          noteStatus={noteStatus}
+          busy={busy}
+          onExport={() => void exportReadingData()}
+          onImport={(file) => void importReadingData(file)}
+          onNewNote={() => void newNote()}
+          onDraftChange={changeDraft}
+          onRestoreDraft={() => {
+            if (!staleDraft) return
+            setStaleDraft(null)
+            changeDraft(staleDraft.title || '', staleDraft.body_md || '')
+          }}
+          onFlush={() => void flushQueued()}
+          onDeleteCurrent={() => void removeCurrentNote()}
+          onLocate={locate}
+          onReanchor={(item) => { setReanchorTarget(item); onNotice('请在正文中重新选择对应文字') }}
+          onRemoveAnnotation={(item) => void removeAnnotation(item)}
+          onSelectNote={selectNote}
+        />
+      : <ReadingAIPanel
+          context={context}
+          actions={actions}
+          action={action}
+          job={job}
+          results={results}
+          currentResult={currentResult}
+          onStart={(key) => void startAI(key)}
+          onCancel={() => void cancelAIJob()}
+          onRetry={() => void retryAIJob()}
+          onDeleteResult={() => void deleteAIResult()}
+          onRegenerate={() => { if (action) void startAI(action, pendingExplain || undefined, true) }}
+          onSaveAsNote={(result) => void saveAIAsNote(result)}
+          onSelectResult={setCurrentResult}
+        />
+    }
   </section>
 }
