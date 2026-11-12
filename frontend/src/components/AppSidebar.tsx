@@ -28,7 +28,7 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
         <NavLink to="/" end className={navClass}>
           <LayoutGrid size={17} /> <span>资料库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
         </NavLink>
-        <NavLink to="/notes" className={navClass}><FileText size={17} /><span>个人笔记</span></NavLink>
+        <NavLink to="/notes" className={navClass}><FileText size={17} /><span>阅读记录</span></NavLink>
         <NavLink to="/ask" className={navClass}><Sparkles size={17} /><span>AI 助手</span></NavLink>
         <NavLink to="/knowledge" className={navClass}><BookOpen size={17} /><span>研究工作区</span></NavLink>
       </nav>

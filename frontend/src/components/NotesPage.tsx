@@ -23,11 +23,11 @@ export function NotesPage({ onNotice }: { onNotice: (message: string, error?: bo
     }, query ? 250 : 0)
     return () => { active = false; window.clearTimeout(timer) }
   }, [query, includeQuotes, page, pageSize, onNotice])
-  return <div className="notes-page"><div className="page-title-row"><div><div className="eyebrow">PERSONAL NOTES</div><h1>我的笔记</h1><p>搜索自己的理解、批注和原文引用。</p></div><span className="article-total">{total} 条个人笔记与批注</span></div>
+  return <div className="notes-page"><div className="page-title-row"><div><div className="eyebrow">READING NOTES</div><h1>阅读记录</h1><p>按文章查看你保存的高亮、批注和阅读笔记。</p></div><span className="article-total">{total} 条阅读记录</span></div>
     <div className="notes-search"><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} placeholder="搜索笔记内容…" /><label><input type="checkbox" checked={includeQuotes} onChange={(event) => { setIncludeQuotes(event.target.checked); setPage(1) }} />包含原文引用</label></div>
     {loading && <p>正在搜索…</p>}
     <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={`${item.type}:${item.id}`} to={`/read/${encodeURIComponent(item.content_id)}${item.type === 'note' ? `?note=${encodeURIComponent(item.id)}` : `?annotation=${encodeURIComponent(item.id)}`}`}>
-      <small>{item.type === 'note' ? '个人笔记' : '高亮批注'} · {new Date(item.updated_at).toLocaleDateString()}</small><h2>{item.title || item.quote || '未命名笔记'}</h2><p>{item.body_md || (includeQuotes ? item.quote : '')}</p><strong>{item.article_title}<ArrowRight size={14} /></strong>
+      <small>{item.type === 'note' ? '阅读笔记' : '高亮批注'} · {new Date(item.updated_at).toLocaleDateString()}</small><h2>{item.title || item.quote || '未命名笔记'}</h2><p>{item.body_md || (includeQuotes ? item.quote : '')}</p><strong>{item.article_title}<ArrowRight size={14} /></strong>
     </Link>)}</div><Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1) }} />
     <ResearchNotesList query={query} />
   </div>

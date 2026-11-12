@@ -5,7 +5,6 @@ import { ArrowRight, Highlighter, LoaderCircle, Plus, RefreshCw, Save, Sparkles,
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import { GraphPanel } from './KnowledgeHub'
 import { api } from '../api'
 import { newRequestKey } from '../utils/request_key'
 import type { Annotation, PersonalNote, ReadingAIJob, ReadingAIResult, ReadingContext, TextAnchor } from '../types'
@@ -430,8 +429,7 @@ export function ReaderWorkspace({ context, setContext, onNotice }: {
   ] as const, [])
 
   return <section className="reading-workspace">
-    {editing && <GraphPanel sourceId={`note:${editing.id}`} version={editing.revision} />}
-    {selection && <div className="selection-toolbar selection-toolbar-floating" style={{ left: toolbarPosition.left, top: toolbarPosition.top }} role="toolbar" aria-label="选中文字操作">
+        {selection && <div className="selection-toolbar selection-toolbar-floating" style={{ left: toolbarPosition.left, top: toolbarPosition.top }} role="toolbar" aria-label="选中文字操作">
       {reanchorTarget ? <><span>为这条高亮重新选择原文</span><button className="button button-primary" disabled={busy} onMouseDown={(event) => event.preventDefault()} onClick={() => void createHighlight()}><Highlighter size={14} />确认重新绑定</button><button onClick={() => setReanchorTarget(null)}>取消</button></> : <><button className="button button-soft" onMouseDown={(event) => event.preventDefault()} onClick={() => { setPendingExplain(selection); void startAI('explain', selection) }}><Sparkles size={14} />解释这段</button>
       <select aria-label="高亮颜色" value={color} onChange={(event) => setColor(event.target.value as typeof color)}><option value="yellow">黄色</option><option value="green">绿色</option><option value="blue">蓝色</option></select>
       <input aria-label="批注内容" placeholder="添加批注（可选）" value={comment} onChange={(event) => setComment(event.target.value)} />

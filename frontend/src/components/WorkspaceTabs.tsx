@@ -8,7 +8,7 @@ const pages = {
   '/categories': { title: '主题分类', icon: Tags },
   '/ask': { title: 'AI 助手', icon: Sparkles },
   '/knowledge': { title: '研究工作区', icon: BookOpen },
-  '/notes': { title: '个人笔记', icon: FileText },
+  '/notes': { title: '阅读记录', icon: FileText },
   '/sync': { title: '同步中心', icon: ArrowDownToLine },
   '/settings': { title: '设置', icon: Settings2 },
 }
