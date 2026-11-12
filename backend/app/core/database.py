@@ -390,9 +390,54 @@ def _migration_reading_progress(connection: sqlite3.Connection) -> None:
     """)
 
 
+def _migration_personal_note_versions(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_note_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note_id TEXT NOT NULL REFERENCES personal_notes(id) ON DELETE CASCADE,
+            revision INTEGER NOT NULL CHECK(revision > 0),
+            title TEXT NOT NULL DEFAULT '',
+            body_md TEXT NOT NULL DEFAULT '',
+            sources_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            UNIQUE(note_id, revision)
+        )
+    """)
+    connection.execute("""
+        CREATE INDEX IF NOT EXISTS idx_personal_note_versions_history
+        ON personal_note_versions(note_id, revision DESC)
+    """)
+    existing = connection.execute(
+        "SELECT id,revision,title,body_md,updated_at FROM personal_notes"
+    ).fetchall()
+    for note in existing:
+        sources = connection.execute(
+            """SELECT source_id,source_type,title_snapshot,url_snapshot,created_at
+               FROM personal_note_sources WHERE note_id=? ORDER BY created_at,source_id""",
+            (note[0],),
+        ).fetchall()
+        snapshot = [
+            {
+                "source_id": row[0],
+                "source_type": row[1],
+                "title_snapshot": row[2],
+                "url_snapshot": row[3],
+                "created_at": row[4],
+            }
+            for row in sources
+        ]
+        connection.execute(
+            """INSERT OR IGNORE INTO personal_note_versions
+               (note_id,revision,title,body_md,sources_json,created_at)
+               VALUES(?,?,?,?,?,?)""",
+            (note[0], note[1], note[2], note[3], json.dumps(snapshot, ensure_ascii=False), note[4]),
+        )
+
+
 _VERSIONED_MIGRATIONS = (
     (2, "personal_notes", _migration_personal_notes),
     (3, "reading_progress", _migration_reading_progress),
+    (4, "personal_note_versions", _migration_personal_note_versions),
 )
 
 
