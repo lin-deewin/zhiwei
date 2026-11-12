@@ -17,7 +17,7 @@ from app.core.config import get_library_dir, library_scope
 from app.core.database import session
 from app.services import knowledge_graph
 from app.services.knowledge import save_research
-from app.services.personal_notes import get_personal_note, update_personal_note
+from app.services.personal_notes import update_personal_note
 from app.services.library import import_markdown, now
 from app.services.rag import _records
 from app.services.reading_workspace import patch_annotation, patch_note
@@ -182,14 +182,23 @@ def _record(source_id: str) -> dict:
             "author": row["author"],
         }
     if kind == "personal_note":
-        note = get_personal_note(record_id)
+        with session() as db:
+            note = db.execute("SELECT * FROM personal_notes WHERE id=?", (record_id,)).fetchone()
+            if note is None:
+                raise LookupError("个人笔记不存在")
+            tags = [
+                row[0] for row in db.execute(
+                    "SELECT tag FROM personal_note_tags WHERE note_id=? ORDER BY tag COLLATE NOCASE",
+                    (record_id,),
+                )
+            ]
         return {
             "title": note["title"],
             "body": note["body_md"],
             "kind": kind,
             "id": record_id,
             "revision": note["revision"],
-            "tags": note.get("tags", []),
+            "tags": tags,
         }
     table = {
         "note": "notes",
