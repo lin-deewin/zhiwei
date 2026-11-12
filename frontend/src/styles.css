@@ -627,3 +627,26 @@
   .reader-toolbar-actions .button{font-size:10px;padding:7px 9px}
   .reader-progress-summary{max-width:100%}
 }
+
+
+/* Personal note autosave and version history */
+.personal-note-save-state{font-size:10px;color:var(--muted);white-space:nowrap}
+.personal-note-history{display:grid;gap:12px;margin:0 0 18px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--color-surface-subtle)}
+.personal-note-history-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.personal-note-history-heading>div{display:grid;gap:3px}
+.personal-note-history-heading strong{font-size:12px}
+.personal-note-history-heading small{font-size:10px;color:var(--muted)}
+.personal-note-history-heading>button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+.personal-note-history-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px;max-height:180px;overflow:auto}
+.personal-note-history-list>button{display:grid;gap:4px;text-align:left;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--color-surface);cursor:pointer;min-width:0}
+.personal-note-history-list>button.active{border-color:var(--green);background:var(--green-pale)}
+.personal-note-history-list>button>span{font-size:10px;color:var(--green-dark);font-weight:650}
+.personal-note-history-list>button>strong{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.personal-note-history-list>button>small{font-size:9px;color:var(--muted)}
+.personal-note-history-preview{display:grid;gap:10px;padding:12px;border-top:1px solid var(--line)}
+.personal-note-history-preview>div:first-child{display:grid;gap:4px}
+.personal-note-history-preview>div:first-child strong{font-size:12px}
+.personal-note-history-preview>div:first-child small{font-size:10px;color:var(--muted)}
+.personal-note-history-preview article{max-height:280px;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--color-surface);font-size:12px;line-height:1.7}
+.personal-note-history-preview>div:last-child{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media(max-width:560px){.personal-note-save-state{width:100%;text-align:right}.personal-note-history-list{grid-template-columns:1fr}}
