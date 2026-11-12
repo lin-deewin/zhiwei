@@ -1,4 +1,5 @@
 import { useWikiLinks, wikiPlugin } from '../utils/wiki_markdown'
+import { Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
