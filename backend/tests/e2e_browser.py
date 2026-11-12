@@ -15,6 +15,36 @@ BASE = os.environ.get("ZHIWEI_E2E_URL", "http://127.0.0.1:8765")
 CAPTURES = Path(os.environ.get("ZHIWEI_E2E_ARTIFACTS", "artifacts/browser-smoke"))
 
 
+async def _wait_for_persisted_note(page, expected_title: str, timeout: float = 15) -> None:
+    note_id = await page.evaluate("() => new URL(location.href).searchParams.get('note')")
+    if not note_id:
+        raise AssertionError("new personal note ID is missing from the URL")
+    deadline = asyncio.get_running_loop().time() + timeout
+    while asyncio.get_running_loop().time() < deadline:
+        matches = await page.evaluate(
+            """async ({id, title}) => {
+                const response = await fetch('/api/v1/personal-notes/' + encodeURIComponent(id),
+                    {cache: 'no-store'});
+                if (!response.ok) return false;
+                const note = await response.json();
+                return note.title === title && note.body_md.includes('浏览器验收的正文');
+            }""",
+            {"id": note_id, "title": expected_title},
+        )
+        if matches:
+            return
+        await asyncio.sleep(0.2)
+    latest = await page.evaluate(
+        """async (id) => {
+            const response = await fetch('/api/v1/personal-notes/' + encodeURIComponent(id),
+                {cache: 'no-store'});
+            return response.ok ? await response.json() : {status: response.status};
+        }""",
+        note_id,
+    )
+    raise AssertionError(f"debounced autosave did not persist the expected content: {latest}")
+
+
 async def _layout_check(page, label: str) -> None:
     measurements = await page.evaluate("""() => ({
         viewport: window.innerWidth,
@@ -57,20 +87,10 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
             timeout=5000,
         )
         await page.wait_for_function(
-            """async (expectedTitle) => {
-                const state = document.querySelector('.personal-note-save-state')?.textContent;
-                if (state !== '已保存') return false;
-                const id = new URL(location.href).searchParams.get('note');
-                if (!id) return false;
-                const response = await fetch('/api/v1/personal-notes/' + encodeURIComponent(id), {cache: 'no-store'});
-                if (!response.ok) return false;
-                const note = await response.json();
-                return note.title === expectedTitle
-                    && note.body_md.includes('浏览器验收的正文');
-            }""",
-            arg=note_title,
+            """() => document.querySelector('.personal-note-save-state')?.textContent === '已保存'""",
             timeout=15000,
         )
+        await _wait_for_persisted_note(page, note_title)
         print(f"{name} before reload: {page.url}", flush=True)
         await page.reload(wait_until="domcontentloaded")
         print(f"{name} after reload: {page.url}", flush=True)
