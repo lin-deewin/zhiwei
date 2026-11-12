@@ -558,7 +558,7 @@
 .personal-note-editor-head>div:first-child{display:flex;align-items:center;gap:12px}
 .personal-note-revision{font-size:11px;color:var(--muted)}
 .personal-note-actions{display:flex;align-items:center;gap:8px}
-.personal-note-title{width:100%;border:0;border-bottom:1px solid var(--line);outline:0;background:transparent;font:600 24px/1.4 inherit;color:var(--ink);padding:8px 0 16px;margin-bottom:16px}
+.personal-note-title{width:100%;border:0;border-bottom:1px solid var(--line);outline:0;background:transparent;font:inherit;font-size:24px;font-weight:600;line-height:1.4;color:var(--ink);padding:8px 0 16px;margin-bottom:16px}
 .personal-note-body{width:100%;min-height:390px;resize:vertical;border:1px solid var(--line);border-radius:var(--radius-md);padding:18px;background:var(--color-surface-subtle);color:var(--ink);font:14px/1.85 ui-monospace,SFMono-Regular,Menlo,monospace;outline:0}
 .personal-note-body:focus,.personal-note-title:focus{box-shadow:var(--focus-ring)}
 .personal-note-preview{min-height:390px;padding:12px 6px 28px;line-height:1.85}
