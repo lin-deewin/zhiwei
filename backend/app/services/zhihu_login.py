@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from playwright.async_api import Error as PlaywrightError
 
+from app.core.tenancy import ScopedService
 from app.services.zhihu_browser import zhihu_browser
 
 QR_SELECTORS = (
@@ -101,7 +102,11 @@ class ZhihuLoginManager:
         try:
             result = await zhihu_browser.connect(virtual_display=True)
             if result["status"] == "unavailable":
-                raise RuntimeError(result["message"])
+                async with self._lock:
+                    if self._id == login_id:
+                        self._set_state("failed", result["message"])
+                        return {**self._snapshot(), "control_token": token}
+                raise LoginDenied("登录任务已取消")
         except (OSError, RuntimeError, PlaywrightError) as error:
             async with self._lock:
                 if self._id == login_id:
@@ -339,4 +344,4 @@ class ZhihuLoginManager:
         self._set_state("cancelled", "已取消登录")
 
 
-zhihu_login = ZhihuLoginManager()
+zhihu_login = ScopedService(ZhihuLoginManager)

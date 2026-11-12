@@ -12,7 +12,8 @@ from urllib.parse import urlparse
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from app.core.config import APP_HOME
+from app.core.config import get_app_home
+from app.core.tenancy import ScopedService, user_id
 from app.services.zhihu_display import VirtualDisplay
 from app.services.zhihu_session import delete_session, load_session, save_session
 
@@ -101,7 +102,7 @@ class ZhihuBrowser:
 
     async def _launch_chrome(self, executable: str, virtual_display: bool = False) -> str:
         if virtual_display:
-            lock_path = APP_HOME / "browser-profile" / "zhihu-login.lock"
+            lock_path = get_app_home() / "browser-profile" / "zhihu-login.lock"
             lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             lock_fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
             try:
@@ -110,7 +111,7 @@ class ZhihuBrowser:
                 os.close(lock_fd)
                 raise RuntimeError("另一个知微进程正在使用知乎登录浏览器") from error
             self._profile_lock_fd = lock_fd
-        profile_dir = APP_HOME / "browser-profile" / (
+        profile_dir = get_app_home() / "browser-profile" / (
             "zhihu-login" if virtual_display else "zhihu-chrome"
         )
         profile_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -161,7 +162,7 @@ class ZhihuBrowser:
                 self._status = "awaiting_login"
                 self._message = "请在已打开的知乎浏览器窗口中完成登录，然后返回验证。"
                 return self.status()
-            cdp_url = os.environ.get("ZHILIB_CHROME_CDP_URL")
+            cdp_url = None if user_id() else os.environ.get("ZHILIB_CHROME_CDP_URL")
             if (not virtual_display and not cdp_url and not os.environ.get("DISPLAY")
                     and os.name != "nt" and not os.environ.get("WAYLAND_DISPLAY")):
                 self._status = "unavailable"
@@ -175,7 +176,7 @@ class ZhihuBrowser:
                 self._playwright = await async_playwright().start()
                 chrome_path = (shutil.which("google-chrome-stable") or
                                shutil.which("google-chrome"))
-                if not cdp_url and chrome_path:
+                if not cdp_url and chrome_path and not (virtual_display and (not shutil.which("Xvfb") or not shutil.which("xauth"))):
                     cdp_url = await self._launch_chrome(chrome_path, virtual_display)
                 if cdp_url:
                     self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
@@ -197,7 +198,7 @@ class ZhihuBrowser:
                         )
                     await self._page.set_viewport_size({"width": 1280, "height": 900})
                 else:
-                    profile_dir = APP_HOME / "browser-profile" / "zhihu"
+                    profile_dir = get_app_home() / "browser-profile" / "zhihu"
                     profile_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                     try:
                         profile_dir.chmod(0o700)
@@ -206,7 +207,7 @@ class ZhihuBrowser:
                     self._managed_profile = profile_dir
                     self._context = await self._playwright.chromium.launch_persistent_context(
                         user_data_dir=str(profile_dir),
-                        headless=False,
+                        headless=virtual_display,
                         locale="zh-CN",
                         viewport={"width": 1280, "height": 900},
                     )
@@ -340,13 +341,13 @@ class ZhihuBrowser:
                 except PlaywrightError:
                     pass
             await self._close_locked()
-            profile_dir = APP_HOME / "browser-profile" / "zhihu"
-            if profile_dir.exists() and profile_dir.resolve().is_relative_to(APP_HOME.resolve()):
+            profile_dir = get_app_home() / "browser-profile" / "zhihu"
+            if profile_dir.exists() and profile_dir.resolve().is_relative_to(get_app_home().resolve()):
                 shutil.rmtree(profile_dir, ignore_errors=True)
-            if managed_profile and managed_profile.resolve().is_relative_to(APP_HOME.resolve()):
+            if managed_profile and managed_profile.resolve().is_relative_to(get_app_home().resolve()):
                 shutil.rmtree(managed_profile, ignore_errors=True)
-            login_profile = APP_HOME / "browser-profile" / "zhihu-login"
-            if login_profile.exists() and login_profile.resolve().is_relative_to(APP_HOME.resolve()):
+            login_profile = get_app_home() / "browser-profile" / "zhihu-login"
+            if login_profile.exists() and login_profile.resolve().is_relative_to(get_app_home().resolve()):
                 shutil.rmtree(login_profile, ignore_errors=True)
             delete_session()
             self._status = "not_connected"
@@ -419,4 +420,4 @@ class ZhihuBrowser:
         self._display = None
 
 
-zhihu_browser = ZhihuBrowser()
+zhihu_browser = ScopedService(ZhihuBrowser)

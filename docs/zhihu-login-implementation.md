@@ -249,7 +249,7 @@ flowchart LR
 | `ZHILIB_LOGIN_TIMEOUT_SECONDS` | `600` | 整个交互任务的时限 |
 | `ZHILIB_LOGIN_POLL_SECONDS` | `2` | 浏览器状态轮询间隔；配置值需有上下限 |
 
-继续使用 `ZHILIB_HOME` 指定私有运行目录，端口保持后端 `8010`、开发前端 `5173`。首版后端不得设置多个 worker。反向代理不缓存登录 API，并限制请求体大小；画面及输入通过已有应用入口传输，不向公司电脑暴露 Xvfb、CDP 或 VNC 端口。
+继续使用 `ZHILIB_HOME` 指定私有运行目录，端口保持后端 `7101`、开发前端 `7001`。首版后端不得设置多个 worker。反向代理不缓存登录 API，并限制请求体大小；画面及输入通过已有应用入口传输，不向公司电脑暴露 Xvfb、CDP 或 VNC 端口。
 
 远程访问使用可信私人网络，或具有应用认证的 HTTPS 部署。现有 CORS 只允许 `Content-Type`，实施时需明确加入登录令牌及应用请求头，继续校验来源；来源校验并不代替身份认证。主方案完成后检查临时 noVNC/VNC 服务是否仍被使用，确认闲置再停止，不能误停其他管理用途。
 
@@ -303,3 +303,7 @@ flowchart LR
 回滚采用保留的旧登录模式，保留文章资料与既有有效会话；新格式会话由版本字段区分，旧实现不得盲读。回滚只能恢复此前能力，不能宣称旧 HTTP 扫码接口已解除知乎限制。
 
 上线前同步更新 `DESIGN.md`、`IMPLEMENTATION.md`、`docs/user-guide.md`、`docs/zhihu-capabilities.md` 及部署命令。`readme.md` 保留原始需求。
+
+无桌面服务器缺少 Xvfb/xauth 时，页面登录使用 Playwright 无头 Chromium，仍通过知微页面展示截图并接收交互；安装运行账号对应的 Chromium：`python -m playwright install chromium`。登录启动失败时保留浏览器返回的提示。
+
+macOS launchd 系统服务启动 Chromium 时，须进入运行账号的用户 bootstrap 会话；否则浏览器可能以 SIGILL 退出并表现为 TargetClosedError。部署验证必须使用实际服务账号和会话，检查登录页加载与截图，不能仅使用开发账号验证。
