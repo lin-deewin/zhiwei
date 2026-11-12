@@ -22,7 +22,7 @@ class ScopeInput(BaseModel):
     refresh: bool = False
 
 
-class AskInput(BaseModel):
+class ProjectAskInput(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     revision: int = Field(ge=1)
 
@@ -31,7 +31,7 @@ class RestoreInput(BaseModel):
     revision: int = Field(ge=1)
 
 
-class ResearchJobInput(AskInput):
+class ResearchJobInput(ProjectAskInput):
     research: bool = False
 
 
@@ -65,7 +65,7 @@ def scope(project_id: str, payload: ScopeInput):
 
 
 @router.post("/projects/{project_id}/ask")
-async def ask(project_id: str, payload: AskInput):
+async def ask(project_id: str, payload: ProjectAskInput):
     run(workspace.project, project_id)
     return await translate_model(
         workspace.ask(project_id, payload.question.strip(), payload.revision)
