@@ -41,7 +41,7 @@ export function ReadingAIPanel({
     </div>
     {job && <div className="reading-ai-progress">
       <LoaderCircle size={15} className={['queued','running'].includes(job.status) ? 'spin' : ''} />
-      <span>{job.status === 'running' ? \`正在处理 \${job.completed_steps}/\${job.total_steps}\` : job.status === 'queued' ? '等待开始' : job.error_message || job.status}</span>
+      <span>{job.status === 'running' ? '正在处理 ' + job.completed_steps + '/' + job.total_steps : job.status === 'queued' ? '等待开始' : job.error_message || job.status}</span>
       {['queued','running'].includes(job.status) && <button onClick={onCancel}>取消</button>}
       {['failed','interrupted'].includes(job.status) && <button onClick={onRetry}>重试</button>}
     </div>}
