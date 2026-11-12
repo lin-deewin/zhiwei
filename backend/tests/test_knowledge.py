@@ -142,10 +142,19 @@ def test_api_search_generate_save_reload(library, monkeypatch):
     assert client.post(f'/api/v1/research-notes/{note_id}/save', json={}).status_code == 200
     assert client.get('/api/v1/research-notes').json()['items'][0]['id'] == note_id
     assert client.get(f'/api/v1/research-notes/{note_id}').json()['sources'] == response.json()['sources']
+    promoted = client.post('/api/v1/personal-notes', json={
+        'title': '研究结论整理',
+        'body_md': response.json()['body_md'],
+        'source_ids': [f'research:{note_id}'],
+    })
+    assert promoted.status_code == 201
+    personal_note_id = promoted.json()['id']
+    assert promoted.json()['sources'][0]['source_id'] == f'research:{note_id}'
     assert client.post('/api/v1/ask', json=payload).json()['sources'][0]['source_type'] == 'article'
     assert client.post('/api/v1/knowledge/search', json={**payload, 'kinds': []}).status_code == 422
     assert client.delete(f'/api/v1/research-notes/{note_id}').status_code == 204
     assert client.get(f'/api/v1/research-notes/{note_id}').status_code == 404
+    assert client.get(f'/api/v1/personal-notes/{personal_note_id}').json()['sources'][0]['available'] is False
 
 
 def test_generation_cannot_write_to_another_library(library, monkeypatch, tmp_path):
