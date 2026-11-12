@@ -65,11 +65,24 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
             arg=note_title,
             timeout=15000,
         )
+        print(f"{name} before reload: {page.url}", flush=True)
         await page.reload(wait_until="domcontentloaded")
-        await page.wait_for_function(
-            "(expected) => document.querySelector('input.personal-note-title')?.value === expected",
-            arg=note_title, timeout=15000,
-        )
+        print(f"{name} after reload: {page.url}", flush=True)
+        try:
+            await page.wait_for_function(
+                "(expected) => document.querySelector('input.personal-note-title')?.value === expected",
+                arg=note_title, timeout=15000,
+            )
+        except Exception:
+            diagnostics = await page.evaluate("""() => ({
+                url: location.href,
+                titleInput: document.querySelector('input.personal-note-title')?.value ?? null,
+                loading: document.querySelector('.personal-note-loading')?.textContent ?? null,
+                body: document.body.innerText.slice(0, 1200),
+            })""")
+            print(f"{name} reload failure diagnostics: {diagnostics}, page errors: {errors}", flush=True)
+            await page.screenshot(path=str(CAPTURES / f"{name}-reload-failure.png"), full_page=True)
+            raise
         assert await page.get_by_placeholder("给这条笔记起个标题…").input_value() == note_title
 
         await page.get_by_role("button", name="卡片视图").click()
