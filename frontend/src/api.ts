@@ -1,5 +1,5 @@
 import { newRequestKey } from './utils/request_key'
-import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, ReadingContext, ReadingAIJob, ReadingAIResult } from './types'
+import type { Annotation, AskResult, Category, ClassificationJob, Content, LibrarySettings, PageResult, SyncJob, ZhihuFolder, Question, QuestionJob, PersonalNote, PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, ReadingContext, ReadingAIJob, ReadingAIResult } from './types'
 
 export type AccountStatus = { status: string; message: string; profile?: { name: string } | null }
 export type LoginStatus = {
@@ -186,6 +186,18 @@ export const api = {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, body_md: body, revision }),
   }),
   deleteResearch: (id: string) => request<void>(`/research-notes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  personalNotes: (q = '', page = 1, pageSize = 20) => request<{ items: PersonalKnowledgeNoteListItem[]; total: number; page: number; page_size: number }>(`/personal-notes?q=${encodeURIComponent(q)}&page=${page}&page_size=${pageSize}`),
+  personalNote: (id: string) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`),
+  createPersonalNote: (title = '', body = '', sourceIds: string[] = []) => request<PersonalKnowledgeNote>('/personal-notes', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body_md: body, source_ids: sourceIds }),
+  }),
+  savePersonalNote: (id: string, title: string, body: string, revision: number, sourceIds: string[]) => request<PersonalKnowledgeNote>(`/personal-notes/${encodeURIComponent(id)}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, body_md: body, revision, source_ids: sourceIds }),
+  }),
+  deletePersonalNote: (id: string, revision: number) => request<void>(`/personal-notes/${encodeURIComponent(id)}?revision=${revision}`, { method: 'DELETE' }),
   importMarkdown: async (file: File) => {
     const data = new FormData()
     data.append('file', file)

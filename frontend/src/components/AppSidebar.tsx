@@ -28,12 +28,13 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
         <NavLink to="/" end className={navClass}>
           <LayoutGrid size={17} /> <span>资料库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
         </NavLink>
-        <NavLink to="/notes" className={navClass}><FileText size={17} /><span>阅读记录</span></NavLink>
+        <NavLink to="/personal-notes" className={navClass}><FileText size={17} /><span>个人笔记</span></NavLink>
         <NavLink to="/ask" className={navClass}><Sparkles size={17} /><span>AI 助手</span></NavLink>
         <NavLink to="/knowledge" className={navClass}><BookOpen size={17} /><span>研究工作区</span></NavLink>
       </nav>
-      <div className="side-caption">资料管理</div>
-      <nav className="primary-nav" aria-label="资料管理">
+      <div className="side-caption">阅读与整理</div>
+      <nav className="primary-nav" aria-label="阅读与整理">
+        <NavLink to="/notes" className={navClass}><BookOpen size={17} /><span>阅读记录</span></NavLink>
         <NavLink to="/questions" className={navClass}><CircleHelp size={17} /><span>话题汇总</span></NavLink>
         <NavLink to="/categories" className={navClass}><Tags size={17} /><span>主题分类</span></NavLink>
       </nav>

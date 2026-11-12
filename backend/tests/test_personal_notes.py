@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.api.personal_note_routes import router
 from app.services import knowledge_graph, personal_notes
-from app.services.library import delete_content, import_markdown
+from app.services.library import delete_content, get_content, import_markdown
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def test_personal_note_crud_sources_and_optimistic_revision(client):
     )
     assert deleted.status_code == 204
     assert client.get(f"/api/v1/personal-notes/{note['id']}").status_code == 404
-    assert client.get(f"/api/v1/contents/{article['id']}").status_code in {404, 405}
+    assert get_content(article["id"]) is not None
 
 
 def test_personal_note_sources_survive_source_article_deletion(client):

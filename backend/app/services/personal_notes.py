@@ -59,6 +59,7 @@ def list_personal_notes(q: str = "", page: int = 1, page_size: int = 20) -> dict
         ).fetchone()[0]
         rows = db.execute(
             f"""SELECT n.id,n.title,n.revision,n.created_at,n.updated_at,
+                       substr(n.body_md,1,180) AS excerpt,
                        (SELECT COUNT(*) FROM personal_note_sources s WHERE s.note_id=n.id) AS source_count
                 FROM personal_notes n {where}
                 ORDER BY n.updated_at DESC,n.id LIMIT ? OFFSET ?""",

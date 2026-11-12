@@ -33,6 +33,7 @@ def test_v2_migration_preserves_existing_library_rows(monkeypatch, tmp_path):
     item = import_markdown("legacy.md", "# 旧资料\n\n正文".encode())
 
     connection = sqlite3.connect(library / "app-data" / "library.sqlite")
+    connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("DROP TABLE personal_note_sources")
     connection.execute("DROP TABLE personal_notes")
