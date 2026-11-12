@@ -159,7 +159,7 @@ def test_personal_note_tags_round_trip_and_search(client):
     )
     assert created.status_code == 201
     note = created.json()
-    assert note["tags"] == ["投资", "价值投资", "Value"]
+    assert note["tags"] == ["Value", "价值投资", "投资"]  # Tags are returned in stable case-insensitive order.
 
     updated = client.patch(
         f"/api/v1/personal-notes/{note['id']}",
