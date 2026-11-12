@@ -46,7 +46,7 @@ export function ResearchNotesList({ query = '', version = 0 }: { query?: string;
     return () => { active = false; window.clearTimeout(timer) }
   }, [query, version, workspaceActive])
   return <section className="research-library"><h2>研究笔记</h2>{error && <p role="alert">{error}</p>}
-    {items.length ? <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={item.id} to={`/ask?research=${encodeURIComponent(item.id)}`}><small>{item.status === 'draft' ? '待审阅草稿' : '已保存'} · {new Date(item.updated_at).toLocaleDateString()}</small><h3>{item.title}</h3><p>{item.question}</p><span>查看笔记和出处 <ArrowRight size={14} /></span></Link>)}</div> : !error && <p className="muted-text">暂无匹配的研究笔记。可在知识空间或知识问答中生成；草稿也会显示在这里。</p>}
+    {items.length ? <div className="notes-search-results">{items.map((item) => <Link className="panel notes-result" key={item.id} to={`/knowledge?tab=assistant&research=${encodeURIComponent(item.id)}`}><small>{item.status === 'draft' ? '待审阅草稿' : '已保存'} · {new Date(item.updated_at).toLocaleDateString()}</small><h3>{item.title}</h3><p>{item.question}</p><span>查看笔记和出处 <ArrowRight size={14} /></span></Link>)}</div> : !error && <p className="muted-text">暂无匹配的研究笔记。可在知识空间或知识问答中生成；草稿也会显示在这里。</p>}
   </section>
 }
 
