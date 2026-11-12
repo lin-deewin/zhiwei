@@ -1,13 +1,16 @@
 """Read-only library integrity checks for V3 upgrades and data restoration.
 
 This module does not initialize the app database, run migrations or modify files.
-Use a verified backup and a restored copy to compare stable IDs and article bytes.
+It compares all existing SQLite user tables by primary key and column value,
+plus article file hashes. New migration tables/columns are allowed; dropping or
+changing pre-existing user data is not.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import math
 import sqlite3
 from pathlib import Path
 
@@ -15,7 +18,25 @@ IDENTITY_TABLES = (
     "contents", "annotations", "notes", "personal_notes", "research_notes",
     "knowledge_topics", "research_projects", "questions", "categories",
 )
+METADATA_TABLES = {"schema_version", "schema_migrations", "reading_migrations"}
 DATABASE = Path("app-data/library.sqlite")
+
+
+def _canonical(value) -> str:
+    def normalize(item):
+        if isinstance(item, bytes):
+            return {"$blob_hex": item.hex()}
+        if isinstance(item, float) and not math.isfinite(item):
+            return {"$float": str(item)}
+        if isinstance(item, tuple):
+            return [normalize(part) for part in item]
+        if isinstance(item, list):
+            return [normalize(part) for part in item]
+        if isinstance(item, dict):
+            return {str(key): normalize(part) for key, part in item.items()}
+        return item
+
+    return json.dumps(normalize(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _fingerprint(items: list[str]) -> str:
@@ -31,12 +52,46 @@ def _hash_file(path: Path) -> str:
     return hash_value.hexdigest()
 
 
+def _table_snapshot(connection: sqlite3.Connection, table: str) -> dict:
+    quoted = '"' + table.replace('"', '""') + '"'
+    info = connection.execute(f"PRAGMA table_info({quoted})").fetchall()
+    columns = [row["name"] for row in info]
+    primary_key = [
+        row["name"] for row in sorted(info, key=lambda item: item["pk"]) if row["pk"]
+    ]
+    rows = connection.execute(f"SELECT * FROM {quoted}").fetchall()
+    if primary_key:
+        rows.sort(key=lambda row: _canonical([row[column] for column in primary_key]))
+        column_fingerprints = {}
+        for column in columns:
+            keyed_values = [
+                ([row[key] for key in primary_key], row[column])
+                for row in rows
+            ]
+            column_fingerprints[column] = hashlib.sha256(
+                _canonical(keyed_values).encode("utf-8")
+            ).hexdigest()
+        row_fingerprint = None
+    else:
+        serialized = sorted(_canonical([row[column] for column in columns]) for row in rows)
+        column_fingerprints = {}
+        row_fingerprint = _fingerprint(serialized)
+    return {
+        "columns": columns,
+        "primary_key": primary_key,
+        "row_count": len(rows),
+        "column_fingerprints": column_fingerprints,
+        "row_fingerprint": row_fingerprint,
+    }
+
+
 def snapshot(library_dir: str | Path) -> dict:
     root = Path(library_dir).expanduser().resolve()
     database = root / DATABASE
     if not database.is_file():
         raise FileNotFoundError("资料库缺少 app-data/library.sqlite")
     connection = sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
     try:
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         if integrity != "ok":
@@ -44,24 +99,35 @@ def snapshot(library_dir: str | Path) -> dict:
         violations = connection.execute("PRAGMA foreign_key_check").fetchall()
         if violations:
             raise ValueError(f"数据库存在 {len(violations)} 个失效外键")
-        tables = {row[0] for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )}
+        table_names = {
+            row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        user_tables = sorted(table_names - METADATA_TABLES)
+        table_data = {
+            table: _table_snapshot(connection, table) for table in user_tables
+        }
         identities: dict[str, dict] = {}
         for table in IDENTITY_TABLES:
-            if table not in tables:
-                continue
-            values = [str(row[0]) for row in connection.execute(f"SELECT id FROM {table}")]
-            identities[table] = {"count": len(values), "sha256": _fingerprint(values)}
+            detail = table_data.get(table)
+            if detail and "id" in detail["columns"]:
+                identities[table] = {
+                    "count": detail["row_count"],
+                    "sha256": detail["column_fingerprints"]["id"],
+                }
         schema_version = (
             connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
-            if "schema_version" in tables else None
+            if "schema_version" in table_names else None
         )
         article_paths: list[str] = []
-        if "contents" in tables:
-            article_paths = [
-                str(row[0]) for row in connection.execute("SELECT markdown_path FROM contents")
-            ]
+        if "contents" in table_names:
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(contents)")}
+            if "markdown_path" in columns:
+                article_paths = [
+                    str(row[0]) for row in connection.execute("SELECT markdown_path FROM contents")
+                    if row[0]
+                ]
     finally:
         connection.close()
 
@@ -91,6 +157,8 @@ def snapshot(library_dir: str | Path) -> dict:
         "database_integrity": integrity,
         "foreign_key_violations": 0,
         "identities": identities,
+        "tables": table_data,
+        "table_count": len(table_data),
         "article_file_count": len(files),
         "article_file_fingerprint": _fingerprint(files),
         "missing_article_files": missing_article_files,
@@ -100,17 +168,38 @@ def snapshot(library_dir: str | Path) -> dict:
 def compare(original: str | Path, candidate: str | Path) -> dict:
     before = snapshot(original)
     after = snapshot(candidate)
-    issues = []
-    for name in sorted(set(before["identities"]) | set(after["identities"])):
-        previous = before["identities"].get(name)
-        current = after["identities"].get(name)
-        if previous and not current:
+    issues: list[str] = []
+    previous_tables = before["tables"]
+    current_tables = after["tables"]
+
+    for name in sorted(previous_tables):
+        previous = previous_tables[name]
+        current = current_tables.get(name)
+        if current is None:
             issues.append(f"{name}: 目标资料库缺少原表")
-        elif previous and current and previous != current:
-            issues.append(f"{name}: 稳定 ID 或数量发生变化")
-        # An upgrade may add new tables, but must not lose rows in old tables.
+            continue
+        if previous["primary_key"] != current["primary_key"]:
+            issues.append(f"{name}: 主键定义发生变化")
+            continue
+        if previous["row_count"] != current["row_count"]:
+            issues.append(
+                f"{name}: 记录数量变化（{previous['row_count']} -> {current['row_count']}）"
+            )
+        dropped_columns = sorted(set(previous["columns"]) - set(current["columns"]))
+        if dropped_columns:
+            issues.append(f"{name}: 丢失原字段 {', '.join(dropped_columns)}")
+            continue
+        if previous["primary_key"]:
+            for column in previous["columns"]:
+                if previous["column_fingerprints"][column] != current["column_fingerprints"][column]:
+                    issues.append(f"{name}.{column}: 记录值发生变化")
+        elif previous["columns"] != current["columns"] or previous["row_fingerprint"] != current["row_fingerprint"]:
+            issues.append(f"{name}: 无主键表的记录内容或结构发生变化")
+
     if before["article_file_fingerprint"] != after["article_file_fingerprint"]:
         issues.append("文章文件清单或内容哈希发生变化")
+    if before["missing_article_files"]:
+        issues.append(f"基线资料库缺少 {before['missing_article_files']} 个正文文件")
     if after["missing_article_files"]:
         issues.append(f"目标资料库缺少 {after['missing_article_files']} 个正文文件")
     return {
