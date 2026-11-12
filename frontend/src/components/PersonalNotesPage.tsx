@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import {
-  BookOpen, Eye, FilePlus2, FileText, History, Link2, LoaderCircle, Plus, RotateCcw, Save, Search, Trash2, X,
+  BookOpen, Eye, FilePlus2, FileText, Grid2X2, History, Link2, List as ListIcon, LoaderCircle, Plus, RotateCcw, Save, Search, Trash2, X,
 } from 'lucide-react'
 import { api } from '../api'
 import type { PersonalKnowledgeNote, PersonalKnowledgeNoteListItem, PersonalNoteSource, PersonalNoteVersion, PersonalNoteVersionSummary } from '../types'
@@ -22,6 +22,13 @@ const sourceLabels: Record<string, string> = {
 export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
   const [params, setParams] = useSearchParams()
   const selectedId = params.get('note')
+  const noteView = params.get('view') === 'cards' ? 'cards' : 'list'
+  const setNoteView = (view: 'list' | 'cards') => {
+    const next = new URLSearchParams(params)
+    if (view === 'cards') next.set('view', 'cards')
+    else next.delete('view')
+    setParams(next, { replace: true })
+  }
   const [items, setItems] = useState<PersonalKnowledgeNoteListItem[]>([])
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
@@ -101,7 +108,9 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     if (dirty && !window.confirm('当前笔记有未保存的修改，确定放弃并切换吗？')) return
     setDirty(false)
     setHistoryPreview(null)
-    setParams({ note: id })
+    const next = new URLSearchParams(params)
+    next.set('note', id)
+    setParams(next)
   }
 
   const createNote = async () => {
@@ -112,7 +121,9 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     try {
       const created = await api.createPersonalNote()
       setReloadKey((value) => value + 1)
-      setParams({ note: created.id })
+      const next = new URLSearchParams(params)
+      next.set('note', created.id)
+      setParams(next)
       onNotice({ message: '已创建个人笔记' })
     } catch (error) {
       onNotice({ message: (error as Error).message, error: true })
@@ -246,7 +257,13 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
     <aside className="personal-notes-index panel">
       <div className="personal-notes-index-head">
         <div><span className="eyebrow">YOUR KNOWLEDGE</span><h1>个人笔记</h1></div>
-        <button className="button button-primary button-icon" onClick={() => void createNote()} disabled={busy} aria-label="新建个人笔记" title="新建个人笔记"><FilePlus2 size={17} /></button>
+        <div className="personal-notes-index-tools">
+          <div className="personal-note-view-toggle" role="group" aria-label="笔记显示方式">
+            <button type="button" aria-label="列表视图" aria-pressed={noteView === 'list'} className={noteView === 'list' ? 'selected' : ''} onClick={() => setNoteView('list')}><ListIcon size={15} /></button>
+            <button type="button" aria-label="卡片视图" aria-pressed={noteView === 'cards'} className={noteView === 'cards' ? 'selected' : ''} onClick={() => setNoteView('cards')}><Grid2X2 size={15} /></button>
+          </div>
+          <button className="button button-primary button-icon" onClick={() => void createNote()} disabled={busy} aria-label="新建个人笔记" title="新建个人笔记"><FilePlus2 size={17} /></button>
+        </div>
       </div>
       <label className="personal-notes-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索个人笔记…" /></label>
       {selectedNoteIds.size > 0 && <div className="personal-note-bulk-bar">
@@ -254,10 +271,10 @@ export function PersonalNotesPage({ onNotice }: PersonalNotesPageProps) {
         <button className="button button-danger-quiet" disabled={busy} onClick={() => void bulkDeleteNotes()}><Trash2 size={13} />批量删除</button>
         <button className="button button-soft" disabled={busy} onClick={() => setSelectedNoteIds(new Set())}>取消选择</button>
       </div>}
-      <div className="personal-notes-items">
+      <div className={'personal-notes-items' + (noteView === 'cards' ? ' is-cards' : '')}>
         {items.map((item) => <div key={item.id} className="personal-note-list-row">
           <input type="checkbox" aria-label={`选择 ${item.title || '未命名笔记'}`} checked={selectedNoteIds.has(item.id)} disabled={busy || (!selectedNoteIds.has(item.id) && selectedNoteIds.size >= 50)} onChange={(event) => toggleSelectedNote(item.id, event.target.checked)} />
-          <button className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
+          <button className={'personal-note-list-item' + (selectedId === item.id ? ' active' : '') + (noteView === 'cards' ? ' as-card' : '')} disabled={busy} onClick={() => chooseNote(item.id)}>
             <strong>{item.title || '未命名笔记'}</strong>
             <span>{item.excerpt || '尚未添加正文'}</span>
             {!!item.tags?.length && <div className="personal-note-list-tags">{item.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div>}
