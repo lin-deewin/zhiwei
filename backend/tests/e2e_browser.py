@@ -43,7 +43,7 @@ async def _test_viewport(browser, name: str, width: int, height: int) -> None:
 
         await page.goto(BASE + "/personal-notes", wait_until="domcontentloaded")
         await page.get_by_role("heading", name="个人笔记", exact=True).first.wait_for()
-        await page.get_by_role("button", name="新建个人笔记").click()
+        await page.get_by_role("button", name="新建个人笔记").first.click()
         title = page.get_by_placeholder("给这条笔记起个标题…")
         await title.wait_for(timeout=15000)
         note_title = f"{name} 浏览器验收笔记"
