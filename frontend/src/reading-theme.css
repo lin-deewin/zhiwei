@@ -1,0 +1,87 @@
+/* A quiet night-reading palette: neutral charcoal, soft ink and restrained blue. */
+body.reading-theme{color-scheme:dark;--bg:#242526;--sidebar:#202122;--surface:#303132;--surface-soft:#292a2b;--surface-alt:#393a3b;--text:#e4e4e2;--text2:#c3c4c3;--muted:#a4a5a4;--line:#414243;--line-strong:#575859;--accent:#91b6df;--accent-hover:#b3d0ee;--accent-bg:#343f4a;--accent-ring:#7698bd;--ink:#e4e4e2;--green:#91b6df;--green-dark:#b3d0ee;--green-pale:#343f4a;--shadow:none}
+body.reading-theme .app-shell .topbar{background:#202122f5}
+body.reading-theme .app-shell :is(.nav-item,.nav-item svg,.crumbs strong,.icon-btn,.status-line){color:var(--text2)}
+body.reading-theme .app-shell :is(.nav-item:hover,.article-row:hover,.table-row:hover,.question-card:hover){background:var(--surface-alt);color:var(--text)}
+body.reading-theme .app-shell :is(.nav-item.active,.nav-item.active svg,.segmented button.on,.chip.chosen){background:#39434d;color:#c7def4}
+body.reading-theme .app-shell :is(.panel,.modal,.command,.ask-box,.reader-paper){background:var(--surface);color:var(--text);border-color:var(--line)}
+body.reading-theme .app-shell :is(input,textarea,select,.filter-input,.select,.field){background-color:var(--surface-soft);color:var(--text);border-color:var(--line-strong)}
+body.reading-theme .app-shell :is(input,textarea)::placeholder{color:var(--muted)}
+body.reading-theme .app-shell :is(.btn.primary,.button-primary){background:#52789d;border-color:#52789d;color:#fff}
+body.reading-theme .app-shell :is(.btn.primary,.button-primary):hover{background:#628bb2;border-color:#628bb2}
+body.reading-theme .app-shell :is(.workspace-tabbar,.workspace-tab.active,.table-head){background:#292a2b;color:var(--text2);border-color:var(--line)}
+body.reading-theme .app-shell :is(.stat small,.article-row-desc,.table-excerpt,.setting-row small,.subtitle,.muted-text){color:var(--text2)}
+body.reading-theme .reader-page{--reader-paper:#303132;--reader-ink:#eeeeec;--reader-muted:#aaaead;--reader-line:#48494a}
+body.reading-theme .reader-main{box-shadow:none}
+body.reading-theme .reader-main .markdown-body{color:#d2d3d1}
+body.reading-theme .reader-main .markdown-body :is(strong,h1,h2,h3,h4,h5,h6){color:#eeeeec}
+body.reading-theme .reader-main .markdown-body a{color:#9bbfe2;text-decoration-color:#6c89a3}
+body.reading-theme .reader-main .markdown-body :is(blockquote,pre,code,th){background:#393a3b;color:#d2d3d1;border-color:#555657}
+body.reading-theme .reader-main .markdown-body pre code{background:transparent;color:inherit}
+body.reading-theme .reader-main .markdown-body :is(th,td){border-color:#555657}
+body.reading-theme .reader-page :is(.reader-author,.back-link){color:#bfc4c7}
+body.reading-theme .reader-aside .aside-card,body.reading-theme .reading-workspace,body.reading-theme .personal-note-editor,body.reading-theme .reading-record-card,body.reading-theme .reading-ai-result{background:#303132;border-color:#48494a;color:var(--text)}
+body.reading-theme .reading-workspace-tabs{background:#292a2b;border-color:#48494a}
+body.reading-theme .reading-workspace-tabs button.selected{background:#39434d;color:#c7def4}
+body.reading-theme .reader-page :is(.aside-card-heading,.aside-field>small,.reading-panel-heading strong,.reading-record-card p,.record-quote){color:var(--text2)}
+body.reading-theme .reader-page :is(.source-chip,.reader-author-avatar){background:#3c4145;color:#c7d5df}
+
+/* Shared surfaces and typography across the workspace. */
+body.reading-theme .app-shell :is(h1,h2,h3,h4,.article-row-title,.topic-item strong,.stat strong,.metric-label,.section-title,.panel-title,.crumbs strong,.setting-row strong){color:var(--text)}
+body.reading-theme .app-shell :is(.article-row-body p,.article-row-meta,.topic-item small,.mini-sync small,.zv-explore p,.page-header .subtitle,.page-title-row p,.setting-row small,.zv-empty,.empty,.nav-heading){color:var(--text2)}
+body.reading-theme .app-shell :is(.btn,.button-soft,.segmented,.chip,.global-search-button,.workspace-tab-menu,.workspace-context-menu,.zv-command,.reading-record-card,.reading-ai-result,.personal-note-editor){background:var(--surface-soft);border-color:var(--line);color:var(--text2)}
+body.reading-theme .app-shell :is(.btn:hover,.button-soft:hover,.workspace-tab:hover,.workspace-scroll:hover,.workspace-menu-trigger:hover){background:var(--surface-alt);color:var(--text);border-color:var(--line-strong)}
+body.reading-theme .app-shell :is(.workspace-tab,.workspace-tab-select,.workspace-tab-close,.workspace-scroll,.workspace-menu-trigger){color:var(--text2)}
+body.reading-theme .app-shell .workspace-tab.active{background:var(--surface);border-color:var(--line);color:var(--text)}
+body.reading-theme .app-shell :is(.article-glyph,.icon-soft,.sync-icon,.account-avatar,.brand-logo){background:#40464a;color:#c3d5e5;box-shadow:none}
+body.reading-theme .app-shell :is(.article-row,.topic-item,.setting-row,.section-title,.reader-rule){border-color:var(--line)}
+body.reading-theme .app-shell :is(.badge,.source-chip){background:#3a4045;color:#c9d5de;border-color:#4d555c}
+body.reading-theme .app-shell :is(.zv-command-search,.zv-command-footer,.reading-workspace-tabs){border-color:var(--line)}
+body.reading-theme .app-shell :is(.zv-command-results button,.workspace-tab-menu button,.workspace-context-menu button){color:var(--text2)}
+body.reading-theme .app-shell :is(.zv-command-results button:hover,.workspace-tab-menu button:hover,.workspace-context-menu button:hover){background:var(--surface-alt);color:var(--text)}
+body.reading-theme .app-shell :is(.reading-ai-progress,.selection-toolbar,.reading-ai-history button,.notes-result){background:var(--surface-soft);border-color:var(--line);color:var(--text2)}
+
+/* Brighter text while keeping the charcoal surfaces unchanged. */
+body.reading-theme{--text:#f4f4f2;--text2:#dedfdd;--muted:#bfc1bf}
+body.reading-theme .reader-page{--reader-ink:#f6f6f4;--reader-muted:#c5c7c5}
+body.reading-theme .reader-main .markdown-body{color:#e5e6e3}
+body.reading-theme .reader-main .markdown-body :is(strong,h1,h2,h3,h4,h5,h6){color:#fafaf8}
+body.reading-theme .reader-main .markdown-body :is(blockquote,pre,code,th){color:#e5e6e3}
+body.reading-theme .reader-page :is(.reader-author,.back-link){color:#d8dddf}
+
+/* Topic overview: match the night palette across navigation and results. */
+body.reading-theme .app-shell .questions-page :is(.topic-management,.topic-directory,.topic-management .question-job){background:var(--surface);border-color:var(--line)}
+body.reading-theme .app-shell .questions-page :is(.topic-management>summary,.topic-directory-heading,.topic-category,.topic-category svg,.topic-category small,.topic-directory>p,.topic-directory-note,.topic-manage-link,.topic-results-heading>div>span,.topic-results-heading>small,.topic-search-hint,.topic-status,.topic-empty,.topic-question-copy>small,.topic-question-copy p){color:var(--text2)}
+body.reading-theme .app-shell .questions-page :is(.topic-results-heading h2,.topic-question-copy h3,.topic-empty h3){color:var(--text)}
+body.reading-theme .app-shell .questions-page .topic-category:hover{background:var(--surface-alt);color:var(--text)}
+body.reading-theme .app-shell .questions-page .topic-category.active{background:#39434d;color:#d6e9fa}
+body.reading-theme .app-shell .questions-page :is(.topic-category.active small,.topic-category.active svg,.topic-question-open){color:#b7d2eb}
+body.reading-theme .app-shell .questions-page .topic-branch{background:#a5afb8}
+body.reading-theme .app-shell .questions-page :is(.topic-directory-divider,.topic-manage-link){border-color:var(--line)}
+body.reading-theme .app-shell .questions-page .topic-question-row{background:var(--surface);border-color:var(--line)}
+body.reading-theme .app-shell .questions-page .topic-question-row:hover{background:var(--surface-alt);border-color:var(--line-strong)}
+body.reading-theme .app-shell .questions-page .topic-question-icon{background:#40464a;color:#c3d5e5}
+body.reading-theme .app-shell .questions-page .question-filters .topic-search{background:var(--surface-soft);border-color:var(--line-strong);color:var(--text2)}
+body.reading-theme .app-shell .questions-page .question-filters .topic-search input{background:transparent;color:var(--text)}
+body.reading-theme .app-shell .questions-page .question-filters .topic-search:focus-within{border-color:var(--accent-ring);box-shadow:0 0 0 3px #7698bd33}
+body.reading-theme .app-shell .questions-page :is(.topic-category,.topic-question-row,.topic-management>summary,.topic-manage-link):focus-visible{outline-color:var(--accent-ring)}
+
+/* Main branch uses semantic tokens and a separate sidebar shell. */
+body.reading-theme {
+  --color-canvas: var(--bg); --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-soft); --color-text-primary: var(--text);
+  --color-text-secondary: var(--text2); --color-border: var(--line);
+  --color-accent: var(--accent); --color-accent-strong: var(--accent-hover);
+  --color-accent-soft: var(--accent-bg); background: var(--bg); color: var(--text);
+}
+body.reading-theme :is(.app-shell,.main-area,.page-content) { background: var(--bg); color: var(--text); }
+body.reading-theme .sidebar { background: var(--sidebar); border-color: var(--line); }
+body.reading-theme :is(.brand,.brand strong,.profile-copy strong,.storage-info strong,.article-card h3,.section-heading h2,.page-title-row h1) { color: var(--text); }
+body.reading-theme :is(.category-link,.side-caption,.profile-copy span,.storage-info span,.welcome-copy p,.article-card-body>p,.date-label,.type-label,.page-title-row p) { color: var(--text2); }
+body.reading-theme :is(.storage-card,.article-card,.aside-card,.sync-account-card,.settings-card,.answer-panel,.question-card,.topic-directory,.topic-question-row,.topic-management,.theme-toggle,.overview-page .panel) { background: var(--surface); color: var(--text); border-color: var(--line); box-shadow: none; }
+body.reading-theme :is(.welcome-band,.library-toolbar,.workspace-tabbar,.workspace-tab-menu,.workspace-context-menu,.topic-pill,.nav-count,.storage-icon,.avatar,.button-soft,.filter-reset,.pagination button,.select-wrap select,.filter-input,.reading-hub-card) { background: var(--surface-soft); color: var(--text2); border-color: var(--line); }
+body.reading-theme :is(.welcome-copy h1,.markdown-body,.overview-page h1,.overview-page h2) { color: var(--text); }
+body.reading-theme .overview-page .article-row:hover { background: var(--surface-alt); }
+body.reading-theme .theme-toggle:hover { background: var(--surface-alt); }
+
+body.reading-theme .workspace-menu-trigger { background: var(--surface-soft); color: var(--text2); border-color: var(--line); }

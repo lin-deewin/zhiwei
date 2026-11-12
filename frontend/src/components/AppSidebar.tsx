@@ -1,8 +1,10 @@
-import { ArrowDownToLine, BookOpen, Bookmark, Clock3, CircleHelp, FileText, FolderOpen, LayoutGrid, MoreHorizontal, Plus, Settings2, Sparkles } from 'lucide-react'
+import { Home, Moon, Sun, ArrowDownToLine, BookOpen, Bookmark, Clock3, CircleHelp, FileText, FolderOpen, LayoutGrid, MoreHorizontal, Plus, Settings2, Sparkles } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import type { Category, LibrarySettings } from '../types'
 
 type AppSidebarProps = {
+  readingTheme: boolean
+  onThemeToggle: () => void
   categories: Category[]
   settings: LibrarySettings | null
   pendingCount: number | null
@@ -13,7 +15,7 @@ function shortenPath(path: string) {
   return home.length > 28 ? `…${home.slice(-26)}` : home
 }
 
-export function AppSidebar({ categories, settings, pendingCount }: AppSidebarProps) {
+export function AppSidebar({ categories, settings, pendingCount, readingTheme, onThemeToggle }: AppSidebarProps) {
   const navigate = useNavigate()
   const navClass = ({ isActive }: { isActive: boolean }) => isActive ? 'nav-item active' : 'nav-item'
 
@@ -25,6 +27,7 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
     <div className="sidebar-scroll">
       <div className="side-caption">核心工作区</div>
       <nav className="primary-nav" aria-label="核心工作区">
+        <NavLink to="/overview" className={navClass}><Home size={17} /><span>概览</span></NavLink>
         <NavLink to="/" end className={navClass}>
           <LayoutGrid size={17} /> <span>资料库</span><span className="nav-count">{settings?.content_count ?? 0}</span>
         </NavLink>
@@ -61,6 +64,9 @@ export function AppSidebar({ categories, settings, pendingCount }: AppSidebarPro
       </nav>
     </div>
     <div className="sidebar-bottom">
+      <button className="theme-toggle" type="button" onClick={onThemeToggle} aria-pressed={readingTheme} aria-label={readingTheme ? '切换到浅色主题' : '切换到护眼阅读主题'} title={readingTheme ? '切换到浅色主题' : '切换到护眼阅读主题'}>
+        {readingTheme ? <Sun size={18} /> : <Moon size={18} />}<span>{readingTheme ? '浅色主题' : '护眼阅读主题'}</span>
+      </button>
       <div className="storage-card">
         <div className="storage-icon"><FolderOpen size={17} /></div>
         <div className="storage-info"><strong>本地资料库</strong><span>{settings?.library_dir ? shortenPath(settings.library_dir) : '正在读取目录…'}</span></div>

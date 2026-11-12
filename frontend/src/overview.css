@@ -1,0 +1,39 @@
+.overview-page { color: var(--ink); }
+.overview-page .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); margin: var(--space-6) 0; }
+.overview-page .panel { background: var(--color-surface); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.overview-page .stat { padding: var(--space-5); display: grid; gap: var(--space-3); color: var(--ink); }
+.overview-page .metric-label { display: flex; align-items: center; gap: var(--space-2); }
+.overview-page .stat strong { font-size: 2rem; }
+.overview-page :is(small, .article-row-meta, .article-row-body p, .zv-explore p) { color: var(--muted); }
+.overview-page .overview-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: var(--space-6); }
+.overview-page .section-title { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+.overview-page h2 { font-size: 1.1rem; margin: 0; }
+.overview-page .subtle-link { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--green); }
+.overview-page .article-row { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-5); color: var(--ink); border-bottom: 1px solid var(--line); }
+.overview-page .article-row:last-child { border-bottom: 0; }
+.overview-page .article-row:hover { background: var(--color-surface-subtle); }
+.overview-page :is(.article-glyph, .icon-soft, .sync-icon) { display: grid; place-items: center; padding: var(--space-3); border-radius: var(--radius-sm); color: var(--green); background: var(--green-pale); flex-shrink: 0; }
+.overview-page .article-row-body { min-width: 0; flex: 1; }
+.overview-page .article-row-title { font-weight: 600; line-height: 1.7; }
+.overview-page .article-row-body p { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: var(--space-2) 0; }
+.overview-page .article-row-meta { display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: .85rem; }
+.overview-page .zv-more-section { margin-top: var(--space-6); }
+.overview-page .zv-explore { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-5); color: var(--ink); }
+.overview-page .zv-explore > div:nth-child(2) { flex: 1; }
+.overview-page .overview-right { display: flex; flex-direction: column; gap: var(--space-5); }
+.overview-page .mini-panel { padding: var(--space-5); }
+.overview-page .topic-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; color: var(--ink); }
+.overview-page .topic-item strong { flex: 1; }
+.overview-page .dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; }
+.overview-page .mini-sync { display: flex; gap: var(--space-3); align-items: center; margin: var(--space-6) 0; }
+.overview-page .mini-sync small { display: block; margin-top: var(--space-2); }
+.overview-page .full-action { display: flex; justify-content: center; gap: var(--space-2); color: var(--green); }
+.overview-page .zv-empty { padding: var(--space-6); color: var(--muted); line-height: 1.8; }
+.overview-page .zv-alert { color: var(--color-danger); }
+.theme-toggle { display: flex; align-items: center; justify-content: center; gap: var(--space-2); width: 100%; padding: var(--space-3); margin-bottom: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--ink); cursor: pointer; }
+.theme-toggle:hover { background: var(--green-pale); }
+.theme-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+@media(max-width: 1000px) { .overview-page .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .overview-page .overview-grid { grid-template-columns: 1fr; } }
+@media(max-width: 760px) { .theme-toggle span { display: none; } .overview-page .stat { padding: var(--space-3); } .overview-page .page-title-row { align-items: flex-start; flex-wrap: wrap; } }
+.overview-page .overview-grid > div { min-width: 0; }
+@media(max-width: 1000px) { .overview-page .overview-grid { grid-template-columns: minmax(0, 1fr); } }

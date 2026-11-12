@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDownToLine, BookOpen, Clock3, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
+import { Home, ArrowDownToLine, BookOpen, Clock3, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, FileText, LayoutGrid, Pin, RefreshCw, Settings2, Sparkles, Tags, X } from 'lucide-react'
 
 const pages = {
+  '/overview': { title: '概览', icon: Home },
   '/': { title: '资料库', icon: LayoutGrid },
   '/questions': { title: '话题汇总', icon: CircleHelp },
   '/categories': { title: '主题分类', icon: Tags },

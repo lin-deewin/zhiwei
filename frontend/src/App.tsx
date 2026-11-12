@@ -16,9 +16,18 @@ import { ReadingHubPage } from './components/ReadingHubPage'
 import { QuestionsPage, QuestionDetail } from './components/QuestionsPages'
 import { SyncPage } from './components/SyncPage'
 import { CategoriesPage } from './components/CategoriesPage'
+import { OverviewPage } from './components/OverviewPage'
 import { SettingsPage } from './components/SettingsPage'
 
 function App() {
+  const [readingTheme, setReadingTheme] = useState(() => {
+    try { return localStorage.getItem('zhiwei-reading-theme') === 'warm' } catch { return false }
+  })
+  useEffect(() => {
+    document.body.classList.toggle('reading-theme', readingTheme)
+    try { localStorage.setItem('zhiwei-reading-theme', readingTheme ? 'warm' : 'light') } catch { /* Storage can be disabled. */ }
+    return () => document.body.classList.remove('reading-theme')
+  }, [readingTheme])
   const [notice, setNotice] = useState<Notice>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [settings, setSettings] = useState<LibrarySettings | null>(null)
@@ -73,9 +82,10 @@ function App() {
   }
 
   return <div className="app-shell">
-    <AppSidebar categories={categories} settings={settings} pendingCount={pendingCount} />
+    <AppSidebar readingTheme={readingTheme} onThemeToggle={() => setReadingTheme(value => !value)} categories={categories} settings={settings} pendingCount={pendingCount} />
     <main className="main-area">
       <WorkspaceTabs>{(href) => <Routes location={href}>
+          <Route path="/overview" element={<OverviewPage categories={categories} settings={settings} pendingCount={pendingCount} refresh={refresh} />} />
           <Route path="/" element={<LibraryPage search={search} categories={categories} refresh={refresh} onSearchChange={setSearch} onImport={importFile} onNotice={setNotice} onLibraryChanged={reload} />} />
           <Route path="/read/:id" element={<ReaderPage categories={categories} onNotice={setNotice} reload={reload} />} />
           <Route path="/reading" element={<ReadingHubPage onNotice={setNotice} />} />
