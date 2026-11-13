@@ -93,7 +93,7 @@ export function QuestionsPage({ categories, onNotice }: { categories: Category[]
   const categoryButton = (item: typeof topicCategories[number], child = false) => <button
     key={item.id} type="button" className={`topic-category${child ? ' topic-category-child' : ''}${category === item.id && !pending ? ' active' : ''}`}
     aria-pressed={category === item.id && !pending} onClick={() => selectCategory(item.id)}>
-    {child ? <span className="topic-branch" /> : <Hash size={15} />}<span>{item.name}</span><small>{item.question_count}</small>
+    {child ? <span className="topic-branch" /> : <Hash size={16} />}<span>{item.name}</span><small>{item.question_count}</small>
   </button>
   return <div className="subpage questions-page">
     <HStack gap={4} hAlign="between" vAlign="center" wrap="wrap" paddingBlockEnd={6} className="page-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> QUESTION COLLECTION</div><Heading level={1}>话题汇总</Heading><p>按分类发现感兴趣的问题，再阅读你收藏的回答。</p></div><span className="article-total"><strong>{overview?.total ?? '—'}</strong> 个问题</span></HStack>
@@ -129,8 +129,8 @@ export function QuestionsPage({ categories, onNotice }: { categories: Category[]
         </div>
         {loading ? <div className="topic-status"><LoaderCircle className="spin" size={19} /> 正在读取问题…</div> : loadError ? <div className="topic-status"><p>{loadError}</p><Button label="重新加载" variant="secondary"  onClick={() => setRefresh((value) => value + 1)}>重新加载</Button></div> : <>
           <div className="topic-question-list">{items.map((item) => <Link className="topic-question-row panel" to={`/questions/${item.id}${location.search}`} key={item.id}>
-            <span className="topic-question-icon"><CircleHelp size={19} /></span>
-            <div className="topic-question-copy"><small>{item.category_id ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</small><Heading level={3}>{item.title}</Heading><p><BookOpen size={13} /> {item.answer_count} 篇已收藏回答{item.article_count > 0 && <span> · {item.article_count} 篇关联文章</span>}</p></div>
+            <span className="topic-question-icon"><CircleHelp size={20} /></span>
+            <div className="topic-question-copy"><small>{item.category_id ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</small><Heading level={3}>{item.title}</Heading><p><BookOpen size={14} /> {item.answer_count} 篇已收藏回答{item.article_count > 0 && <span> · {item.article_count} 篇关联文章</span>}</p></div>
             <span className="topic-question-open">查看回答 <ChevronRight size={16} /></span>
           </Link>)}</div>
           {items.length === 0 && <Card padding={6} className="panel topic-empty"><CircleHelp size={28} /><Heading level={3}>{search ? '没有找到匹配的问题' : '这个分类下还没有问题'}</Heading><p>{search ? '试试其他关键词，或清除搜索条件。' : pending ? '已归类的问题可以从左侧分类中浏览。' : '可以查看其他分类，或展开「管理与整理」整理待分类问题。'}</p><Button label="查看全部问题" variant="secondary"  onClick={() => updateFilters({ category: undefined, pending: undefined, q: undefined, page: undefined })}>查看全部问题</Button></Card>}

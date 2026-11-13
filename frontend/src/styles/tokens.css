@@ -14,6 +14,13 @@
   --radius-sm:var(--radius-element); --radius-md:var(--radius-container);
   --radius-lg:var(--radius-container); --radius-xl:var(--radius-page);
   --shadow-soft:var(--shadow-low); --shadow-popover:var(--shadow-high);
+  /* Long-form reading uses its own restrained type scale. */
+  --reading-body-size:1.125rem;
+  --reading-heading-1-size:calc(var(--text-heading-2-size) + var(--spacing-1));
+  --reading-heading-2-size:var(--text-heading-2-size);
+  --reading-heading-3-size:var(--text-heading-3-size);
+  --reading-heading-4-size:var(--text-body-size);
+  --reading-code-size:.75rem;
   --reading-content-width:820px; --workspace-max-width:1440px;
 }
 }

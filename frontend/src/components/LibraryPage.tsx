@@ -125,7 +125,7 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
       <IconButton tooltip="列表视图" label="列表视图" variant={view === 'list' ? 'primary' : 'secondary'} icon={<FileText />} aria-pressed={view === 'list'} onClick={() => setView('list')} />
     </HStack>
 
-    {loading ? <div className="loading-state"><LoaderCircle className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search || pendingOnly || category)} onImport={triggerImport} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
+    {loading ? <div className="loading-state"><LoaderCircle size={16} className="spin" /> 正在打开你的资料库…</div> : visibleItems.length === 0 ? <EmptyLibrary searched={Boolean(search || pendingOnly || category)} onImport={triggerImport} /> : <div className={view === 'grid' ? 'article-grid' : 'article-list'}>
       {visibleItems.map((item) => <ArticleCard key={item.id} item={item} view={view} onDelete={(content) => { setDeleteError(''); setDeleteTarget(content) }} deleting={deletingId === item.id} deleteDisabled={deletingId !== null} />)}
     </div>}
     <Pagination page={page} total={total} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
@@ -135,8 +135,8 @@ export function LibraryPage({ search, categories, refresh, onSearchChange, onImp
 
 function ArticleCard({ item, view, onDelete, deleting, deleteDisabled }: { item: Content; view: 'grid' | 'list'; onDelete: (item: Content) => void; deleting: boolean; deleteDisabled: boolean }) {
   return <div className="article-card-container"><Link to={`/read/${encodeURIComponent(item.id)}`} className={'article-card' + (view === 'list' ? ' as-list' : '')}>
-    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={12} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><Heading level={3}>{item.title}</Heading><p>{articleExcerpt(item.title, item.excerpt) || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={12} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={13} /></span></div></div>
-  </Link><IconButton icon={deleting ? <LoaderCircle className="spin" /> : <Trash2 />} label={`删除文章：${item.title}`} variant="destructive" className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} tooltip="删除本地文章" isDisabled={deleteDisabled} onClick={() => onDelete(item)} /></div>
+    <div className="article-card-body"><div className="article-card-meta"><span className="type-label"><BookOpen size={14} /> {item.kind === 'answer' ? '知乎回答' : item.id.startsWith('local_') ? '本地导入' : '知乎文章'}</span><span className="date-label">{formatDate(item.last_synced_at || item.updated_at)}</span></div><Heading level={3}>{item.title}</Heading><p>{articleExcerpt(item.title, item.excerpt) || '打开文章，开始阅读。'}</p><div className="article-card-footer"><span className="topic-pill"><Hash size={14} /><span>{item.category_name ? [item.category_parent_name, item.category_name].filter(Boolean).join(' / ') : '待整理'}</span></span><span className="read-link">继续阅读 <ArrowRight size={14} /></span></div></div>
+  </Link><IconButton icon={deleting ? <LoaderCircle className="spin" /> : <Trash2 size={16} />} label={`删除文章：${item.title}`} variant="destructive" className="article-delete-button" type="button" aria-label={`删除文章：${item.title}`} tooltip="删除本地文章" isDisabled={deleteDisabled} onClick={() => onDelete(item)} /></div>
 }
 
 export function EmptyLibrary({ searched, onImport }: { searched: boolean; onImport: () => void }) {

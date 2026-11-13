@@ -101,8 +101,8 @@ export function ReadingHubPage({ onNotice }: ReadingHubPageProps) {
       </Button>
     </header>
     <TabList value={tab} onChange={value => { if (value === 'recent' || value === 'later') setTab(value) }} aria-label="阅读列表" hasDivider>
-      <Tab value="recent" label={`最近阅读 · ${recent.length}`} icon={<Clock3 />} />
-      <Tab value="later" label={`稍后阅读 · ${later.length}`} icon={<Bookmark />} />
+      <Tab value="recent" label={`最近阅读 · ${recent.length}`} icon={<Clock3 size={16} />} />
+      <Tab value="later" label={`稍后阅读 · ${later.length}`} icon={<Bookmark size={16} />} />
     </TabList>
 
     {loading

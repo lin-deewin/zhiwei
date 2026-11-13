@@ -4,7 +4,7 @@
 .overview-page .panel { background: var(--color-surface); border: 1px solid var(--line); border-radius: var(--radius-md); }
 .overview-page .stat { padding: var(--spacing-5); display: grid; gap: var(--spacing-3); color: var(--ink); }
 .overview-page .metric-label { display: flex; align-items: center; gap: var(--spacing-2); }
-.overview-page .stat strong { font-size: 2rem; }
+.overview-page .stat strong { font-size:var(--text-heading-1-size); line-height:1.2; }
 .overview-page :is(small, .article-row-meta, .article-row-body p, .zv-explore p) { color: var(--muted); }
 .overview-page .overview-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: var(--spacing-6); }
 .overview-page .section-title { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-3); margin-bottom: var(--spacing-4); }

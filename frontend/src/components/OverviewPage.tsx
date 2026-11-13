@@ -61,7 +61,7 @@ export function OverviewPage({ categories, settings, pendingCount, refresh }: Pr
       </div>
       <div className="overview-right">
         <section className="panel mini-panel">
-          <div className="section-title"><Heading level={2}>我的主题</Heading><Link className="subtle-link" to="/categories">管理 <ArrowRight size={13} /></Link></div>
+          <div className="section-title"><Heading level={2}>我的主题</Heading><Link className="subtle-link" to="/categories">管理 <ArrowRight size={14} /></Link></div>
           <div className="topic-list">{parents.slice(0,5).map((topic,index) => <Link className="topic-item" to={'/?category=' + topic.id} key={topic.id}><i className="dot" style={{ background: ['#6f97b3','#9684b4','#67a186','#c6a16b','#78978d'][index%5] }} /><strong>{topic.name}</strong><small>{topic.article_count} 篇</small></Link>)}{!parents.length && <p className="zv-empty">还没有主题分类</p>}</div>
         </section>
         <section className="panel mini-panel">

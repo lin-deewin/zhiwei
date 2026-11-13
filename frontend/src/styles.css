@@ -221,7 +221,7 @@
 .reader-aside .aside-field>small{font-size:var(--text-supporting-size);color:var(--color-text-secondary)}
 .reader-aside .aside-field>div{display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0}
 .reader-aside .reader-category-select{width:100%;padding:9px 10px;font-size:var(--text-supporting-size);background:var(--color-background-surface);border-color:var(--color-border);border-radius:7px}
-.reader-aside .aside-field code{font:11px/1.7 ui-monospace,Consolas,monospace;color:var(--color-text-secondary);overflow-wrap:anywhere}
+.reader-aside .aside-field code{font:var(--reading-code-size)/1.6 var(--font-family-code);color:var(--color-text-secondary);overflow-wrap:anywhere}
 .reader-aside .source-chip{font-size:var(--text-supporting-size);padding:7px 9px;border-radius:6px;background:var(--color-background-body);line-height:1.6;overflow-wrap:anywhere}
 .reader-aside .muted-text{font-size:var(--text-supporting-size);line-height:1.7;color:var(--color-text-secondary)}
 .reader-aside .classification-reason{line-height:1.7}
